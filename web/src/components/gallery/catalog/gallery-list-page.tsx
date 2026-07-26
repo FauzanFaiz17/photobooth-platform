@@ -1,0 +1,129 @@
+import { ChevronLeft, ChevronRight, Search } from "lucide-react"
+import { useMemo, useState, type ReactElement } from "react"
+import { Link } from "react-router-dom"
+
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { galleryKiosks } from "./gallery-catalog-data"
+
+const pageSize = 5
+
+export function GalleryListPage(): ReactElement {
+  const [query, setQuery] = useState("")
+  const [page, setPage] = useState(1)
+
+  const filteredKiosks = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase("id-ID")
+    if (!normalizedQuery) return galleryKiosks
+    return galleryKiosks.filter((kiosk) =>
+      kiosk.name.toLocaleLowerCase("id-ID").includes(normalizedQuery)
+    )
+  }, [query])
+
+  const totalPages = Math.max(1, Math.ceil(filteredKiosks.length / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const startIndex = (currentPage - 1) * pageSize
+  const visibleKiosks = filteredKiosks.slice(startIndex, startIndex + pageSize)
+  const rangeStart = filteredKiosks.length === 0 ? 0 : startIndex + 1
+  const rangeEnd = Math.min(startIndex + pageSize, filteredKiosks.length)
+
+  return (
+    <div className="min-w-0 p-4 sm:p-6 lg:p-8">
+      <Card className="min-w-0 shadow-sm">
+        <CardHeader className="gap-4 sm:grid-cols-[1fr_minmax(16rem,22rem)] sm:items-center">
+          <CardTitle className="text-2xl font-semibold tracking-tight">
+            <h1>Daftar Galeri</h1>
+          </CardTitle>
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 opacity-60"
+              aria-hidden="true"
+            />
+            <Input
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value)
+                setPage(1)
+              }}
+              className="h-11 pl-9"
+              placeholder="Cari nama kiosk"
+              aria-label="Cari galeri berdasarkan nama kiosk"
+            />
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-6 px-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pl-6">Nama Kiosk</TableHead>
+                <TableHead>Foto Tertangkap</TableHead>
+                <TableHead>Foto Tertangkap Hari Ini</TableHead>
+                <TableHead className="pr-6 text-right">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visibleKiosks.length > 0 ? (
+                visibleKiosks.map((kiosk) => (
+                  <TableRow key={kiosk.id}>
+                    <TableCell className="pl-6 font-medium">{kiosk.name}</TableCell>
+                    <TableCell className="tabular-nums">{kiosk.totalPhotos}</TableCell>
+                    <TableCell className="tabular-nums">{kiosk.photosToday}</TableCell>
+                    <TableCell className="pr-6 text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        render={<Link to={`/gallery/${kiosk.slug}`} />}
+                      >
+                        Lihat Galeri
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-48 text-center">
+                    <p className="font-semibold">Galeri tidak ditemukan</p>
+                    <p className="mt-1 text-sm opacity-70">Coba gunakan nama kiosk yang berbeda.</p>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+
+          <div className="flex flex-col gap-3 px-6 pb-2 sm:flex-row sm:items-center sm:justify-end">
+            <p className="mr-2 text-sm tabular-nums opacity-70">
+              {rangeStart} – {rangeEnd} dari {filteredKiosks.length} data
+            </p>
+            <Button
+              variant="ghost"
+              disabled={currentPage <= 1}
+              onClick={() => setPage((value) => Math.max(1, value - 1))}
+            >
+              <ChevronLeft aria-hidden="true" />
+              Sebelumnya
+            </Button>
+            <Button size="icon" aria-label={`Halaman ${currentPage}`}>{currentPage}</Button>
+            <Button
+              variant="ghost"
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
+            >
+              Berikutnya
+              <ChevronRight aria-hidden="true" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

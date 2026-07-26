@@ -1,0 +1,21 @@
+<svg width="160" height="40" viewBox="0 0 160 40" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="logo-title logo-description">
+  <title id="logo-title">Photo Booth</title>
+  <desc id="logo-description">Photo Booth camera logo</desc>
+  <defs>
+    <linearGradient id="booth-gradient" x1="3" y1="3" x2="42" y2="38" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#59C3FF"/>
+      <stop offset="1" stop-color="#1684E8"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="3" y="7" width="39" height="30" rx="9" fill="url(#booth-gradient)"/>
+  <path d="M13 7.5L16.1 3.8C16.7 3.1 17.6 2.7 18.5 2.7H27.2C28.1 2.7 29 3.1 29.6 3.8L32.7 7.5H13Z" fill="#1684E8"/>
+  <circle cx="22.5" cy="22" r="9" fill="white" fill-opacity="0.96"/>
+  <circle cx="22.5" cy="22" r="5.5" fill="#1684E8"/>
+  <circle cx="22.5" cy="22" r="2.1" fill="#BDE8FF"/>
+  <circle cx="35.5" cy="13.5" r="2" fill="white" fill-opacity="0.95"/>
+  <path d="M7 30.5C10.8 28 14.2 28 18 30.5C21.8 33 25.2 33 29 30.5C32.8 28 36.2 28 40 30.5V33C36.2 30.5 32.8 30.5 29 33C25.2 35.5 21.8 35.5 18 33C14.2 30.5 10.8 30.5 7 33V30.5Z" fill="white" fill-opacity="0.28"/>
+
+  <text x="51" y="18" fill="#1684E8" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="800" letter-spacing="1.8">PHOTO</text>
+  <text x="51" y="34" fill="#58BDF7" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="800" letter-spacing="1.8">BOOTH</text>
+</svg>

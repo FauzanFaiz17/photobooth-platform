@@ -1,0 +1,14 @@
+import type { ReactElement } from "react"
+
+import { Checkbox } from "@/components/ui/checkbox"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import type { PhotoFrame } from "../types/frame-photo.types"
+import { getOrientationIcon } from "../utils/frame-photo-meta"
+import { formatFrameDate, formatFrameUsage, getCategoryLabel, getLayoutLabel, getOrientationLabel } from "../utils/frame-photo-utils"
+import { FramePhotoActionMenu, type FramePhotoActions } from "./frame-photo-actions"
+import { FramePhotoStatusBadge } from "./frame-photo-status-badge"
+import { FramePhotoVisual } from "./frame-photo-visual"
+
+export function FramePhotoList({ frames, selectedIds, onSelectionChange, actions }: { readonly frames: ReadonlyArray<PhotoFrame>; readonly selectedIds: ReadonlySet<string>; readonly onSelectionChange: (id: string, selected: boolean) => void; readonly actions: FramePhotoActions }): ReactElement {
+  return <Table><TableHeader><TableRow><TableHead><span className="sr-only">Select</span></TableHead><TableHead>Frame</TableHead><TableHead>Category</TableHead><TableHead>Layout</TableHead><TableHead>Orientation</TableHead><TableHead>Kiosks</TableHead><TableHead>Usage</TableHead><TableHead>Status</TableHead><TableHead>Updated</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader><TableBody>{frames.map((frame) => { const OrientationIcon = getOrientationIcon(frame.orientation); return <TableRow key={frame.id}><TableCell><Checkbox checked={selectedIds.has(frame.id)} onCheckedChange={(checked) => onSelectionChange(frame.id, checked)} aria-label={`Select ${frame.name}`} /></TableCell><TableCell><div className="flex items-center gap-3"><div className="w-14 shrink-0 overflow-hidden rounded-md border border-border"><FramePhotoVisual frame={frame} compact /></div><div><p className="font-medium text-foreground">{frame.name}</p><p className="font-mono text-xs text-muted-foreground">{frame.code}</p></div></div></TableCell><TableCell>{getCategoryLabel(frame.category)}</TableCell><TableCell><p>{getLayoutLabel(frame.layout)}</p><p className="text-xs text-muted-foreground">{frame.photoSlotCount} slots · {frame.aspectRatio}</p></TableCell><TableCell><span className="inline-flex items-center gap-1"><OrientationIcon className="size-4 text-muted-foreground" aria-hidden="true" />{getOrientationLabel(frame.orientation)}</span></TableCell><TableCell>{frame.assignments.length}</TableCell><TableCell className="tabular-nums">{formatFrameUsage(frame.usageCount)}</TableCell><TableCell><FramePhotoStatusBadge status={frame.status} /></TableCell><TableCell><time dateTime={frame.updatedAt}>{formatFrameDate(frame.updatedAt)}</time></TableCell><TableCell><FramePhotoActionMenu frame={frame} actions={actions} /></TableCell></TableRow> })}</TableBody></Table>
+}

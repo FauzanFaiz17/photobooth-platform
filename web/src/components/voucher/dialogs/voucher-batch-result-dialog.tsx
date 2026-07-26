@@ -1,0 +1,18 @@
+import { useState } from "react"
+import { Check, Copy, Download, Printer } from "lucide-react"
+import { toast } from "sonner"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import type { VoucherGenerationResult } from "../types/voucher.types"
+import { copyVoucherText, formatVoucherDate, getVoucherEffectiveStatus, getVoucherStatusLabel } from "../utils/voucher-utils"
+
+interface VoucherBatchResultDialogProps { readonly open: boolean; readonly onOpenChange: (open: boolean) => void; readonly result: VoucherGenerationResult | null }
+export function VoucherBatchResultDialog({ open, onOpenChange, result }: VoucherBatchResultDialogProps) {
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
+  if (!result) return null
+  async function copy(codes: ReadonlyArray<string>): Promise<void> { const success = await copyVoucherText(codes.join("\n")); toast[success ? "success" : "error"](success ? `${codes.length} voucher codes copied.` : "Clipboard is not available.") }
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl"><DialogHeader><DialogTitle>Voucher generation complete</DialogTitle><DialogDescription>{result.vouchers.length} code{result.vouchers.length === 1 ? " was" : "s were"} created for {result.name}.</DialogDescription></DialogHeader><div className="grid gap-3 rounded-md bg-muted p-4 sm:grid-cols-3"><div><p className="text-xs text-muted-foreground">Voucher name</p><p className="text-sm font-medium text-foreground">{result.name}</p></div><div><p className="text-xs text-muted-foreground">Status</p><p className="text-sm font-medium text-foreground">{getVoucherStatusLabel(getVoucherEffectiveStatus(result.vouchers[0]))}</p></div><div><p className="text-xs text-muted-foreground">Expiration</p><p className="text-sm font-medium text-foreground">{result.vouchers[0].expiresAt ? formatVoucherDate(result.vouchers[0].expiresAt) : "No expiration"}</p></div></div><div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => copy(result.vouchers.map((voucher) => voucher.code))}><Copy aria-hidden="true" /> Copy All Codes</Button><Button variant="outline" size="sm" disabled={selected.size === 0} onClick={() => copy(result.vouchers.filter((voucher) => selected.has(voucher.id)).map((voucher) => voucher.code))}><Check aria-hidden="true" /> Copy Selected Codes</Button><Button variant="outline" size="sm" onClick={() => toast.success("Voucher CSV export prepared for the demo.")}><Download aria-hidden="true" /> Export CSV</Button><Button variant="outline" size="sm" onClick={() => window.print()}><Printer aria-hidden="true" /> Print</Button></div><ScrollArea className="max-h-80 rounded-md border border-border"><ul className="divide-y divide-border">{result.vouchers.map((voucher) => <li key={voucher.id} className="flex items-center gap-3 p-3"><Checkbox checked={selected.has(voucher.id)} onCheckedChange={(checked) => setSelected((current) => { const next = new Set(current); if (checked) next.add(voucher.id); else next.delete(voucher.id); return next })} aria-label={`Select ${voucher.code}`} /><code className="min-w-0 flex-1 break-all font-mono text-sm font-semibold text-foreground">{voucher.code}</code><Badge variant="secondary">Max {voucher.maximumRedemptions}</Badge></li>)}</ul></ScrollArea><DialogFooter><Button onClick={() => onOpenChange(false)}>Close</Button></DialogFooter></DialogContent></Dialog>
+}
