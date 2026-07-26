@@ -2,47 +2,65 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Permission;
+use Illuminate\Database\Seeder;
 
 class PermissionSeeder extends Seeder
 {
     public function run(): void
     {
-        $permissions = [
+        $modules = [
 
-            [
-                'name' => 'Manage Users',
-                'slug' => 'users.manage',
-                'module' => 'users',
-            ],
-
-            [
-                'name' => 'Manage Partners',
-                'slug' => 'partners.manage',
-                'module' => 'partners',
-            ],
-
-            [
-                'name' => 'Manage Roles',
-                'slug' => 'roles.manage',
-                'module' => 'roles',
-            ],
-
-            [
-                'name' => 'Manage Permissions',
-                'slug' => 'permissions.manage',
-                'module' => 'permissions',
-            ],
+            'users',
+            'partners',
+            'roles',
+            'permissions',
+            'subscriptions',
+            'booths',
+            'devices',
+            'templates',
+            'filters',
+            'events',
+            'vouchers',
+            'payments',
+            'sessions',
+            'media',
+            'reports',
+            'settings',
 
         ];
 
-        foreach ($permissions as $permission) {
+        $actions = [
 
-            Permission::updateOrCreate(
-                ['slug' => $permission['slug']],
-                $permission
-            );
+            'view',
+            'create',
+            'update',
+            'delete',
+
+        ];
+
+        foreach ($modules as $module) {
+
+            foreach ($actions as $action) {
+
+                Permission::updateOrCreate(
+
+                    [
+                        'slug' => "{$module}.{$action}"
+                    ],
+
+                    [
+                        'name' => ucfirst($action) . ' ' . ucfirst($module),
+
+                        'module' => $module,
+
+                        'description' => ucfirst($action).' '.$module
+
+                    ]
+
+                );
+
+            }
 
         }
     }

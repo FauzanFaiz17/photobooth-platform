@@ -46,7 +46,7 @@ class AuthController extends Controller
 
     }
 
-    public function me(Request $request)
+    public function profile(Request $request)
     {
 
         return new UserResource(

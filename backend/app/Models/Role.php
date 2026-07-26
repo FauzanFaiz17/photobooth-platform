@@ -11,16 +11,14 @@ class Role extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+
         'name',
         'slug',
+        'level',
         'description',
         'is_system'
-    ];
 
-    public function users()
-    {
-        return $this->hasMany(User::class);
-    }
+    ];
 
     public function permissions()
     {
@@ -28,5 +26,10 @@ class Role extends Model
             Permission::class,
             'role_permissions'
         );
+    }
+
+    public function users()
+    {
+        return $this->hasMany(User::class);
     }
 }

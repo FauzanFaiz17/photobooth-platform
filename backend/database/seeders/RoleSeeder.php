@@ -51,8 +51,48 @@ class RoleSeeder extends Seeder
         foreach ($roles as $role) {
 
             Role::updateOrCreate(
-                ['slug' => $role['slug']],
-                $role
+                ['slug'=>'super-admin'],
+                [
+                    'name'=>'Super Admin',
+                    'level'=>100,
+                    'is_system'=>true
+                ]
+            );
+
+            Role::updateOrCreate(
+                ['slug'=>'admin'],
+                [
+                    'name'=>'Admin',
+                    'level'=>90,
+                    'is_system'=>true
+                ]
+            );
+
+            Role::updateOrCreate(
+                ['slug'=>'partner-owner'],
+                [
+                    'name'=>'Partner Owner',
+                    'level'=>70,
+                    'is_system'=>true
+                ]
+            );
+
+            Role::updateOrCreate(
+                ['slug'=>'partner-manager'],
+                [
+                    'name'=>'Partner Manager',
+                    'level'=>50,
+                    'is_system'=>true
+                ]
+            );
+
+            Role::updateOrCreate(
+                ['slug'=>'operator'],
+                [
+                    'name'=>'Operator',
+                    'level'=>10,
+                    'is_system'=>true
+                ]
             );
 
         }
