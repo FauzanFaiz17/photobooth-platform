@@ -1,0 +1,38 @@
+endpoint
+
+
+POST /api/v1/login
+
+POST /api/v1/logout
+
+GET /api/v1/profile
+
+list user
+GET /api/v1/users
+
+filter rrrole
+GET /api/v1/users?role=1
+
+filteer status
+GET /api/v1/users?status=active
+
+pagination
+GET /api/v1/users?per_page=5
+
+detail user
+GET /api/v1/users/1
+
+
+
+GET /api/v1/profile
+
+List User
+GET /api/v1/users
+
+
+Detail User
+GET /api/v1/users/1
+
+
+create user
+POST /api/
