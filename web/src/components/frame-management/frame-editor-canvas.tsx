@@ -139,10 +139,10 @@ export function FrameEditorCanvas({
         </div>
       </div>
 
-      <div className="flex min-h-[28rem] items-center justify-center overflow-auto rounded-xl border p-4 sm:min-h-[36rem]">
+      <div className="flex min-h-112 items-center justify-center overflow-auto rounded-xl border p-4 sm:min-h-144">
         <div
           data-frame-canvas
-          className={`relative max-h-[52rem] w-full max-w-xl touch-none overflow-hidden rounded-lg border ${kind === "gif" && mode === "preview" && isAnimating ? "animate-pulse" : ""}`}
+          className={`relative max-h-208 w-full max-w-xl touch-none overflow-hidden rounded-lg border ${kind === "gif" && mode === "preview" && isAnimating ? "animate-pulse" : ""}`}
           style={{
             aspectRatio,
             transform: `rotate(${rotation}deg) scale(${zoom / 100})`,
@@ -178,7 +178,7 @@ export function FrameEditorCanvas({
             <img
               src={assetPreviewUrl}
               alt={`Aset ${assetName}`}
-              className="pointer-events-none absolute inset-0 z-30 size-full object-contain"
+              className="pointer-events-none absolute inset-0  size-full object-contain"
             />
           )}
 

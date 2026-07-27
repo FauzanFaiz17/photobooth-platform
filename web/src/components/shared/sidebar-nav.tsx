@@ -2,7 +2,7 @@ import { useState } from "react"
 import { ChevronUp, LoaderCircle, LogOut } from "lucide-react"
 import { NavLink, useLocation, useNavigate } from "react-router-dom"
 
-import photoBoothLogo from "@/assets/react.svg"
+import photoBoothLogo from "@/assets/logo.png"
 import {
   Avatar,
   AvatarFallback,
@@ -110,7 +110,7 @@ export function AdminSidebar() {
     <Sidebar className="border-none">
       <SidebarContent className="p-4">
         <SidebarGroup>
-          <SidebarGroupLabel className="mb-4 h-10 px-1">
+          <SidebarGroupLabel className="mb-4 h-10 px-1 flex gap-4">
             <img
               src={photoBoothLogo}
               alt="Photo Booth"

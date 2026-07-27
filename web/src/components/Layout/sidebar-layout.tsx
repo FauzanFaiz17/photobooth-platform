@@ -1,8 +1,9 @@
 import { Fragment, type CSSProperties } from "react"
 import { Link, Outlet, useLocation } from "react-router-dom"
 
-import { ModeToggle } from "../theme/mode-toggle"
+import { Notification } from "../shared/notification"
 import { AdminSidebar } from "../shared/sidebar-nav"
+import { ModeToggle } from "../theme/mode-toggle"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -132,7 +133,10 @@ export function SidebarLayout() {
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
-            <ModeToggle />
+            <div className="flex items-center gap-2">
+              <Notification />
+              <ModeToggle />
+            </div>
           </header>
           {/* Container Shell Utama */}
           <section className="p-1 bg-background w-full  rounded-2xl h-[calc(100vh-5rem)] overflow-y-auto ">
