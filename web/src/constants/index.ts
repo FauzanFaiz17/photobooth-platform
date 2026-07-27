@@ -8,6 +8,7 @@ import {
   Monitor,
   ReceiptText,
   TicketPercent,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react"
 
@@ -62,5 +63,13 @@ export const adminNavItems: AdminNavItem[] = [
     title: "Payment key",
     url: "/admin/payment-key",
     icon: KeyRound,
+  },
+]
+
+export const superAdminSettingsNavItems: AdminNavItem[] = [
+  {
+    title: "Users",
+    url: "/admin/settings/users",
+    icon: UsersRound,
   },
 ]

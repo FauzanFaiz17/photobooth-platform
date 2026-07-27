@@ -8,6 +8,7 @@ import type {
 
 export interface AuthContextValue {
   user: AuthUser | null
+  token: string | null
   status: AuthStatus
   login: (credentials: LoginCredentials) => Promise<void>
   logout: () => Promise<void>

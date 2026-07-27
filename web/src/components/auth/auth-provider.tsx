@@ -10,19 +10,22 @@ import {
   loginRequest,
   logoutRequest,
   profileRequest,
-} from "./auth-api"
-import { AuthContext, type AuthContextValue } from "./auth-context"
+} from "@/features/auth/auth-api"
+import {
+  AuthContext,
+  type AuthContextValue,
+} from "@/features/auth/auth-context"
 import {
   AUTH_SESSION_STORAGE_KEY,
   clearAuthSession,
   readAuthSession,
   writeAuthSession,
-} from "./auth-storage"
+} from "@/features/auth/auth-storage"
 import type {
   AuthSession,
   AuthStatus,
   LoginCredentials,
-} from "./auth.types"
+} from "@/features/auth/auth.types"
 
 interface AuthState {
   session: AuthSession | null
@@ -118,11 +121,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const contextValue = useMemo<AuthContextValue>(
     () => ({
       user: authState.session?.user ?? null,
+      token: authState.session?.token ?? null,
       status: authState.status,
       login,
       logout,
     }),
-    [authState.session?.user, authState.status, login, logout]
+    [
+      authState.session?.token,
+      authState.session?.user,
+      authState.status,
+      login,
+      logout,
+    ]
   )
 
   return (

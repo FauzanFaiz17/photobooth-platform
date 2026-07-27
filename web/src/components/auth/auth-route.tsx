@@ -1,7 +1,8 @@
 import { LoaderCircle } from "lucide-react"
 import { Navigate, Outlet, useLocation } from "react-router-dom"
 
-import { useAuth } from "./auth-context"
+import { isSuperAdmin } from "@/features/auth/auth-access"
+import { useAuth } from "@/features/auth/auth-context"
 
 function AuthLoadingScreen() {
   return (
@@ -24,6 +25,31 @@ export function RequireAuth() {
 
   if (status === "anonymous") {
     return <Navigate to="/login" replace state={{ from: location }} />
+  }
+
+  return <Outlet />
+}
+
+export function RequireSuperAdmin() {
+  const { status, user } = useAuth()
+  const location = useLocation()
+
+  if (status === "checking") {
+    return <AuthLoadingScreen />
+  }
+
+  if (status === "anonymous") {
+    return <Navigate to="/login" replace state={{ from: location }} />
+  }
+
+  if (!isSuperAdmin(user)) {
+    return (
+      <Navigate
+        to="/admin/forbidden"
+        replace
+        state={{ from: location.pathname }}
+      />
+    )
   }
 
   return <Outlet />

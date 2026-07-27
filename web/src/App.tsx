@@ -5,10 +5,12 @@ import { Skeleton } from "./components/ui/skeleton"
 import {
   AnonymousOnly,
   RequireAuth,
-} from "./features/auth/auth-route"
+  RequireSuperAdmin,
+} from "./components/auth/auth-route"
 import LoginPage from "./pages/LoginPage"
 
 const OverviewPage = lazy(() => import("./pages/OverviewPage"))
+const ForbiddenPage = lazy(() => import("./pages/ForbiddenPage"))
 const KioskPage = lazy(() => import("./pages/KioskPage"))
 const KioskDetailPage = lazy(() => import("./pages/KioskDetailPage"))
 const GalleryPage = lazy(() => import("./pages/GalleryPage"))
@@ -20,6 +22,10 @@ const FrameEditorPage = lazy(() => import("./pages/FrameEditorPage"))
 const VoucherPage = lazy(() => import("./pages/VoucherPage"))
 const VoucherDetailPage = lazy(() => import("./pages/VoucherDetailPage"))
 const PaymentKeyPage = lazy(() => import("./pages/PaymentKeyPage"))
+const UserManagementPage = lazy(
+  () => import("./pages/UserManagementPage")
+)
+const UserDetailPage = lazy(() => import("./pages/UserDetailPage"))
 
 function OverviewPageFallback() {
   return (
@@ -76,6 +82,32 @@ function App() {
               </Suspense>
             }
           />
+          <Route
+            path="forbidden"
+            element={
+              <Suspense fallback={<OverviewPageFallback />}>
+                <ForbiddenPage />
+              </Suspense>
+            }
+          />
+          <Route element={<RequireSuperAdmin />}>
+            <Route
+              path="settings/users"
+              element={
+                <Suspense fallback={<OverviewPageFallback />}>
+                  <UserManagementPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="settings/users/:userId"
+              element={
+                <Suspense fallback={<OverviewPageFallback />}>
+                  <UserDetailPage />
+                </Suspense>
+              }
+            />
+          </Route>
           <Route
             path="*"
             element={

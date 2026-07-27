@@ -30,6 +30,7 @@ const pageLabels: Record<string, string> = {
   voucher: "Voucher",
   "payment-key": "Payment Key",
   "frame-gift": "Frame Gift",
+  forbidden: "Akses Ditolak",
 }
 
 function formatPathSegment(segment: string): string {
@@ -72,6 +73,23 @@ function createBreadcrumbItems(pathname: string): ReadonlyArray<LayoutBreadcrumb
 
   if (section === "voucher" && detail) {
     return [root, { label: "Voucher", href: "/voucher" }, { label: formatPathSegment(detail) }]
+  }
+
+  if (section === "settings" && detail === "users") {
+    if (action) {
+      return [
+        root,
+        { label: "Settings" },
+        { label: "Users", href: "/admin/settings/users" },
+        { label: "Detail User" },
+      ]
+    }
+
+    return [
+      root,
+      { label: "Settings" },
+      { label: "Users" },
+    ]
   }
 
   return [root, { label: pageLabels[section] ?? formatPathSegment(section) }]

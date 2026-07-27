@@ -17,7 +17,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { adminNavItems } from "@/constants"
+import {
+  adminNavItems,
+  superAdminSettingsNavItems,
+  type AdminNavItem,
+} from "@/constants"
+import { isSuperAdmin } from "@/features/auth/auth-access"
 import { resolveAvatarUrl } from "@/features/auth/auth-api"
 import { useAuth } from "@/features/auth/auth-context"
 import {
@@ -41,6 +46,48 @@ function createInitials(name: string): string {
     .join("")
 }
 
+function SidebarNavigation({
+  items,
+  pathname,
+}: {
+  readonly items: ReadonlyArray<AdminNavItem>
+  readonly pathname: string
+}) {
+  return (
+    <SidebarMenu className="gap-1.5">
+      {items.map((item) => {
+        const isActive =
+          pathname === item.url ||
+          (item.url !== "/admin" && pathname.startsWith(`${item.url}/`))
+
+        return (
+          <SidebarMenuItem key={item.title}>
+            <SidebarMenuButton
+              render={<NavLink to={item.url} />}
+              isActive={isActive}
+              className={`
+                w-full transition-all duration-300 ease-out group px-3 py-5 rounded-xl
+                ${
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20 hover:bg-primary hover:text-white"
+                    : "text-muted-foreground hover:bg-primary hover:text-white"
+                }
+              `}
+            >
+              <item.icon
+                className={`h-5 w-5 transition-transform duration-300 ${isActive ? "scale-110" : "group-hover:scale-110"}`}
+              />
+              <span className="font-semibold text-sm tracking-wide">
+                {item.title}
+              </span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )
+      })}
+    </SidebarMenu>
+  )
+}
+
 export function AdminSidebar() {
   const pathname = useLocation().pathname
   const navigate = useNavigate()
@@ -51,6 +98,7 @@ export function AdminSidebar() {
   const displayRole = user?.role.name ?? "Pengelola"
   const avatarUrl = resolveAvatarUrl(user?.avatar ?? null)
   const initials = createInitials(displayName) || "PB"
+  const showSuperAdminSettings = isSuperAdmin(user)
 
   async function handleLogout() {
     setIsLoggingOut(true)
@@ -71,39 +119,21 @@ export function AdminSidebar() {
           </SidebarGroupLabel>
 
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1.5">
-              {adminNavItems.map((item) => {
-                const isActive =
-                  pathname === item.url ||
-                  (item.url !== "/admin" && pathname.startsWith(`${item.url}/`))
-
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      render={<NavLink to={item.url} />}
-                      isActive={Boolean(isActive)}
-                      className={`
-                        w-full transition-all duration-300 ease-out group px-3 py-5 rounded-xl
-                        ${
-                          isActive
-                            ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20 hover:bg-primary"
-                            : "text-muted-foreground hover:bg-primary hover:text-foreground"
-                        }
-                      `}
-                    >
-                      <item.icon
-                        className={`h-5 w-5 transition-transform duration-300 ${isActive ? "scale-110" : "group-hover:scale-110"}`}
-                      />
-                      <span className="font-semibold text-sm tracking-wide">
-                        {item.title}
-                      </span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
+            <SidebarNavigation items={adminNavItems} pathname={pathname} />
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {showSuperAdminSettings && (
+          <SidebarGroup className="pt-0">
+            <SidebarGroupLabel>Settings</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarNavigation
+                items={superAdminSettingsNavItems}
+                pathname={pathname}
+              />
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="p-4 pt-0">
@@ -145,7 +175,7 @@ export function AdminSidebar() {
                 side="top"
                 align="start"
                 sideOffset={8}
-                className="z-[60] w-56"
+                className="z-60 w-56"
               >
                 <DropdownMenuGroup>
                   <DropdownMenuLabel className="px-2 py-2 font-normal">
