@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from "react"
 import {
-  Camera,
   CircleAlert,
   Eye,
   EyeOff,
@@ -8,7 +7,9 @@ import {
 } from "lucide-react"
 import { useLocation, useNavigate } from "react-router-dom"
 
-import loginPhotoboothImage from "@/assets/login-photobooth.webp"
+import loginPhotoboothImage from "@/assets/bg-login.png"
+import photoBoothLogo from "@/assets/Logo Kolase.png"
+import photoBoothLight from "@/assets/Logo Kolase Putih.png"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,6 +17,7 @@ import { Label } from "@/components/ui/label"
 import { ApiError } from "@/lib/api-client"
 import { useAuth } from "@/features/auth/auth-context"
 import type { LoginCredentials } from "@/features/auth/auth.types"
+import { useResolvedTheme } from "@/contexts/theme-context"
 
 type LoginFieldErrors = Partial<Record<keyof LoginCredentials, string>>
 
@@ -63,17 +65,14 @@ function validateCredentials(
 }
 
 function BrandMark() {
+  const resolved = useResolvedTheme();
   return (
     <div className="flex items-center gap-3">
-      <span className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground">
-        <Camera className="size-5" aria-hidden="true" />
-      </span>
-      <div className="leading-none">
-        <p className="text-sm font-semibold tracking-[0.16em]">PHOTO BOOTH</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Management workspace
-        </p>
-      </div>
+      <img 
+      src={resolved === "dark" ? photoBoothLight : photoBoothLogo}
+      alt="Logo Kolase"
+      className="h-20 object-cover object-center"
+      />
     </div>
   )
 }
@@ -285,7 +284,7 @@ export default function LoginPage() {
         <img
           src={loginPhotoboothImage}
           alt="Perangkat Photo Booth di dalam studio"
-          className="h-full w-full rounded-[1.75rem] object-cover object-center"
+          className="h-full w-full border border-black/20 rounded-[1.75rem] object-cover object-center"
         />
       </section>
     </main>

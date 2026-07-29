@@ -2,7 +2,8 @@ import { useState } from "react"
 import { ChevronUp, LoaderCircle, LogOut } from "lucide-react"
 import { NavLink, useLocation, useNavigate } from "react-router-dom"
 
-import photoBoothLogo from "@/assets/logo.png"
+import photoBoothLogo from "@/assets/Logo Kolase.png"
+import photoBoothLight from "@/assets/Logo Kolase Putih.png"
 import {
   Avatar,
   AvatarFallback,
@@ -36,6 +37,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { useResolvedTheme } from "@/contexts/theme-context"
 
 function createInitials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean)
@@ -93,6 +95,7 @@ export function AdminSidebar() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const resolved = useResolvedTheme();
 
   const displayName = user?.name ?? "Pengguna"
   const displayRole = user?.role.name ?? "Pengelola"
@@ -112,9 +115,9 @@ export function AdminSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel className="mb-4 h-10 px-1 flex gap-4">
             <img
-              src={photoBoothLogo}
+              src={resolved === "dark" ? photoBoothLight : photoBoothLogo}
               alt="Photo Booth"
-              className="h-10 w-auto max-w-full"
+              className="h-16 w-auto max-w-full"
             />
           </SidebarGroupLabel>
 
