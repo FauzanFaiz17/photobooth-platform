@@ -5,11 +5,11 @@ namespace App\Http\Requests\User;
 use Illuminate\Foundation\Http\FormRequest;
 use App\Models\User;
 
-class StoreUserRequest extends FormRequest
+class UpdateUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('create', User::class);
+        return $this->user()->can('update', User::class);
     }
 
     public function rules(): array
@@ -25,7 +25,8 @@ class StoreUserRequest extends FormRequest
             'email' => [
                 'required',
                 'email',
-                'unique:users,email'
+                Rule::unique('users')
+                    ->ignore($this->route('user'))
             ],
 
             'phone' => [
@@ -34,27 +35,14 @@ class StoreUserRequest extends FormRequest
                 'max:30'
             ],
 
-            'password' => [
-                'required',
-                'confirmed',
-                'min:8'
-            ],
-
-            'role_id' => [
-                'required',
-                'exists:roles,id'
-            ],
-
-            'partner_id' => [
-                'nullable',
-                'exists:partners,id'
-            ],
-
             'status' => [
-                'nullable',
-                'in:active,suspended,invited,inactive'
+                'required',
+                Rule::in([
+                    'active',
+                    'inactive',
+                    'suspended'
+                ])
             ]
-
         ];
     }
 }

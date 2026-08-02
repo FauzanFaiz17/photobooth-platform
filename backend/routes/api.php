@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\PartnerController;
 
 Route::prefix('v1')->group(function () {
 
@@ -23,14 +24,39 @@ Route::prefix('v1')->group(function () {
         | Users
         |--------------------------------------------------------------------------
         */
-        Route::prefix('users')
-            ->middleware('permission:users.view')
-            ->group(function () {
+        Route::prefix('users')->group(function () {
 
-                Route::get('/', [UserController::class, 'index']);
-                Route::get('/{user}', [UserController::class, 'show']);
-                Route::post('/', [UserController::class, 'store']);
-            });
+            Route::get('/', [UserController::class, 'index'])
+                ->middleware('permission:users.view');
+
+            Route::get('/{user}', [UserController::class, 'show'])
+                ->middleware('permission:users.view');
+
+            Route::post('/', [UserController::class, 'store'])
+                ->middleware('permission:users.create');
+
+            Route::put('/{user}', [UserController::class, 'update'])
+                ->middleware('permission:users.update');
+
+        });
+
+        Route::prefix('partners')->group(function () {
+
+            Route::get('/', [PartnerController::class, 'index'])
+                ->middleware('permission:partners.view');
+
+            Route::get('/{partner}', [PartnerController::class, 'show'])
+                ->middleware('permission:partners.view');
+
+            Route::post('/', [PartnerController::class, 'store'])
+                ->middleware('permission:partners.create');
+
+            Route::put('/{partner}', [PartnerController::class, 'update'])
+                ->middleware('permission:partners.update');
+
+            Route::delete('/{partner}', [PartnerController::class, 'destroy'])
+                ->middleware('permission:partners.delete');
+        });
 
     });
 

@@ -18,20 +18,10 @@ class UserService
         $query = User::query()
             ->with(['role', 'partner']);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Multi Tenant
-        |--------------------------------------------------------------------------
-        */
         if (!$authUser->isSuperAdmin()) {
             $query->where('partner_id', $authUser->partner_id);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Search
-        |--------------------------------------------------------------------------
-        */
         if (!empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
                 $q->where('name', 'like', "%{$filters['search']}%")
@@ -39,41 +29,20 @@ class UserService
             });
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Filter Role
-        |--------------------------------------------------------------------------
-        */
         if (!empty($filters['role'])) {
             $query->where('role_id', $filters['role']);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Filter Status
-        |--------------------------------------------------------------------------
-        */
         if (!empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Filter Partner (Super Admin Only)
-        |--------------------------------------------------------------------------
-        */
         if (
             $authUser->isSuperAdmin() &&
             !empty($filters['partner'])
         ) {
             $query->where('partner_id', $filters['partner']);
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Sorting
-        |--------------------------------------------------------------------------
-        */
         $sort = $filters['sort'] ?? 'created_at';
         $direction = $filters['direction'] ?? 'desc';
 
@@ -128,7 +97,10 @@ class UserService
                 // Partner Owner / Manager tidak boleh memilih partner lain
                 $data['partner_id'] = $authUser->partner_id;
 
-            } elseif (empty($data['partner_id']) && !$role->slug === 'super-admin') {
+            } elseif (
+                empty($data['partner_id'])
+                && $role->slug !== 'super-admin'
+            ) {
 
                 throw new \InvalidArgumentException(
                     'Partner is required.'
@@ -136,12 +108,6 @@ class UserService
 
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | Hash Password
-            |--------------------------------------------------------------------------
-            */
-            $data['password'] = Hash::make($data['password']);
 
             /*
             |--------------------------------------------------------------------------
@@ -158,6 +124,45 @@ class UserService
             $user = User::create($data);
 
             return $user->load([
+                'role',
+                'partner'
+            ]);
+        });
+    }
+    
+    public function update(
+        User $target,
+        array $data,
+        User $auth
+    ): User
+    {
+        return DB::transaction(function () use ($target, $data, $auth) {
+
+            /*
+             * Jika role diubah, pastikan user yang sedang login
+             * memiliki hak untuk mengubah role tersebut.
+             */
+            if (!empty($data['role_id'])) {
+                $newRole = Role::findOrFail($data['role_id']);
+
+                if (!$auth->canManageRole($newRole)) {
+                    abort(403, 'You cannot assign this role.');
+                }
+            }
+
+            /*
+             * Jika partner diubah, pastikan user yang sedang login
+             * memiliki hak untuk mengubah partner tersebut.
+             */
+            if (!empty($data['partner_id'])) {
+                if (!$auth->isSuperAdmin()) {
+                    abort(403, 'You cannot change the partner.');
+                }
+            }
+
+            $target->update($data);
+
+            return $target->load([
                 'role',
                 'partner'
             ]);

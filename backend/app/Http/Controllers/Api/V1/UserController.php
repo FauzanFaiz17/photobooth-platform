@@ -43,12 +43,17 @@ class UserController extends Controller
     {
         $this->authorize('create', User::class);
 
-        $user = $this->service->store(
+        $user = $this->userService->create(
             $request->validated(),
             $request->user()
         );
 
-        return new UserResource($user);
+        return (new UserResource($user->load([
+            'role',
+            'partner'
+        ])))
+        ->response()
+        ->setStatusCode(201);
     }
 
     /**

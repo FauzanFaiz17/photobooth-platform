@@ -5,9 +5,16 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Http\Requests\User\StoreUserRequest;
+use App\Http\Requests\User\UserIndexRequest;
+use App\Http\Requests\User\UpdateUserRequest;
+use App\Http\Resources\UserResource;
+use App\Services\UserService;
 
 class UserController extends Controller
 {
+    public function __construct(
+        protected UserService $service
+    ) {}
     /**
      * Display a listing of the resource.
      */
@@ -36,7 +43,9 @@ class UserController extends Controller
             $request->user()
         );
 
-        return new UserResource($user);
+        return (new UserResource($user))
+        ->response()
+        ->setStatusCode(201);
     }
 
     /**
@@ -54,9 +63,19 @@ class UserController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
-    {
-        //
+    public function update(
+    UpdateUserRequest $request,
+    User $user
+)    {
+        $this->authorize('update', $user);
+
+        $user = $this->service->update(
+            $request->validated(),
+            $user,
+            $request->user()
+        );
+
+        return new UserResource($user);
     }
 
     /**

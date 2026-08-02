@@ -55,11 +55,8 @@ class UserPolicy
      */
     public function update(User $user, User $target): bool
     {
-        if ($this->isSuperAdmin($user)) {
-            return true;
-        }
-
-        return $this->samePartner($user, $target);
+        return $user->hasPermission('users.update')
+            && $user->canManageUser($target);
     }
 
     /**
@@ -67,11 +64,8 @@ class UserPolicy
      */
     public function delete(User $user, User $target): bool
     {
-        if ($this->isSuperAdmin($user)) {
-            return true;
-        }
-
-        return false;
+        return $user->hasPermission('users.delete')
+            && $user->canManageUser($target);
     }
 
     /**

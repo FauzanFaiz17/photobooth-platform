@@ -25,4 +25,34 @@ class Partner extends Model
     {
         return $this->hasMany(User::class);
     }
+
+    public function subscriptions()
+    {
+        return $this->hasMany(
+            PartnerSubscription::class
+        );
+    }
+
+    public function dailyStats()
+    {
+        return $this->hasMany(
+            PartnerDailyStat::class
+        );
+    }
+
+    public function monthlyReports()
+    {
+        return $this->hasMany(
+            PartnerMonthlyReport::class
+        );
+    }
+
+    public function activeSubscription()
+    {
+        return $this->hasOne(
+            PartnerSubscription::class
+        )
+        ->where('status', 'active')
+        ->latestOfMany();
+    }
 }
