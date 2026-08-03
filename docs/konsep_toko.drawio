@@ -1,0 +1,40 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Page-1" id="qp4LbJ1ekkB30GcTKgzx">
+    <mxGraphModel dx="847" dy="439" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="N0cuTwvRmr9WxGMfHimj-1" parent="1" style="shape=ext;double=1;rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="260" width="300" x="280" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="N0cuTwvRmr9WxGMfHimj-4" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Partner/Perusahaan/toko" vertex="1">
+          <mxGeometry height="30" width="140" x="440" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="N0cuTwvRmr9WxGMfHimj-5" parent="1" style="shape=ext;double=1;rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="100" width="260" x="300" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="N0cuTwvRmr9WxGMfHimj-6" parent="1" style="shape=ext;double=1;rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="100" width="260" x="300" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="N0cuTwvRmr9WxGMfHimj-9" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Booth" vertex="1">
+          <mxGeometry height="30" width="40" x="520" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="N0cuTwvRmr9WxGMfHimj-10" parent="1" style="shape=ext;double=1;rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="70" width="100" x="362.5" y="135" as="geometry" />
+        </mxCell>
+        <mxCell id="N0cuTwvRmr9WxGMfHimj-11" parent="1" style="shape=ext;double=1;rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="70" width="100" x="325" y="255" as="geometry" />
+        </mxCell>
+        <mxCell id="N0cuTwvRmr9WxGMfHimj-12" parent="1" style="shape=ext;double=1;rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="70" width="100" x="440" y="255" as="geometry" />
+        </mxCell>
+        <mxCell id="N0cuTwvRmr9WxGMfHimj-13" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Device" vertex="1">
+          <mxGeometry height="30" width="40" x="420" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="N0cuTwvRmr9WxGMfHimj-14" parent="1" style="text;html=1;whiteSpace=wrap;overflow=hidden;rounded=0;" value="&lt;h1 style=&quot;margin-top: 0px;&quot;&gt;CITIMAL&lt;/h1&gt;&lt;p&gt;Memiliki 2 Photobooth&lt;/p&gt;&lt;p&gt;booth pertama 1 ruangan(1 device)&lt;/p&gt;&lt;p&gt;booth kedua 2 ruangan(2 device)&lt;/p&gt;" vertex="1">
+          <mxGeometry height="120" width="210" x="40" y="110" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
