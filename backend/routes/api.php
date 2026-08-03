@@ -58,6 +58,53 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:partners.delete');
         });
 
+        Route::prefix('subscription-plans')->group(function () {
+
+            Route::get('/', [SubscriptionPlanController::class, 'index'])
+                ->middleware('permission:subscriptions.view');
+
+            Route::get('/{subscriptionPlan}', [SubscriptionPlanController::class, 'show'])
+                ->middleware('permission:subscriptions.view');
+
+            Route::post('/', [SubscriptionPlanController::class, 'store'])
+                ->middleware('permission:subscriptions.create');
+
+            Route::put('/{subscriptionPlan}', [SubscriptionPlanController::class, 'update'])
+                ->middleware('permission:subscriptions.update');
+
+            Route::delete('/{subscriptionPlan}', [SubscriptionPlanController::class, 'destroy'])
+                ->middleware('permission:subscriptions.delete');
+        });
+
+        Route::prefix('booths')->group(function () {
+
+            Route::get(
+                '/',
+                [BoothController::class,'index']
+            )->middleware('permission:booths.view');
+
+            Route::get(
+                '/{booth}',
+                [BoothController::class,'show']
+            )->middleware('permission:booths.view');
+
+            Route::post(
+                '/',
+                [BoothController::class,'store']
+            )->middleware('permission:booths.create');
+
+            Route::put(
+                '/{booth}',
+                [BoothController::class,'update']
+            )->middleware('permission:booths.update');
+
+            Route::delete(
+                '/{booth}',
+                [BoothController::class,'destroy']
+            )->middleware('permission:booths.delete');
+
+        });
+
     });
 
 });

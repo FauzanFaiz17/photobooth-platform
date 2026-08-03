@@ -142,23 +142,13 @@ class UserService
              * Jika role diubah, pastikan user yang sedang login
              * memiliki hak untuk mengubah role tersebut.
              */
-            if (!empty($data['role_id'])) {
-                $newRole = Role::findOrFail($data['role_id']);
-
-                if (!$auth->canManageRole($newRole)) {
-                    abort(403, 'You cannot assign this role.');
-                }
-            }
+            
 
             /*
              * Jika partner diubah, pastikan user yang sedang login
              * memiliki hak untuk mengubah partner tersebut.
              */
-            if (!empty($data['partner_id'])) {
-                if (!$auth->isSuperAdmin()) {
-                    abort(403, 'You cannot change the partner.');
-                }
-            }
+            
 
             $target->update($data);
 

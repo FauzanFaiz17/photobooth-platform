@@ -49,10 +49,22 @@ class Partner extends Model
 
     public function activeSubscription()
     {
-        return $this->hasOne(
-            PartnerSubscription::class
-        )
-        ->where('status', 'active')
-        ->latestOfMany();
+        return $this->hasOne(PartnerSubscription::class)
+            ->where('status', 'active')
+            ->latestOfMany('ends_at');
+    }
+
+    public function booths()
+    {
+        return $this->hasMany(
+            Booth::class
+        );
+    }
+
+    public function devices()
+    {
+        return $this->hasMany(
+            Device::class
+        );
     }
 }

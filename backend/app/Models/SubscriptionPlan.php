@@ -28,6 +28,7 @@ class SubscriptionPlan extends Model
         return [
 
             'price' => 'decimal:2',
+            'features' => 'array',
             'is_active' => 'boolean',
 
         ];
