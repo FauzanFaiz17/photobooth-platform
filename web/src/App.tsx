@@ -26,6 +26,7 @@ const UserManagementPage = lazy(
   () => import("./pages/UserManagementPage")
 )
 const UserDetailPage = lazy(() => import("./pages/UserDetailPage"))
+const PartnerDetailPage = lazy(() => import("./pages/PartnerDetailPage"))
 
 function OverviewPageFallback() {
   return (
@@ -104,6 +105,14 @@ function App() {
               element={
                 <Suspense fallback={<OverviewPageFallback />}>
                   <UserDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="settings/partners/:partnerId"
+              element={
+                <Suspense fallback={<OverviewPageFallback />}>
+                  <PartnerDetailPage />
                 </Suspense>
               }
             />
