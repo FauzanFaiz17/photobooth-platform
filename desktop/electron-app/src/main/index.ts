@@ -1,10 +1,91 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
+import { app, shell, BrowserWindow, ipcMain } from 'electron';
+import { join, dirname } from 'path';
+import { electronApp, optimizer, is } from '@electron-toolkit/utils';
+import { spawn, ChildProcess } from 'node:child_process';
+import http from 'node:http';
+import Store from 'electron-store';
+import icon from '../../resources/icon.png?asset';
+
+const store = new Store();
+
+let pyProcess: ChildProcess | null = null;
+const PORT = 5000;
+const SERVER_URL = `http://127.0.0.1:${PORT}`;
+
+/**
+ * Spawns the PyInstaller executable as a child process.
+ */
+const startBackend = (): void => {
+  const exePath = app.isPackaged
+    ? join(process.resourcesPath, 'bin', 'main.exe')
+    : join(__dirname, '../../dist/main.exe');
+
+  console.log(`[Electron] Spawning backend binary at: ${exePath}`);
+
+  pyProcess = spawn(exePath, [], {
+    cwd: dirname(exePath),
+    detached: false,
+  });
+
+  pyProcess.stdout?.on('data', (data: Buffer) => {
+    console.log(`[FastAPI stdout]: ${data.toString().trim()}`);
+  });
+
+  pyProcess.stderr?.on('data', (data: Buffer) => {
+    console.error(`[FastAPI stderr]: ${data.toString().trim()}`);
+  });
+
+  pyProcess.on('exit', (code: number | null, signal: string | null) => {
+    console.log(`[FastAPI] Exited with code ${code} and signal ${signal}`);
+  });
+};
+
+/**
+ * Polls the backend endpoint until it returns a 200 OK status code.
+ */
+const waitForBackend = (
+  callback: () => void,
+  retries = 50,
+  interval = 500
+): void => {
+  if (retries === 0) {
+    console.error('[Electron] Backend failed to start in time.');
+    app.quit();
+    return;
+  }
+
+  const req = http.get(`${SERVER_URL}/options`, (res) => {
+    if (res.statusCode === 200) {
+      console.log('[Electron] FastAPI server is ready!');
+      callback();
+    } else {
+      setTimeout(() => waitForBackend(callback, retries - 1, interval), interval);
+    }
+  });
+
+  req.on('error', () => {
+    setTimeout(() => waitForBackend(callback, retries - 1, interval), interval);
+  });
+
+  req.end();
+};
+
+/**
+ * Forcefully terminates the backend process to free up EDSDK/USB resources.
+ */
+const killBackend = (): void => {
+  if (pyProcess && pyProcess.pid) {
+    console.log('[Electron] Terminating backend process...');
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/pid', pyProcess.pid.toString(), '/f', '/t']);
+    } else {
+      pyProcess.kill('SIGTERM');
+    }
+    pyProcess = null;
+  }
+};
 
 function createWindow(): void {
-  // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
@@ -13,78 +94,112 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
-    }
-  })
+      sandbox: false,
+    },
+  });
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
+    mainWindow.show();
+  });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
+    shell.openExternal(details.url);
+    return { action: 'deny' };
+  });
 
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
   }
+
+  mainWindow.webContents.openDevTools();
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
+// App Initialization
 app.whenReady().then(() => {
-  // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.electron');
 
-  // Default open or close DevTools by F12 in development
-  // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
   app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
-  })
+    optimizer.watchWindowShortcuts(window);
+  });
 
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
+  // IPC Handlers
+  ipcMain.on('ping', () => console.log('pong'));
 
-  createWindow()
+  ipcMain.handle('store:get', (_, key) => {
+    return store.get(key);
+  });
+
+  ipcMain.handle('store:set', (_, key, value) => {
+    store.set(key, value);
+  });
+
+  ipcMain.handle('store:delete', (_, key) => {
+    store.delete(key);
+  });
+
+  /**
+   * Universal API Gateway Handler
+   * Executes HTTP requests inside Node.js Main process to bypass Chromium CORS/file:// checks.
+   */
+  ipcMain.handle(
+    'api:request',
+    async (_, { endpoint, method = 'GET', body = null }: { endpoint: string; method?: string; body?: unknown }) => {
+      try {
+        const options: RequestInit = {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        };
+
+        if (body) {
+          options.body = JSON.stringify(body);
+        }
+
+        const url = `${SERVER_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+        const response = await fetch(url, options);
+        const data = await response.json();
+
+        if (!response.ok) {
+          return {
+            status: 'error',
+            statusCode: response.status,
+            detail: data.detail || 'Request failed',
+          };
+        }
+
+        return data;
+      } catch (error) {
+        console.error(`[IPC API Error] ${method} ${endpoint}:`, error);
+        return {
+          status: 'error',
+          detail: error instanceof Error ? error.message : 'Unknown IPC Network Error',
+        };
+      }
+    }
+  );
+
+  // Start backend & defer window creation until ready
+  startBackend();
+  waitForBackend(() => {
+    createWindow();
+  });
 
   app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
-})
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+// Process Cleanup
 app.on('window-all-closed', () => {
+  killBackend();
   if (process.platform !== 'darwin') {
-    app.quit()
+    app.quit();
   }
-})
-
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.
-
-import Store from "electron-store";
-
-const store = new Store();
-
-ipcMain.handle("store:get", (_, key) => {
-  return store.get(key);
 });
 
-ipcMain.handle("store:set", (_, key, value) => {
-  store.set(key, value);
-});
-
-ipcMain.handle("store:delete", (_, key) => {
-  store.delete(key);
+app.on('will-quit', () => {
+  killBackend();
 });
