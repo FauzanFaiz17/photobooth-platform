@@ -22,10 +22,9 @@ export default function AppRouter() {
 
             <Routes>
                 {/* override buat testing*/}
-                <Route path="/" element={<CameraSettingsPage />} />
 
                 <Route element={<AuthLayout />}>
-                    <Route path="/welcome" element={<SplashPage />} />
+                    <Route path="/" element={<SplashPage />} />
                     <Route path="/login" element={<LoginPage />} />
                 </Route>
 
@@ -40,6 +39,8 @@ export default function AppRouter() {
                     <Route path="/filter" element={<FilterPage />} />
 
                     <Route path="/camera" element={<CameraPage />} />
+
+                    <Route path="/camerasettings" element={<CameraSettingsPage />} />
 
                     <Route path="/preview" element={<PreviewPage />} />
 
