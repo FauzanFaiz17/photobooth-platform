@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use App\Models\User;
 use App\Models\Partner;
+use App\Models\Event;
 use App\Policies\UserPolicy;
 use App\Policies\PartnerPolicy;
+use App\Policies\EventPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -32,6 +34,11 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(
             Partner::class,
             PartnerPolicy::class
+        );
+
+        Gate::policy(
+            Event::class, 
+            EventPolicy::class
         );
     }
 }

@@ -18,11 +18,19 @@ class DatabaseSeeder extends Seeder
 
             // SuperAdminSeeder::class,
 
-            SubscriptionPlanSeeder::class,
+            // SubscriptionPlanSeeder::class,
 
-            PartnerSeeder::class,
+            // PartnerSeeder::class,
 
-            PartnerSubscriptionSeeder::class,
+            // PartnerSubscriptionSeeder::class,
+
+            TemplateSeeder::class,
+
+            FilterSeeder::class,
+
+            CameraProfileSeeder::class,
+            
+            PrinterProfileSeeder::class,
 
         ]);
     }

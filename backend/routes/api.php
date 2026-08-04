@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\PartnerController;
-
+use App\Http\Controllers\Api\V1\EventController;
 
 // khsus desktop
 use App\Http\Controllers\Api\V1\Desktop\BootstrapController;
@@ -41,6 +41,21 @@ Route::prefix('v1')->group(function () {
         Route::get('/profile', [AuthController::class, 'profile']);
         Route::post('/logout', [AuthController::class, 'logout']);
 
+
+        // untuk event
+        Route::prefix('events')->group(function () {
+
+            // Route::get('/', ...);
+
+            // Route::get('{event}', ...);
+
+            // Route::post('/', ...);
+
+            // Route::put('{event}', ...);
+
+            // Route::delete('{event}', ...);
+
+        });
         /*
         |--------------------------------------------------------------------------
         | Users
