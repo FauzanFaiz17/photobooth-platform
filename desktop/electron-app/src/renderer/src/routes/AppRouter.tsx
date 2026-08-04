@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route } from "react-router-dom";
 import AuthLayout from "../layouts/AuthLayout";
 import BoothLayout from "../layouts/BoothLayout";
 
+import CameraSettingsPage from "../pages/CameraSettingsPage";
 import SplashPage from "../pages/SplashPage";
 import LoginPage from "../pages/LoginPage";
 import DashboardPage from "../pages/DashboardPage";
@@ -20,9 +21,11 @@ export default function AppRouter() {
         <HashRouter>
 
             <Routes>
+                {/* override buat testing*/}
+                <Route path="/" element={<CameraSettingsPage />} />
 
                 <Route element={<AuthLayout />}>
-                    <Route path="/" element={<SplashPage />} />
+                    <Route path="/welcome" element={<SplashPage />} />
                     <Route path="/login" element={<LoginPage />} />
                 </Route>
 
