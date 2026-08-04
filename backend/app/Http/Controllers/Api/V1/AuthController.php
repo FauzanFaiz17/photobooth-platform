@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\UserResource;
+use App\Support\ApiResponse;
 use App\Services\AuthService;
 use Illuminate\Http\Request;
 
@@ -32,17 +33,10 @@ class AuthController extends Controller
 
         }
 
-        return response()->json([
-
-            'success'=>true,
-
-            'message'=>$result['message'],
-
-            'token'=>$result['token'],
-
-            'user'=>new UserResource($result['user'])
-
-        ]);
+        return ApiResponse::success([
+            'token' => $result['token'],
+            'user' => new UserResource($result['user']),
+        ], $result['message']);
 
     }
 

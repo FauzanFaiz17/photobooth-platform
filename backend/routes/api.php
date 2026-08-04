@@ -5,6 +5,11 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\PartnerController;
 
+
+// khsus desktop
+use App\Http\Controllers\Api\V1\Desktop\BootstrapController;
+use App\Http\Controllers\Api\V1\Desktop\DeviceController;
+
 Route::prefix('v1')->group(function () {
 
     /*
@@ -13,6 +18,23 @@ Route::prefix('v1')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::post('/login', [AuthController::class, 'login']);
+    // Route::post('/devices/verify', [DeviceController::class, 'verify']);
+
+
+    // khusus dekstop
+    Route::middleware('auth:sanctum')
+        ->prefix('desktop')
+        ->group(function () {
+
+            Route::get('/bootstrap', [BootstrapController::class, 'index']);
+
+        });
+
+    Route::prefix('v1/desktop')->group(function () {
+
+        Route::post('/devices/verify', [DeviceController::class, 'verify']);
+
+    });
 
     Route::middleware('auth:sanctum')->group(function () {
 
