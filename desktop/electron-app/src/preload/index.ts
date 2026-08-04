@@ -2,7 +2,10 @@ import { contextBridge, ipcRenderer  } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 // Custom APIs for renderer
-const api = {}
+const api = {
+  request: (endpoint: string, method = 'GET', body?: unknown) =>
+    ipcRenderer.invoke('api:request', { endpoint, method, body })
+}
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -20,7 +23,6 @@ if (process.contextIsolated) {
   // @ts-ignore (define in dts)
   window.api = api
 }
-
 
 contextBridge.exposeInMainWorld("storage", {
     get: (key: string) => ipcRenderer.invoke("store:get", key),
