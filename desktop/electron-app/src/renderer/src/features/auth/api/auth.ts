@@ -5,12 +5,7 @@ export interface LoginPayload {
     password: string;
 }
 
-export interface LoginResponse {
-    success: boolean;
-    message: string;
-    token: string;
-    user: any;
-}
+
 
 export interface LoginResult {
 

@@ -5,6 +5,12 @@ import { spawn, ChildProcess } from 'node:child_process';
 import http from 'node:http';
 import Store from 'electron-store';
 import icon from '../../resources/icon.png?asset';
+import {
+
+    registerDeviceIpc
+
+} from "./ipc/device";
+
 
 const store = new Store();
 
@@ -62,6 +68,8 @@ const waitForBackend = (
       setTimeout(() => waitForBackend(callback, retries - 1, interval), interval);
     }
   });
+
+  registerDeviceIpc();
 
   req.on('error', () => {
     setTimeout(() => waitForBackend(callback, retries - 1, interval), interval);

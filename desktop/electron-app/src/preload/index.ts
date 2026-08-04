@@ -1,6 +1,61 @@
 import { contextBridge, ipcRenderer  } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
+contextBridge.exposeInMainWorld(
+
+    "electron",
+
+    {
+
+        device: {
+
+            getFingerprint: () =>
+
+                ipcRenderer.invoke(
+
+                    "device:fingerprint"
+
+                )
+
+        }
+
+    }
+
+);
+
+
+export interface DeviceFingerprint {
+
+    deviceUuid: string;
+
+    windowsUuid: string;
+
+    cpuIdentifier: string;
+
+    macAddress: string;
+
+    appVersion: string;
+
+}
+
+declare global {
+
+    interface Window {
+
+        electron: {
+
+            device: {
+
+                getFingerprint(): Promise<DeviceFingerprint>;
+
+            };
+
+        };
+
+    }
+
+}
+
 // Custom APIs for renderer
 const api = {
   request: (endpoint: string, method = 'GET', body?: unknown) =>

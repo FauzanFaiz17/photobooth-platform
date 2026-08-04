@@ -1,7 +1,17 @@
+import { useEffect } from "react";
+
+import { bootstrap } from "./bootstrap/bootstrap";
+
 import AppRouter from "./routes/AppRouter";
 
-function App() {
-  return <AppRouter />;
-}
+export default function App() {
 
-export default App;
+    useEffect(() => {
+
+        bootstrap();
+
+    }, []);
+
+    return <AppRouter />;
+
+}
