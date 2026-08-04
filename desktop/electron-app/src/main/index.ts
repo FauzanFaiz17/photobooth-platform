@@ -18,7 +18,7 @@ const SERVER_URL = `http://127.0.0.1:${PORT}`;
 const startBackend = (): void => {
   const exePath = app.isPackaged
     ? join(process.resourcesPath, 'bin', 'main.exe')
-    : join(__dirname, '../../dist/main.exe');
+    : join(__dirname, '../../cameraAPI/main.exe');
 
   console.log(`[Electron] Spawning backend binary at: ${exePath}`);
 
