@@ -3,7 +3,7 @@ import { storage } from "../../../services/storage";
 
 export async function getDeviceUuid() {
 
-    let deviceUuid = await storage.get("device_uuid");
+    let deviceUuid = await storage.get<string>("device_uuid");
 
     if (!deviceUuid) {
 

@@ -1,6 +1,6 @@
 import { bootstrap } from "@/services/bootstrapService";
 
-import { useDeviceStore } from "@/stores/deviceStore";
+import { useDeviceStore } from "@/store/deviceStore";
 
 export async function restoreBootstrap() {
 

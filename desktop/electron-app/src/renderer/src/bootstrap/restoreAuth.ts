@@ -1,5 +1,5 @@
 import { authStorage } from "@/features/auth/services/authStorage";
-import { useAuthStore } from "@/stores/authStore";
+import { useAuthStore } from "@/store/authStore";
 
 export async function restoreAuth() {
 

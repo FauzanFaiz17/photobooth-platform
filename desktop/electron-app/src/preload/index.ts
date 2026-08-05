@@ -1,28 +1,5 @@
-import { contextBridge, ipcRenderer  } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-
-contextBridge.exposeInMainWorld(
-
-    "electron",
-
-    {
-
-        device: {
-
-            getFingerprint: () =>
-
-                ipcRenderer.invoke(
-
-                    "device:fingerprint"
-
-                )
-
-        }
-
-    }
-
-);
-
 
 export interface DeviceFingerprint {
 
@@ -38,11 +15,21 @@ export interface DeviceFingerprint {
 
 }
 
+// Gabungkan electronAPI bawaan @electron-toolkit/preload dengan
+// custom device bridge, supaya hanya satu kali expose untuk key "electron".
+const electron = {
+  ...electronAPI,
+  device: {
+    getFingerprint: (): Promise<DeviceFingerprint> =>
+      ipcRenderer.invoke('device:fingerprint')
+  }
+}
+
 declare global {
 
     interface Window {
 
-        electron: {
+        electron: typeof electronAPI & {
 
             device: {
 
@@ -67,18 +54,22 @@ const api = {
 // just add to the DOM global.
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
+    contextBridge.exposeInMainWorld('electron', electron)
     contextBridge.exposeInMainWorld('api', api)
   } catch (error) {
     console.error(error)
   }
 } else {
   // @ts-ignore (define in dts)
-  window.electron = electronAPI
+  window.electron = electron
   // @ts-ignore (define in dts)
   window.api = api
 }
 
+contextBridge.exposeInMainWorld("session", {
+    saveWebcamShots: (shots: string[]): Promise<{ directory: string }> =>
+        ipcRenderer.invoke("session:save-webcam-shots", shots),
+});
 contextBridge.exposeInMainWorld("storage", {
     get: (key: string) => ipcRenderer.invoke("store:get", key),
 

@@ -5,7 +5,7 @@ const TOKEN_KEY = "auth_token";
 export const authStorage = {
 
     async getToken() {
-        return await storage.get(TOKEN_KEY);
+        return await storage.get<string>(TOKEN_KEY);
     },
 
     async saveToken(token: string) {

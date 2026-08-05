@@ -19,7 +19,7 @@ export const deviceStorage = {
 
     async getFingerprint(): Promise<DeviceFingerprint | null> {
 
-        return await storage.get(
+        return await storage.get<DeviceFingerprint>(
             DEVICE_KEY
         );
 

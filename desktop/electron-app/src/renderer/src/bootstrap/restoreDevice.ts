@@ -1,6 +1,6 @@
 import { deviceStorage } from "@/features/devices/services/deviceStorage";
 
-import { useDeviceStore } from "@/stores/deviceStore";
+import { useDeviceStore } from "@/store/deviceStore";
 
 export async function restoreDevice() {
 

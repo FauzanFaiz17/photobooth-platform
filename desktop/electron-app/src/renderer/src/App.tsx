@@ -1,17 +1,10 @@
-import { useEffect } from "react";
-
-import { bootstrap } from "./bootstrap/bootstrap";
-
 import AppRouter from "./routes/AppRouter";
 
 export default function App() {
 
-    useEffect(() => {
-
-        bootstrap();
-
-    }, []);
-
+    // Proses autentikasi, device, dan bootstrap data dilakukan
+    // di SplashPage (route "/"), karena UI perlu menunggu hasilnya
+    // sebelum memutuskan halaman tujuan (login vs dashboard).
     return <AppRouter />;
 
 }

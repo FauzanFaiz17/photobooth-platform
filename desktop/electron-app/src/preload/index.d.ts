@@ -18,3 +18,10 @@ declare global {
         storage: StorageAPI;
     }
 }
+declare global {
+    interface Window {
+        session: {
+            saveWebcamShots(shots: string[]): Promise<{ directory: string }>;
+        };
+    }
+}

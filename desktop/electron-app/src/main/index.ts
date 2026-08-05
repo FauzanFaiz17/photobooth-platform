@@ -3,6 +3,7 @@ import { join, dirname } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { spawn, ChildProcess } from 'node:child_process';
 import http from 'node:http';
+import { mkdir, writeFile } from 'node:fs/promises';
 import Store from 'electron-store';
 import icon from '../../resources/icon.png?asset';
 import {
@@ -68,8 +69,6 @@ const waitForBackend = (
       setTimeout(() => waitForBackend(callback, retries - 1, interval), interval);
     }
   });
-
-  registerDeviceIpc();
 
   req.on('error', () => {
     setTimeout(() => waitForBackend(callback, retries - 1, interval), interval);
@@ -146,6 +145,23 @@ app.whenReady().then(() => {
   ipcMain.handle('store:delete', (_, key) => {
     store.delete(key);
   });
+
+  ipcMain.handle('session:save-webcam-shots', async (_, shots: string[]) => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const directory = join(app.getPath('pictures'), 'Photobooth', timestamp);
+
+    await mkdir(directory, { recursive: true });
+
+    await Promise.all(shots.map((dataUrl, index) => {
+      const base64 = dataUrl.replace(/^data:image\/(png|jpeg);base64,/, '');
+      return writeFile(join(directory, `raw-${String(index + 1).padStart(2, '0')}.png`), Buffer.from(base64, 'base64'));
+    }));
+
+    return { directory };
+  });
+  // Didaftarkan sekali saja saat app siap, bukan di dalam
+  // waitForBackend() yang bisa dipanggil berulang kali (retry loop).
+  registerDeviceIpc();
 
   /**
    * Universal API Gateway Handler

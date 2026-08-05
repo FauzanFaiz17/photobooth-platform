@@ -1,7 +1,8 @@
 export const storage = {
 
-    async get(key: string) {
-        return await window.storage.get(key);
+    async get<T = unknown>(key: string): Promise<T | null> {
+        const value = await window.storage.get(key);
+        return (value ?? null) as T | null;
     },
 
     async set(key: string, value: unknown) {

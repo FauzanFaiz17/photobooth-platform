@@ -1,5 +1,6 @@
 import axios from "axios";
 import { useAuthStore } from "../store/authStore";
+import { useDeviceStore } from "../store/deviceStore";
 
 const api = axios.create({
 
@@ -16,6 +17,15 @@ api.interceptors.request.use((config) => {
     if (token) {
 
         config.headers.Authorization = `Bearer ${token}`;
+
+    }
+
+    const deviceUuid =
+        useDeviceStore.getState().fingerprint?.deviceUuid;
+
+    if (deviceUuid) {
+
+        config.headers["X-Device-UUID"] = deviceUuid;
 
     }
 
