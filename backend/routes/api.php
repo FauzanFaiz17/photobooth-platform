@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\BoothController;
 // khusus desktop
 use App\Http\Controllers\Api\V1\Desktop\BootstrapController;
 use App\Http\Controllers\Api\V1\Desktop\DeviceController;
+use App\Http\Controllers\Api\V1\Desktop\PhotoSessionController;
 
 Route::prefix('v1')->group(function () {
 
@@ -29,6 +30,9 @@ Route::prefix('v1')->group(function () {
         ->group(function () {
 
             Route::get('/bootstrap', [BootstrapController::class, 'index']);
+            Route::post('/photo-sessions', [PhotoSessionController::class, 'store']);
+            Route::post('/photo-sessions/{photoSession}/media', [PhotoSessionController::class, 'media']);
+            Route::post('/photo-sessions/{photoSession}/complete', [PhotoSessionController::class, 'complete']);
 
         });
 
