@@ -4,9 +4,11 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\PartnerController;
+use App\Http\Controllers\Api\V1\SubscriptionPlanController;
 use App\Http\Controllers\Api\V1\EventController;
+use App\Http\Controllers\Api\V1\BoothController;
 
-// khsus desktop
+// khusus desktop
 use App\Http\Controllers\Api\V1\Desktop\BootstrapController;
 use App\Http\Controllers\Api\V1\Desktop\DeviceController;
 
@@ -30,7 +32,7 @@ Route::prefix('v1')->group(function () {
 
         });
 
-    Route::prefix('v1/desktop')->group(function () {
+    Route::prefix('desktop')->group(function () {
 
         Route::post('/devices/verify', [DeviceController::class, 'verify']);
 
