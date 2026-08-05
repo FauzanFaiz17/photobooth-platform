@@ -1,138 +1,262 @@
-import { ChevronLeft, ChevronRight, Search } from "lucide-react"
-import { useMemo, useState, type ReactElement } from "react"
-import { Link } from "react-router-dom"
-
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { kioskCatalog } from "./kiosk-catalog-data"
-import { formatKioskCurrency, formatKioskDate } from "./kiosk-catalog-utils"
+  Building2,
+  CalendarDays,
+  CircleAlert,
+  Mail,
+  MapPin,
+  Phone,
+  RefreshCw,
+} from "lucide-react"
+import { useCallback, useEffect, useState, type ReactElement } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
 
-const pageSize = 5
+import { PartnerStatusBadge } from "@/components/partner-management/partner-status-badge"
+import {
+  createPartnerInitials,
+  formatPartnerDate,
+  formatPartnerDateTime,
+  getPartnerDisplayName,
+  getPartnerPlanName,
+} from "@/components/partner-management/partner-formatters"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useAuth } from "@/features/auth/auth-context"
+import {
+  getPartners,
+  resolvePartnerLogoUrl,
+} from "@/features/partners/partner-service"
+import type { PartnerRecord } from "@/features/partners/partner.types"
+import { ApiError } from "@/lib/api-client"
 
-export function KioskListPage(): ReactElement {
-  const [query, setQuery] = useState("")
-  const [page, setPage] = useState(1)
+const KIOSK_PATH = "/admin/kiosk"
+type LoadState = "loading" | "success" | "error"
 
-  const filteredKiosks = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase("id-ID")
-    if (!normalizedQuery) return kioskCatalog
-    return kioskCatalog.filter((kiosk) =>
-      kiosk.name.toLocaleLowerCase("id-ID").includes(normalizedQuery)
-    )
-  }, [query])
-
-  const totalPages = Math.max(1, Math.ceil(filteredKiosks.length / pageSize))
-  const currentPage = Math.min(page, totalPages)
-  const startIndex = (currentPage - 1) * pageSize
-  const visibleKiosks = filteredKiosks.slice(startIndex, startIndex + pageSize)
-  const rangeStart = filteredKiosks.length === 0 ? 0 : startIndex + 1
-  const rangeEnd = Math.min(startIndex + pageSize, filteredKiosks.length)
+function KioskCard({ kiosk }: { readonly kiosk: PartnerRecord }) {
+  const displayName = getPartnerDisplayName(kiosk)
+  const logoUrl = resolvePartnerLogoUrl(kiosk.logo)
 
   return (
-    <div className="min-w-0 p-4 sm:p-6 lg:p-8">
-      <Card className="min-w-0 shadow-sm">
-        <CardHeader className="gap-4 sm:grid-cols-[1fr_minmax(16rem,22rem)] sm:items-center">
-          <CardTitle className="text-2xl font-semibold tracking-tight">
-            <h1>Daftar Kiosk</h1>
-          </CardTitle>
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 opacity-60"
-              aria-hidden="true"
-            />
-            <Input
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value)
-                setPage(1)
-              }}
-              className="h-11 pl-9"
-              placeholder="Nama Kiosk"
-              aria-label="Cari nama kiosk"
-            />
+    <Card className="min-w-0">
+      <CardHeader className="border-b">
+        <div className="flex min-w-0 items-start gap-3">
+          <Avatar className="size-12">
+            {logoUrl && <AvatarImage src={logoUrl} alt={displayName} />}
+            <AvatarFallback className="font-semibold">
+              {createPartnerInitials(kiosk.company_name) || "KS"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <CardTitle className="truncate">
+              <h2>{displayName}</h2>
+            </CardTitle>
+            <CardDescription className="mt-1 truncate">
+              {kiosk.brand_name ? kiosk.company_name : `Kiosk #${kiosk.id}`}
+            </CardDescription>
           </div>
-        </CardHeader>
+          <PartnerStatusBadge status={kiosk.status} />
+        </div>
+      </CardHeader>
 
-        <CardContent className="space-y-6 px-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="pl-6">Nama Kiosk</TableHead>
-                <TableHead>Jumlah Frame</TableHead>
-                <TableHead>Lisensi</TableHead>
-                <TableHead>Harga Per Cetak</TableHead>
-                <TableHead>Tanggal Kedaluwarsa</TableHead>
-                <TableHead className="pr-6 text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visibleKiosks.length > 0 ? (
-                visibleKiosks.map((kiosk) => (
-                  <TableRow key={kiosk.id}>
-                    <TableCell className="pl-6 font-medium">{kiosk.name}</TableCell>
-                    <TableCell>{kiosk.frameCount} Frame</TableCell>
-                    <TableCell className="font-mono">{kiosk.license}</TableCell>
-                    <TableCell>{formatKioskCurrency(kiosk.pricePerPrint)}</TableCell>
-                    <TableCell>{formatKioskDate(kiosk.expiresAt)}</TableCell>
-                    <TableCell className="pr-6 text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        render={<Link to={`/kiosk/${kiosk.slug}`} />}
-                      >
-                        Lihat Detail
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-48 text-center">
-                    <p className="font-semibold">Kiosk tidak ditemukan</p>
-                    <p className="mt-1 text-sm opacity-70">
-                      Coba gunakan nama kiosk yang berbeda.
-                    </p>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+      <CardContent className="grid gap-4">
+        <div className="grid gap-3 text-sm">
+          <div className="flex min-w-0 items-start gap-3">
+            <Mail className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span className="min-w-0 break-all">{kiosk.email}</span>
+          </div>
+          <div className="flex min-w-0 items-start gap-3">
+            <Phone className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span>{kiosk.phone || "Nomor telepon belum diisi"}</span>
+          </div>
+          <div className="flex min-w-0 items-start gap-3">
+            <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span className="min-w-0 break-words">
+              {kiosk.address || "Alamat belum diisi"}
+            </span>
+          </div>
+        </div>
 
-          <div className="flex flex-col gap-3 px-6 pb-2 sm:flex-row sm:items-center sm:justify-end">
-            <p className="mr-2 text-sm tabular-nums opacity-70">
-              {rangeStart} – {rangeEnd} dari {filteredKiosks.length} data
+        <dl className="grid gap-3 border-t pt-4 sm:grid-cols-2">
+          <div>
+            <dt className="text-xs text-muted-foreground">Paket</dt>
+            <dd className="mt-1 font-medium">{getPartnerPlanName(kiosk)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-muted-foreground">Masa aktif</dt>
+            <dd className="mt-1 font-medium">
+              {kiosk.subscription
+                ? formatPartnerDate(kiosk.subscription.ends_at)
+                : "Tidak tersedia"}
+            </dd>
+          </div>
+        </dl>
+      </CardContent>
+
+      <CardFooter className="gap-2 text-xs text-muted-foreground">
+        <CalendarDays className="size-4" aria-hidden="true" />
+        Terdaftar {formatPartnerDateTime(kiosk.created_at)}
+      </CardFooter>
+    </Card>
+  )
+}
+
+function KioskLoadingState() {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Memuat kiosk" aria-busy="true">
+      {[0, 1, 2].map((item) => (
+        <Card key={item}>
+          <CardHeader className="border-b">
+            <div className="flex items-center gap-3">
+              <Skeleton className="size-12 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-5 w-36" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
+            <Skeleton className="h-4 w-4/5" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
+export function KioskListPage(): ReactElement {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { token, logout } = useAuth()
+  const [kiosks, setKiosks] = useState<ReadonlyArray<PartnerRecord>>([])
+  const [loadState, setLoadState] = useState<LoadState>("loading")
+  const [errorMessage, setErrorMessage] = useState("")
+  const [retryKey, setRetryKey] = useState(0)
+
+  const handleUnauthorized = useCallback(async () => {
+    await logout()
+    navigate("/login", { replace: true, state: { from: location } })
+  }, [location, logout, navigate])
+
+  useEffect(() => {
+    if (!token) return
+
+    const accessToken = token
+    const controller = new AbortController()
+
+    async function loadKiosks() {
+      setLoadState("loading")
+      setErrorMessage("")
+
+      try {
+        // ponytail: one request covers the current kiosk count; paginate beyond 100.
+        const response = await getPartners(
+          accessToken,
+          {
+            sort: "company_name",
+            direction: "asc",
+            per_page: 100,
+          },
+          controller.signal
+        )
+
+        if (controller.signal.aborted) return
+
+        setKiosks(response.data)
+        setLoadState("success")
+      } catch (error: unknown) {
+        if (controller.signal.aborted) return
+
+        if (error instanceof ApiError && error.status === 401) {
+          await handleUnauthorized()
+          return
+        }
+
+        if (error instanceof ApiError && error.status === 403) {
+          navigate("/admin/forbidden", {
+            replace: true,
+            state: { from: KIOSK_PATH },
+          })
+          return
+        }
+
+        setKiosks([])
+        setErrorMessage(
+          error instanceof ApiError
+            ? error.message
+            : "Tidak dapat terhubung ke server. Pastikan backend sedang berjalan."
+        )
+        setLoadState("error")
+      }
+    }
+
+    void loadKiosks()
+    return () => controller.abort()
+  }, [handleUnauthorized, navigate, retryKey, token])
+
+  return (
+    <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Kiosk</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {loadState === "success" ? `${kiosks.length} kiosk terdaftar` : "Memuat data kiosk"}
+          </p>
+        </div>
+      </header>
+
+      {loadState === "loading" && <KioskLoadingState />}
+
+      {loadState === "error" && (
+        <div className="grid min-h-72 place-items-center border-y px-6 py-12 text-center">
+          <div className="max-w-md">
+            <CircleAlert className="mx-auto size-9 text-destructive" aria-hidden="true" />
+            <h2 className="mt-4 text-lg font-semibold">Data kiosk gagal dimuat</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{errorMessage}</p>
+            <Button
+              variant="outline"
+              className="mt-5"
+              onClick={() => setRetryKey((value) => value + 1)}
+            >
+              <RefreshCw aria-hidden="true" />
+              Coba lagi
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {loadState === "success" && kiosks.length === 0 && (
+        <div className="grid min-h-72 place-items-center border-y px-6 py-12 text-center">
+          <div className="max-w-md">
+            <Building2 className="mx-auto size-9 text-muted-foreground" aria-hidden="true" />
+            <h2 className="mt-4 text-lg font-semibold">Belum ada kiosk</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Data kiosk akan muncul setelah partner tersedia di backend.
             </p>
-            <Button
-              variant="ghost"
-              disabled={currentPage <= 1}
-              onClick={() => setPage((value) => Math.max(1, value - 1))}
-            >
-              <ChevronLeft aria-hidden="true" />
-              Sebelumnya
-            </Button>
-            <Button size="icon" aria-label={`Halaman ${currentPage}`}>
-              {currentPage}
-            </Button>
-            <Button
-              variant="ghost"
-              disabled={currentPage >= totalPages}
-              onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
-            >
-              Berikutnya
-              <ChevronRight aria-hidden="true" />
-            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
+
+      {loadState === "success" && kiosks.length > 0 && (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Daftar kiosk">
+          {kiosks.map((kiosk) => (
+            <KioskCard key={kiosk.id} kiosk={kiosk} />
+          ))}
+        </section>
+      )}
     </div>
   )
 }

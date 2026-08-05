@@ -19,8 +19,9 @@ function parseLoginResponse(payload: unknown): LoginResponse {
     !isRecord(payload) ||
     payload.success !== true ||
     typeof payload.message !== "string" ||
-    typeof payload.token !== "string" ||
-    !isAuthUser(payload.user)
+    !isRecord(payload.data) ||
+    typeof payload.data.token !== "string" ||
+    !isAuthUser(payload.data.user)
   ) {
     throw new ApiError(
       "Format response login dari server tidak sesuai.",
@@ -31,8 +32,8 @@ function parseLoginResponse(payload: unknown): LoginResponse {
   return {
     success: true,
     message: payload.message,
-    token: payload.token,
-    user: payload.user,
+    token: payload.data.token,
+    user: payload.data.user,
   }
 }
 
