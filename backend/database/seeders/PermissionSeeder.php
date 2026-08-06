@@ -20,6 +20,8 @@ class PermissionSeeder extends Seeder
             'devices',
             'templates',
             'filters',
+            'camera_profiles',
+            'printer_profiles',
             'events',
             'vouchers',
             'payments',
@@ -46,15 +48,15 @@ class PermissionSeeder extends Seeder
                 Permission::updateOrCreate(
 
                     [
-                        'slug' => "{$module}.{$action}"
+                        'slug' => "{$module}.{$action}",
                     ],
 
                     [
-                        'name' => ucfirst($action) . ' ' . ucfirst($module),
+                        'name' => ucfirst($action).' '.ucfirst($module),
 
                         'module' => $module,
 
-                        'description' => ucfirst($action).' '.$module
+                        'description' => ucfirst($action).' '.$module,
 
                     ]
 

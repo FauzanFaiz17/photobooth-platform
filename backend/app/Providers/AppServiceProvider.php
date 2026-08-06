@@ -2,12 +2,20 @@
 
 namespace App\Providers;
 
-use App\Models\User;
-use App\Models\Partner;
+use App\Models\CameraProfile;
 use App\Models\Event;
-use App\Policies\UserPolicy;
-use App\Policies\PartnerPolicy;
+use App\Models\Filter;
+use App\Models\Partner;
+use App\Models\PrinterProfile;
+use App\Models\Template;
+use App\Models\User;
+use App\Policies\CameraProfilePolicy;
 use App\Policies\EventPolicy;
+use App\Policies\FilterPolicy;
+use App\Policies\PartnerPolicy;
+use App\Policies\PrinterProfilePolicy;
+use App\Policies\TemplatePolicy;
+use App\Policies\UserPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -37,8 +45,13 @@ class AppServiceProvider extends ServiceProvider
         );
 
         Gate::policy(
-            Event::class, 
+            Event::class,
             EventPolicy::class
         );
+
+        Gate::policy(Template::class, TemplatePolicy::class);
+        Gate::policy(Filter::class, FilterPolicy::class);
+        Gate::policy(CameraProfile::class, CameraProfilePolicy::class);
+        Gate::policy(PrinterProfile::class, PrinterProfilePolicy::class);
     }
 }

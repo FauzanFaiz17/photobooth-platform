@@ -3,26 +3,26 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use Illuminate\Http\Request;
 use App\Http\Requests\User\StoreUserRequest;
+use App\Http\Requests\User\UpdateUserRequest;
 use App\Http\Requests\User\UserIndexRequest;
 use App\Http\Resources\UserResource;
+use App\Models\User;
 use App\Services\UserService;
-
+use App\Support\ApiResponse;
 
 class UserController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-
     protected UserService $service;
 
     public function __construct(UserService $service)
     {
         $this->service = $service;
     }
+
     public function index(UserIndexRequest $request)
     {
         $this->authorize('viewAny', User::class);
@@ -35,7 +35,6 @@ class UserController extends Controller
         return UserResource::collection($users);
     }
 
-    
     /**
      * Store a newly created resource in storage.
      */
@@ -43,17 +42,17 @@ class UserController extends Controller
     {
         $this->authorize('create', User::class);
 
-        $user = $this->userService->create(
+        $user = $this->service->store(
             $request->validated(),
             $request->user()
         );
 
         return (new UserResource($user->load([
             'role',
-            'partner'
+            'partner',
         ])))
-        ->response()
-        ->setStatusCode(201);
+            ->response()
+            ->setStatusCode(201);
     }
 
     /**
@@ -71,7 +70,7 @@ class UserController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateUserRequest $request,User $user)
+    public function update(UpdateUserRequest $request, User $user)
     {
         $this->authorize('update', $user);
 
@@ -96,9 +95,6 @@ class UserController extends Controller
             request()->user()
         );
 
-        return response()->json([
-            'success' => true,
-            'message' => 'User deleted successfully.'
-        ]);
+        return ApiResponse::success(null, 'User deleted successfully.');
     }
 }

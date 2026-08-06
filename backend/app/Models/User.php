@@ -4,19 +4,18 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-
 
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'partner_id',
@@ -30,6 +29,7 @@ class User extends Authenticatable
         'last_login_at',
         'last_login_ip',
     ];
+
     /**
      * Get the attributes that should be cast.
      *
@@ -81,7 +81,7 @@ class User extends Authenticatable
 
     public function isPartner(): bool
     {
-        return !is_null($this->partner_id);
+        return ! is_null($this->partner_id);
     }
 
     public function belongsToPartner(int $partnerId): bool
@@ -95,7 +95,7 @@ class User extends Authenticatable
             return true;
         }
 
-        if (!$this->belongsToPartner($target->partner_id)) {
+        if (! $this->belongsToPartner($target->partner_id)) {
             return false;
         }
 
@@ -116,14 +116,14 @@ class User extends Authenticatable
     {
         return $query->where(function ($q) use ($keyword) {
             $q->where('name', 'like', "%{$keyword}%")
-            ->orWhere('email', 'like', "%{$keyword}%");
+                ->orWhere('email', 'like', "%{$keyword}%");
         });
     }
 
     public function getAvatarUrlAttribute(): ?string
     {
         return $this->avatar_path
-            ? asset('storage/' . $this->avatar_path)
+            ? asset('storage/'.$this->avatar_path)
             : null;
     }
 }

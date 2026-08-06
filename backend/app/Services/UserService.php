@@ -4,9 +4,9 @@ namespace App\Services;
 
 use App\Models\Role;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class UserService
 {
@@ -18,28 +18,28 @@ class UserService
         $query = User::query()
             ->with(['role', 'partner']);
 
-        if (!$authUser->isSuperAdmin()) {
+        if (! $authUser->isSuperAdmin()) {
             $query->where('partner_id', $authUser->partner_id);
         }
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
                 $q->where('name', 'like', "%{$filters['search']}%")
                     ->orWhere('email', 'like', "%{$filters['search']}%");
             });
         }
 
-        if (!empty($filters['role'])) {
+        if (! empty($filters['role'])) {
             $query->where('role_id', $filters['role']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
         if (
             $authUser->isSuperAdmin() &&
-            !empty($filters['partner'])
+            ! empty($filters['partner'])
         ) {
             $query->where('partner_id', $filters['partner']);
         }
@@ -58,7 +58,7 @@ class UserService
     {
         return $user->load([
             'role',
-            'partner'
+            'partner',
         ]);
     }
 
@@ -81,7 +81,7 @@ class UserService
             | Check Role Hierarchy
             |--------------------------------------------------------------------------
             */
-            if (!$authUser->canManageRole($role)) {
+            if (! $authUser->canManageRole($role)) {
                 throw new AuthorizationException(
                     'You are not allowed to assign this role.'
                 );
@@ -92,7 +92,7 @@ class UserService
             | Multi Tenant
             |--------------------------------------------------------------------------
             */
-            if (!$authUser->isSuperAdmin()) {
+            if (! $authUser->isSuperAdmin()) {
 
                 // Partner Owner / Manager tidak boleh memilih partner lain
                 $data['partner_id'] = $authUser->partner_id;
@@ -102,12 +102,11 @@ class UserService
                 && $role->slug !== 'super-admin'
             ) {
 
-                throw new \InvalidArgumentException(
-                    'Partner is required.'
-                );
+                throw ValidationException::withMessages([
+                    'partner_id' => 'Partner is required.',
+                ]);
 
             }
-
 
             /*
             |--------------------------------------------------------------------------
@@ -125,37 +124,61 @@ class UserService
 
             return $user->load([
                 'role',
-                'partner'
+                'partner',
             ]);
         });
     }
-    
+
     public function update(
         User $target,
         array $data,
         User $auth
-    ): User
-    {
+    ): User {
         return DB::transaction(function () use ($target, $data, $auth) {
+            if (isset($data['role_id'])) {
+                $role = Role::findOrFail($data['role_id']);
 
-            /*
-             * Jika role diubah, pastikan user yang sedang login
-             * memiliki hak untuk mengubah role tersebut.
-             */
-            
+                if (! $auth->canManageRole($role)) {
+                    throw new AuthorizationException(
+                        'You are not allowed to assign this role.'
+                    );
+                }
+            }
 
-            /*
-             * Jika partner diubah, pastikan user yang sedang login
-             * memiliki hak untuk mengubah partner tersebut.
-             */
-            
+            if (! $auth->isSuperAdmin()) {
+                $data['partner_id'] = $auth->partner_id;
+            } elseif (array_key_exists('partner_id', $data)) {
+                $roleId = $data['role_id'] ?? $target->role_id;
+                $role = Role::findOrFail($roleId);
+
+                if ($role->slug !== 'super-admin' && empty($data['partner_id'])) {
+                    throw ValidationException::withMessages([
+                        'partner_id' => 'Partner is required.',
+                    ]);
+                }
+            }
+
+            if (empty($data['password'])) {
+                unset($data['password']);
+            }
 
             $target->update($data);
 
             return $target->load([
                 'role',
-                'partner'
+                'partner',
             ]);
         });
+    }
+
+    public function destroy(User $target, User $auth): void
+    {
+        if ($target->is($auth)) {
+            throw ValidationException::withMessages([
+                'user' => 'You cannot delete your own account.',
+            ]);
+        }
+
+        $target->delete();
     }
 }

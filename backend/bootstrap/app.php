@@ -1,14 +1,14 @@
 <?php
 
-use Illuminate\Foundation\Application;
-use Illuminate\Foundation\Configuration\Exceptions;
-use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Request;
+use App\Http\Middleware\PermissionMiddleware;
+use App\Support\ApiResponse;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Validation\ValidationException;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Illuminate\Auth\AuthenticationException;
-
+use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -19,7 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function ($middleware) {
         $middleware->alias([
-            'permission' => \App\Http\Middleware\PermissionMiddleware::class,
+            'permission' => PermissionMiddleware::class,
         ]);
     })
     ->withExceptions(function ($exceptions) {
@@ -29,11 +29,11 @@ return Application::configure(basePath: dirname(__DIR__))
             Request $request
         ) {
 
-            if (!$request->is('api/*')) {
+            if (! $request->is('api/*')) {
                 return null;
             }
 
-            return \App\Support\ApiResponse::error(
+            return ApiResponse::error(
                 'Validation failed.',
                 $e->errors(),
                 422
@@ -46,11 +46,11 @@ return Application::configure(basePath: dirname(__DIR__))
             Request $request
         ) {
 
-            if (!$request->is('api/*')) {
+            if (! $request->is('api/*')) {
                 return null;
             }
 
-            return \App\Support\ApiResponse::error(
+            return ApiResponse::error(
                 $e->getMessage(),
                 null,
                 403
@@ -63,11 +63,11 @@ return Application::configure(basePath: dirname(__DIR__))
             Request $request
         ) {
 
-            if (!$request->is('api/*')) {
+            if (! $request->is('api/*')) {
                 return null;
             }
 
-            return \App\Support\ApiResponse::error(
+            return ApiResponse::error(
                 'Resource not found.',
                 null,
                 404
@@ -80,14 +80,31 @@ return Application::configure(basePath: dirname(__DIR__))
             Request $request
         ) {
 
-            if (!$request->is('api/*')) {
+            if (! $request->is('api/*')) {
                 return null;
             }
 
-            return \App\Support\ApiResponse::error(
+            return ApiResponse::error(
                 'Unauthenticated.',
                 null,
                 401
+            );
+
+        });
+
+        $exceptions->render(function (
+            HttpExceptionInterface $e,
+            Request $request
+        ) {
+
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            return ApiResponse::error(
+                $e->getMessage() ?: 'Request failed.',
+                null,
+                $e->getStatusCode()
             );
 
         });
@@ -97,11 +114,11 @@ return Application::configure(basePath: dirname(__DIR__))
             Request $request
         ) {
 
-            if (!$request->is('api/*')) {
+            if (! $request->is('api/*')) {
                 return null;
             }
 
-            return \App\Support\ApiResponse::error(
+            return ApiResponse::error(
 
                 app()->isProduction()
                     ? 'Internal Server Error.'

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Booth;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreBoothRequest extends FormRequest
 {
@@ -12,7 +13,7 @@ class StoreBoothRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -24,27 +25,30 @@ class StoreBoothRequest extends FormRequest
     {
         return [
 
-            'partner_id'=>[
+            'partner_id' => [
+                Rule::requiredIf(
+                    fn () => $this->user()?->isSuperAdmin() === true
+                ),
                 'nullable',
-                'exists:partners,id'
+                'exists:partners,id',
             ],
 
-            'name'=>[
+            'name' => [
                 'required',
                 'string',
-                'max:150'
+                'max:150',
             ],
 
-            'location'=>[
+            'location' => [
                 'nullable',
                 'string',
-                'max:255'
+                'max:255',
             ],
 
-            'status'=>[
+            'status' => [
                 'nullable',
-                'in:active,maintenance,inactive'
-            ]
+                'in:active,maintenance,inactive',
+            ],
 
         ];
     }

@@ -3,19 +3,23 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Http\Requests\Booth\BoothIndexRequest;
+use App\Http\Requests\Booth\StoreBoothRequest;
+use App\Http\Requests\Booth\UpdateBoothRequest;
+use App\Http\Resources\BoothResource;
+use App\Models\Booth;
+use App\Services\BoothService;
+use App\Support\ApiResponse;
 
 class BoothController extends Controller
 {
     public function __construct(
         protected BoothService $service
-    ){}
-
+    ) {}
 
     public function index(
         BoothIndexRequest $request
-    )
-    {
+    ) {
         $this->authorize(
             'viewAny',
             Booth::class
@@ -33,8 +37,7 @@ class BoothController extends Controller
 
     public function show(
         Booth $booth
-    )
-    {
+    ) {
         $this->authorize(
             'view',
             $booth
@@ -49,8 +52,7 @@ class BoothController extends Controller
 
     public function store(
         StoreBoothRequest $request
-    )
-    {
+    ) {
         $this->authorize(
             'create',
             Booth::class
@@ -67,17 +69,14 @@ class BoothController extends Controller
             )
 
         ))
-
-        ->response()
-
-        ->setStatusCode(201);
+            ->response()
+            ->setStatusCode(201);
     }
 
     public function update(
         UpdateBoothRequest $request,
         Booth $booth
-    )
-    {
+    ) {
         $this->authorize(
             'update',
             $booth
@@ -100,8 +99,7 @@ class BoothController extends Controller
 
     public function destroy(
         Booth $booth
-    )
-    {
+    ) {
         $this->authorize(
             'delete',
             $booth
@@ -111,12 +109,9 @@ class BoothController extends Controller
             $booth
         );
 
-        return response()->json([
-
-            'message'=>
-
+        return ApiResponse::success(
+            null,
             'Booth deleted successfully.'
-
-        ]);
+        );
     }
 }

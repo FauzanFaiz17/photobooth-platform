@@ -50,6 +50,27 @@ class EventResource extends JsonResource
             'created_at' => $this->created_at,
 
             'updated_at' => $this->updated_at,
+
+            'configuration' => $this->when(
+                $this->relationLoaded('templateSnapshot')
+                && $this->relationLoaded('filterSnapshot')
+                && $this->relationLoaded('cameraSnapshot')
+                && $this->relationLoaded('printerSnapshot'),
+                fn () => [
+                    'template' => new TemplateSnapshotResource(
+                        $this->templateSnapshot
+                    ),
+                    'filter' => new FilterSnapshotResource(
+                        $this->filterSnapshot
+                    ),
+                    'camera' => new CameraSnapshotResource(
+                        $this->cameraSnapshot
+                    ),
+                    'printer' => new PrinterSnapshotResource(
+                        $this->printerSnapshot
+                    ),
+                ]
+            ),
         ];
     }
 }

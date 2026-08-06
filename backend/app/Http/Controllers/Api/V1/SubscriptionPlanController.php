@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Subscription\StoreSubscriptionPlanRequest;
+use App\Http\Requests\Subscription\SubscriptionPlanIndexRequest;
+use App\Http\Requests\Subscription\UpdateSubscriptionPlanRequest;
+use App\Http\Resources\SubscriptionPlanResource;
 use App\Models\SubscriptionPlan;
 use App\Services\SubscriptionPlanService;
-use App\Http\Controllers\Controller;
-use App\Http\Resources\SubscriptionPlanResource;
-use App\Http\Requests\Subscription\StoreSubscriptionPlanRequest;
-use App\Http\Requests\Subscription\UpdateSubscriptionPlanRequest;
-use App\Http\Requests\Subscription\SubscriptionPlanIndexRequest;
+use App\Support\ApiResponse;
 
 class SubscriptionPlanController extends Controller
 {
@@ -18,8 +19,7 @@ class SubscriptionPlanController extends Controller
 
     public function index(
         SubscriptionPlanIndexRequest $request
-    )
-    {
+    ) {
         $this->authorize(
             'viewAny',
             SubscriptionPlan::class
@@ -34,8 +34,7 @@ class SubscriptionPlanController extends Controller
 
     public function show(
         SubscriptionPlan $subscriptionPlan
-    )
-    {
+    ) {
         $this->authorize(
             'view',
             $subscriptionPlan
@@ -50,8 +49,7 @@ class SubscriptionPlanController extends Controller
 
     public function store(
         StoreSubscriptionPlanRequest $request
-    )
-    {
+    ) {
         $this->authorize(
             'create',
             SubscriptionPlan::class
@@ -62,15 +60,14 @@ class SubscriptionPlanController extends Controller
                 $request->validated()
             )
         ))
-        ->response()
-        ->setStatusCode(201);
+            ->response()
+            ->setStatusCode(201);
     }
 
     public function update(
         UpdateSubscriptionPlanRequest $request,
         SubscriptionPlan $subscriptionPlan
-    )
-    {
+    ) {
         $this->authorize(
             'update',
             $subscriptionPlan
@@ -86,8 +83,7 @@ class SubscriptionPlanController extends Controller
 
     public function destroy(
         SubscriptionPlan $subscriptionPlan
-    )
-    {
+    ) {
         $this->authorize(
             'delete',
             $subscriptionPlan
@@ -97,8 +93,9 @@ class SubscriptionPlanController extends Controller
             $subscriptionPlan
         );
 
-        return response()->json([
-            'message' => 'Subscription plan deleted successfully.'
-        ]);
+        return ApiResponse::success(
+            null,
+            'Subscription plan deleted successfully.'
+        );
     }
 }

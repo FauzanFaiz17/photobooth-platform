@@ -13,11 +13,20 @@ class BootstrapRequest extends FormRequest
 
     public function rules(): array
     {
-        return [];
+        return [
+            'device_uuid' => ['required', 'uuid'],
+        ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'device_uuid' => $this->header('X-Device-UUID'),
+        ]);
     }
 
     public function deviceUuid(): ?string
     {
-        return $this->header('X-Device-UUID');
+        return $this->validated('device_uuid');
     }
 }

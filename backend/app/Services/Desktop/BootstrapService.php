@@ -3,6 +3,7 @@
 namespace App\Services\Desktop;
 
 use App\Models\User;
+use Illuminate\Validation\ValidationException;
 
 class BootstrapService
 {
@@ -12,16 +13,24 @@ class BootstrapService
 
     public function handle(
         User $user,
-        ?string $deviceUuid
+        string $deviceUuid
     ): array {
+        $device = $this->deviceService->findByUuid($deviceUuid);
 
-        $device = null;
+        if (! $device || $device->status !== 'active') {
+            throw ValidationException::withMessages([
+                'device_uuid' => 'Active device was not found.',
+            ]);
+        }
 
-        if ($deviceUuid) {
+        if ($device->partner_id !== $user->partner_id) {
+            abort(403, 'The device does not belong to this user.');
+        }
 
-            $device = $this->deviceService
-                ->findByUuid($deviceUuid);
-
+        if (! $device->booth || $device->booth->status !== 'active') {
+            throw ValidationException::withMessages([
+                'device_uuid' => 'The device must be assigned to an active booth.',
+            ]);
         }
 
         return [
@@ -30,9 +39,9 @@ class BootstrapService
 
             'device' => $device,
 
-            'partner' => $device?->partner,
+            'partner' => $device->partner,
 
-            'booth' => $device?->booth,
+            'booth' => $device->booth,
 
             'application' => [
 

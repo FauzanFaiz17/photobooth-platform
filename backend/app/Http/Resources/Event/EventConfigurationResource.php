@@ -22,6 +22,8 @@ class EventConfigurationResource extends JsonResource
 
                 'event_code' => $this->event_code,
 
+                'status' => $this->status,
+
                 'event_date' => $this->event_date,
 
                 'start_time' => $this->start_time,
@@ -31,6 +33,16 @@ class EventConfigurationResource extends JsonResource
                 'price' => (float) $this->price,
 
                 'print_count_limit' => $this->print_count_limit,
+
+                'partner' => [
+                    'id' => $this->partner?->id,
+                    'company_name' => $this->partner?->company_name,
+                ],
+
+                'booth' => [
+                    'id' => $this->booth?->id,
+                    'name' => $this->booth?->name,
+                ],
 
             ],
 

@@ -2,17 +2,14 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Models\Partner;
-
-use App\Services\PartnerService;
-
-use App\Http\Resources\PartnerResource;
-
 use App\Http\Controllers\Controller;
-
+use App\Http\Requests\Partner\PartnerIndexRequest;
 use App\Http\Requests\Partner\StorePartnerRequest;
 use App\Http\Requests\Partner\UpdatePartnerRequest;
-use App\Http\Requests\Partner\PartnerIndexRequest;
+use App\Http\Resources\PartnerResource;
+use App\Models\Partner;
+use App\Services\PartnerService;
+use App\Support\ApiResponse;
 
 class PartnerController extends Controller
 {
@@ -22,8 +19,7 @@ class PartnerController extends Controller
 
     public function index(
         PartnerIndexRequest $request
-    )
-    {
+    ) {
         $this->authorize(
             'viewAny',
             Partner::class
@@ -32,7 +28,8 @@ class PartnerController extends Controller
         return PartnerResource::collection(
 
             $this->service->index(
-                $request->validated()
+                $request->validated(),
+                $request->user()
             )
 
         );
@@ -40,8 +37,7 @@ class PartnerController extends Controller
 
     public function show(
         Partner $partner
-    )
-    {
+    ) {
         $this->authorize(
             'view',
             $partner
@@ -56,8 +52,7 @@ class PartnerController extends Controller
 
     public function store(
         StorePartnerRequest $request
-    )
-    {
+    ) {
         $this->authorize(
             'create',
             Partner::class
@@ -68,15 +63,14 @@ class PartnerController extends Controller
                 $request->validated()
             )
         ))
-        ->response()
-        ->setStatusCode(201);
+            ->response()
+            ->setStatusCode(201);
     }
 
     public function update(
         UpdatePartnerRequest $request,
         Partner $partner
-    )
-    {
+    ) {
         $this->authorize(
             'update',
             $partner
@@ -98,8 +92,6 @@ class PartnerController extends Controller
 
         $this->service->destroy($partner);
 
-        return response()->json([
-            'message' => 'Partner deleted successfully.'
-        ]);
+        return ApiResponse::success(null, 'Partner deleted successfully.');
     }
 }

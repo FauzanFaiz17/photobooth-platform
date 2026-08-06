@@ -5,31 +5,29 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\UserResource;
-use App\Support\ApiResponse;
 use App\Services\AuthService;
+use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
-
     protected $authService;
 
     public function __construct(AuthService $authService)
     {
-        $this->authService=$authService;
+        $this->authService = $authService;
     }
 
     public function login(LoginRequest $request)
     {
 
-        $result=$this->authService->login(
+        $result = $this->authService->login(
             $request->validated(),
             $request->ip()
         );
 
-        if(!$result['success']){
-
-            return response()->json($result,401);
+        if (! $result['success']) {
+            return ApiResponse::error($result['message'], null, 401);
 
         }
 
@@ -43,13 +41,12 @@ class AuthController extends Controller
     public function profile(Request $request)
     {
 
-        return new UserResource(
-
-            $request->user()->load([
+        return ApiResponse::success(
+            new UserResource($request->user()->load([
                 'role',
-                'partner'
-            ])
-
+                'partner',
+            ])),
+            'Profile loaded.'
         );
 
     }
@@ -61,14 +58,7 @@ class AuthController extends Controller
             ->currentAccessToken()
             ->delete();
 
-        return response()->json([
-
-            'success'=>true,
-
-            'message'=>'Logout berhasil'
-
-        ]);
+        return ApiResponse::success(null, 'Logout berhasil');
 
     }
-
 }

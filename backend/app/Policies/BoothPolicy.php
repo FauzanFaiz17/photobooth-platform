@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Booth;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class BoothPolicy
 {
@@ -18,6 +17,10 @@ class BoothPolicy
 
     public function view(User $user, Booth $booth)
     {
+        if (! $user->hasPermission('booths.view')) {
+            return false;
+        }
+
         if ($user->isSuperAdmin()) {
             return true;
         }
@@ -32,6 +35,10 @@ class BoothPolicy
 
     public function update(User $user, Booth $booth)
     {
+        if (! $user->hasPermission('booths.update')) {
+            return false;
+        }
+
         if ($user->isSuperAdmin()) {
             return true;
         }
@@ -41,6 +48,10 @@ class BoothPolicy
 
     public function delete(User $user, Booth $booth)
     {
+        if (! $user->hasPermission('booths.delete')) {
+            return false;
+        }
+
         if ($user->isSuperAdmin()) {
             return true;
         }

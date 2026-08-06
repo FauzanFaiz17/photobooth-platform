@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Partner;
+use Illuminate\Validation\ValidationException;
+
 class SubscriptionLimitService
 {
     /**
@@ -11,8 +14,6 @@ class SubscriptionLimitService
     {
         //
     }
-
-
 
     public function activeSubscription(Partner $partner)
     {
@@ -31,14 +32,13 @@ class SubscriptionLimitService
 
     public function remainingDays(
         Partner $partner
-    ): int
-    {
+    ): int {
 
         $subscription = $this->activeSubscription(
             $partner
         );
 
-        if (!$subscription) {
+        if (! $subscription) {
 
             return 0;
 
@@ -53,14 +53,13 @@ class SubscriptionLimitService
 
     public function isExpired(
         Partner $partner
-    ): bool
-    {
+    ): bool {
 
         $subscription = $this->activeSubscription(
             $partner
         );
 
-        if (!$subscription) {
+        if (! $subscription) {
 
             return true;
 
@@ -72,32 +71,29 @@ class SubscriptionLimitService
 
     }
 
-    
-
     public function ensureSubscriptionIsActive(
         Partner $partner
-    ): void
-    {
+    ): void {
         $subscription = $this->activeSubscription($partner);
 
-        if (!$subscription) {
+        if (! $subscription) {
 
             throw ValidationException::withMessages([
-                'subscription' => 'Partner does not have an active subscription.'
+                'subscription' => 'Partner does not have an active subscription.',
             ]);
         }
 
         if ($subscription->status !== 'active') {
 
             throw ValidationException::withMessages([
-                'subscription' => 'Subscription is not active.'
+                'subscription' => 'Subscription is not active.',
             ]);
         }
 
         if ($subscription->ends_at->isPast()) {
 
             throw ValidationException::withMessages([
-                'subscription' => 'Subscription has expired.'
+                'subscription' => 'Subscription has expired.',
             ]);
         }
     }
@@ -106,7 +102,7 @@ class SubscriptionLimitService
     {
         $plan = $this->currentPlan($partner);
 
-        if (!$plan) {
+        if (! $plan) {
             return [
                 'used' => 0,
                 'limit' => 0,
@@ -125,15 +121,14 @@ class SubscriptionLimitService
             'remaining' => max(
                 0,
                 $plan->max_booths - $used
-            )
+            ),
 
         ];
     }
 
     public function ensureCanCreateBooth(
         Partner $partner
-    ): void
-    {
+    ): void {
         $this->ensureSubscriptionIsActive($partner);
 
         $usage = $this->boothUsage($partner);
@@ -141,10 +136,14 @@ class SubscriptionLimitService
         if ($usage['used'] >= $usage['limit']) {
 
             throw ValidationException::withMessages([
-
-                'booth' => 'Maximum booth limit reached.'
+                'booth' => 'Maximum booth limit reached.',
 
             ]);
         }
+    }
+
+    public function ensureCanCreateEvent(Partner $partner): void
+    {
+        $this->ensureSubscriptionIsActive($partner);
     }
 }

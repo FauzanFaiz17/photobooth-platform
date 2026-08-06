@@ -25,6 +25,11 @@ class UpdateEventRequest extends FormRequest
             'price' => ['nullable', 'numeric', 'min:0'],
 
             'print_count_limit' => ['nullable', 'integer', 'min:0'],
+
+            'status' => [
+                'required',
+                'in:draft,scheduled,ongoing,completed,cancelled',
+            ],
         ];
     }
 }

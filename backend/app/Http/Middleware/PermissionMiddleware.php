@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\ApiResponse;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,19 +17,19 @@ class PermissionMiddleware
 
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
 
-            return response()->json([
-                'message' => 'Unauthenticated.'
-            ],401);
+            return ApiResponse::error('Unauthenticated.', null, 401);
 
         }
 
-        if (!$user->hasPermission($permission)) {
+        if (! $user->hasPermission($permission)) {
 
-            return response()->json([
-                'message' => 'You do not have permission.'
-            ],403);
+            return ApiResponse::error(
+                'You do not have permission.',
+                null,
+                403
+            );
 
         }
 

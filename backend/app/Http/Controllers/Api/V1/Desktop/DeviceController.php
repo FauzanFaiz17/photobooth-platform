@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Desktop;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Desktop\DeviceVerifyRequest;
+use App\Http\Resources\DeviceResource;
 use App\Services\Desktop\DeviceService;
 use App\Support\ApiResponse;
 
@@ -15,11 +16,11 @@ class DeviceController extends Controller
 
     public function verify(DeviceVerifyRequest $request)
     {
-        $device = $this->deviceService->verify(
+        $device = $this->deviceService->findByUuid(
             $request->device_uuid
         );
 
-        if (!$device) {
+        if (! $device) {
 
             return ApiResponse::error(
                 'Perangkat belum terdaftar.',
@@ -41,7 +42,7 @@ class DeviceController extends Controller
 
         return ApiResponse::success(
 
-            $device,
+            new DeviceResource($device),
 
             'Perangkat berhasil diverifikasi.'
 

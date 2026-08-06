@@ -1,17 +1,21 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\AuthController;
-use App\Http\Controllers\Api\V1\UserController;
-use App\Http\Controllers\Api\V1\PartnerController;
-use App\Http\Controllers\Api\V1\SubscriptionPlanController;
-use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\BoothController;
-
-// khusus desktop
+use App\Http\Controllers\Api\V1\CameraProfileController;
 use App\Http\Controllers\Api\V1\Desktop\BootstrapController;
 use App\Http\Controllers\Api\V1\Desktop\DeviceController;
+use App\Http\Controllers\Api\V1\Desktop\EventConfigurationController;
 use App\Http\Controllers\Api\V1\Desktop\PhotoSessionController;
+use App\Http\Controllers\Api\V1\EventController;
+use App\Http\Controllers\Api\V1\FilterController;
+use App\Http\Controllers\Api\V1\PartnerController;
+// khusus desktop
+use App\Http\Controllers\Api\V1\PrinterProfileController;
+use App\Http\Controllers\Api\V1\SubscriptionPlanController;
+use App\Http\Controllers\Api\V1\TemplateController;
+use App\Http\Controllers\Api\V1\UserController;
+use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
 
@@ -23,7 +27,6 @@ Route::prefix('v1')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     // Route::post('/devices/verify', [DeviceController::class, 'verify']);
 
-
     // khusus dekstop
     Route::middleware('auth:sanctum')
         ->prefix('desktop')
@@ -33,6 +36,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/photo-sessions', [PhotoSessionController::class, 'store']);
             Route::post('/photo-sessions/{photoSession}/media', [PhotoSessionController::class, 'media']);
             Route::post('/photo-sessions/{photoSession}/complete', [PhotoSessionController::class, 'complete']);
+            Route::get('/events/{eventCode}/configuration', [EventConfigurationController::class, 'show']);
 
         });
 
@@ -47,21 +51,13 @@ Route::prefix('v1')->group(function () {
         Route::get('/profile', [AuthController::class, 'profile']);
         Route::post('/logout', [AuthController::class, 'logout']);
 
-
-        // untuk event
-        Route::prefix('events')->group(function () {
-
-            // Route::get('/', ...);
-
-            // Route::get('{event}', ...);
-
-            // Route::post('/', ...);
-
-            // Route::put('{event}', ...);
-
-            // Route::delete('{event}', ...);
-
-        });
+        Route::apiResources([
+            'templates' => TemplateController::class,
+            'filters' => FilterController::class,
+            'camera-profiles' => CameraProfileController::class,
+            'printer-profiles' => PrinterProfileController::class,
+            'events' => EventController::class,
+        ]);
         /*
         |--------------------------------------------------------------------------
         | Users
@@ -80,6 +76,9 @@ Route::prefix('v1')->group(function () {
 
             Route::put('/{user}', [UserController::class, 'update'])
                 ->middleware('permission:users.update');
+
+            Route::delete('/{user}', [UserController::class, 'destroy'])
+                ->middleware('permission:users.delete');
 
         });
 
@@ -123,27 +122,27 @@ Route::prefix('v1')->group(function () {
 
             Route::get(
                 '/',
-                [BoothController::class,'index']
+                [BoothController::class, 'index']
             )->middleware('permission:booths.view');
 
             Route::get(
                 '/{booth}',
-                [BoothController::class,'show']
+                [BoothController::class, 'show']
             )->middleware('permission:booths.view');
 
             Route::post(
                 '/',
-                [BoothController::class,'store']
+                [BoothController::class, 'store']
             )->middleware('permission:booths.create');
 
             Route::put(
                 '/{booth}',
-                [BoothController::class,'update']
+                [BoothController::class, 'update']
             )->middleware('permission:booths.update');
 
             Route::delete(
                 '/{booth}',
-                [BoothController::class,'destroy']
+                [BoothController::class, 'destroy']
             )->middleware('permission:booths.delete');
 
         });

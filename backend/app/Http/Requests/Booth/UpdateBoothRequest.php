@@ -12,7 +12,7 @@ class UpdateBoothRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -23,7 +23,28 @@ class UpdateBoothRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'partner_id' => [
+                'sometimes',
+                'integer',
+                'exists:partners,id',
+            ],
+
+            'name' => [
+                'required',
+                'string',
+                'max:150',
+            ],
+
+            'location' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'status' => [
+                'required',
+                'in:active,maintenance,inactive',
+            ],
         ];
     }
 }

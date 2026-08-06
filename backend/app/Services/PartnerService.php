@@ -3,11 +3,11 @@
 namespace App\Services;
 
 use App\Models\Partner;
-use App\Models\SubscriptionPlan;
 use App\Models\PartnerSubscription;
+use App\Models\SubscriptionPlan;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-
 
 class PartnerService
 {
@@ -19,14 +19,18 @@ class PartnerService
         //
     }
 
-    public function index(array $filters)
+    public function index(array $filters, User $authUser)
     {
         $query = Partner::query()
             ->with([
-                'activeSubscription.subscriptionPlan'
+                'activeSubscription.subscriptionPlan',
             ]);
 
-        if (!empty($filters['search'])) {
+        if (! $authUser->isSuperAdmin()) {
+            $query->whereKey($authUser->partner_id);
+        }
+
+        if (! empty($filters['search'])) {
 
             $query->where(function ($q) use ($filters) {
 
@@ -35,18 +39,17 @@ class PartnerService
                     'like',
                     "%{$filters['search']}%"
                 )
-
-                ->orWhere(
-                    'brand_name',
-                    'like',
-                    "%{$filters['search']}%"
-                );
+                    ->orWhere(
+                        'brand_name',
+                        'like',
+                        "%{$filters['search']}%"
+                    );
 
             });
 
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
 
             $query->where(
                 'status',
@@ -71,7 +74,7 @@ class PartnerService
     public function show(Partner $partner)
     {
         return $partner->load([
-            'activeSubscription.subscriptionPlan'
+            'activeSubscription.subscriptionPlan',
         ]);
     }
 
@@ -104,12 +107,12 @@ class PartnerService
 
                 'ends_at' => now()->addDays(30),
 
-                'auto_renew' => false
+                'auto_renew' => false,
 
             ]);
 
             return $partner->load([
-                'activeSubscription.subscriptionPlan'
+                'activeSubscription.subscriptionPlan',
             ]);
 
         });
@@ -118,8 +121,7 @@ class PartnerService
     public function update(
         Partner $partner,
         array $data
-    ): Partner
-    {
+    ): Partner {
 
         return DB::transaction(function () use ($partner, $data) {
 
@@ -139,7 +141,7 @@ class PartnerService
             $partner->update($data);
 
             return $partner->fresh()->load([
-                'activeSubscription.subscriptionPlan'
+                'activeSubscription.subscriptionPlan',
             ]);
 
         });
@@ -149,8 +151,7 @@ class PartnerService
     protected function generateSlug(
         string $companyName,
         ?int $ignoreId = null
-    ): string
-    {
+    ): string {
 
         $slug = Str::slug($companyName);
 

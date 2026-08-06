@@ -37,6 +37,10 @@ class PartnerResource extends JsonResource
                 'activeSubscription',
                 function () {
 
+                    if (! $this->activeSubscription) {
+                        return null;
+                    }
+
                     return [
 
                         'id' => $this->activeSubscription?->id,
@@ -53,12 +57,12 @@ class PartnerResource extends JsonResource
 
                             'name' => $this->activeSubscription?->subscriptionPlan?->name,
 
-                        ]
+                        ],
 
                     ];
 
                 }
-            )
+            ),
 
         ];
     }

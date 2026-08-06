@@ -12,7 +12,7 @@ class BoothIndexRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -24,33 +24,33 @@ class BoothIndexRequest extends FormRequest
     {
         return [
 
-            'search'=>['nullable','string'],
+            'search' => ['nullable', 'string'],
 
-            'status'=>[
+            'status' => [
                 'nullable',
-                'in:active,maintenance,inactive'
+                'in:active,maintenance,inactive',
             ],
 
-            'partner'=>[
+            'partner' => [
                 'nullable',
-                'exists:partners,id'
+                'exists:partners,id',
             ],
 
-            'sort'=>[
+            'sort' => [
                 'nullable',
-                'in:id,name,created_at'
+                'in:id,name,created_at',
             ],
 
-            'direction'=>[
+            'direction' => [
                 'nullable',
-                'in:asc,desc'
+                'in:asc,desc',
             ],
 
-            'per_page'=>[
+            'per_page' => [
                 'nullable',
                 'integer',
-                'between:5,100'
-            ]
+                'between:5,100',
+            ],
 
         ];
     }

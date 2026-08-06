@@ -15,7 +15,7 @@ class ApiResponse
     ): JsonResponse {
 
         if ($data instanceof JsonResource || $data instanceof ResourceCollection) {
-            $data = $data->response()->getData(true);
+            $data = $data->resolve(request());
         }
 
         return response()->json([

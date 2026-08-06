@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Subscription;
 
-use Illuminate\Validation\Rule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateSubscriptionPlanRequest extends FormRequest
 {
@@ -25,52 +25,52 @@ class UpdateSubscriptionPlanRequest extends FormRequest
                 'max:100',
 
                 Rule::unique('subscription_plans')
-                    ->ignore($this->subscription_plan)
+                    ->ignore($this->route('subscriptionPlan')),
 
             ],
 
             'price' => [
                 'required',
                 'numeric',
-                'min:0'
+                'min:0',
             ],
 
             'billing_cycle' => [
                 'required',
-                'in:monthly,yearly'
+                'in:monthly,yearly',
             ],
 
             'max_booths' => [
                 'required',
                 'integer',
-                'min:1'
+                'min:1',
             ],
 
             'max_devices' => [
                 'required',
                 'integer',
-                'min:1'
+                'min:1',
             ],
 
             'max_operators' => [
                 'required',
                 'integer',
-                'min:1'
+                'min:1',
             ],
 
             'features' => [
                 'nullable',
-                'array'
+                'array',
             ],
 
             'features.*' => [
-                'string'
+                'string',
             ],
 
             'is_active' => [
                 'required',
-                'boolean'
-            ]
+                'boolean',
+            ],
 
         ];
     }

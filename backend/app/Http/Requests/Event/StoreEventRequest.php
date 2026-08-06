@@ -85,6 +85,11 @@ class StoreEventRequest extends FormRequest
                 'min:0',
             ],
 
+            'status' => [
+                'nullable',
+                'in:draft,scheduled',
+            ],
+
         ];
     }
 
