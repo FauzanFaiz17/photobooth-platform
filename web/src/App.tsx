@@ -12,6 +12,12 @@ import LoginPage from "./pages/LoginPage"
 const OverviewPage = lazy(() => import("./pages/OverviewPage"))
 const ForbiddenPage = lazy(() => import("./pages/ForbiddenPage"))
 const KioskPage = lazy(() => import("./pages/KioskPage"))
+const KioskBoothDetailPage = lazy(
+  () => import("./pages/KioskBoothDetailPage")
+)
+const BoothDetailPage = lazy(() => import("./pages/BoothDetailPage"))
+const EventPage = lazy(() => import("./pages/EventPage"))
+const EventDetailPage = lazy(() => import("./pages/EventDetailPage"))
 const KioskDetailPage = lazy(() => import("./pages/KioskDetailPage"))
 const GalleryPage = lazy(() => import("./pages/GalleryPage"))
 const GalleryDetailPage = lazy(() => import("./pages/GalleryDetailPage"))
@@ -27,6 +33,7 @@ const UserManagementPage = lazy(
 )
 const UserDetailPage = lazy(() => import("./pages/UserDetailPage"))
 const PartnerDetailPage = lazy(() => import("./pages/PartnerDetailPage"))
+const ProfilePage = lazy(() => import("./pages/ProfilePage"))
 
 function OverviewPageFallback() {
   return (
@@ -68,6 +75,38 @@ function App() {
             }
           />
           <Route
+            path="kiosk/:partnerId"
+            element={
+              <Suspense fallback={<OverviewPageFallback />}>
+                <KioskBoothDetailPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="kiosk/:partnerId/booths/:boothId"
+            element={
+              <Suspense fallback={<OverviewPageFallback />}>
+                <BoothDetailPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="events"
+            element={
+              <Suspense fallback={<OverviewPageFallback />}>
+                <EventPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="events/:eventId"
+            element={
+              <Suspense fallback={<OverviewPageFallback />}>
+                <EventDetailPage />
+              </Suspense>
+            }
+          />
+          <Route
             path="gallery"
             element={
               <Suspense fallback={<OverviewPageFallback />}>
@@ -88,6 +127,14 @@ function App() {
             element={
               <Suspense fallback={<OverviewPageFallback />}>
                 <ForbiddenPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="profile"
+            element={
+              <Suspense fallback={<OverviewPageFallback />}>
+                <ProfilePage />
               </Suspense>
             }
           />

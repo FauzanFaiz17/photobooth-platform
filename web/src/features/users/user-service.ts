@@ -4,6 +4,7 @@ import {
   isUserListResponse,
   isUserResponse,
   type CreateUserInput,
+  type UpdateUserInput,
   type UserListFilters,
   type UserListResponse,
   type UserRecord,
@@ -95,4 +96,32 @@ export async function createUser(
   )
 
   return parseUserResponse(payload)
+}
+
+export async function updateUser(
+  token: string,
+  userId: number,
+  input: UpdateUserInput
+): Promise<UserRecord> {
+  const payload = await apiRequest(
+    `/v1/users/${userId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(input),
+    },
+    token
+  )
+
+  return parseUserResponse(payload)
+}
+
+export async function deleteUser(
+  token: string,
+  userId: number
+): Promise<void> {
+  await apiRequest(
+    `/v1/users/${userId}`,
+    { method: "DELETE" },
+    token
+  )
 }

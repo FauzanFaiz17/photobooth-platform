@@ -1,4 +1,5 @@
 import {
+  CalendarDays,
   ChartNoAxesCombined,
   Frame,
   Gift,
@@ -28,6 +29,11 @@ export const adminNavItems: AdminNavItem[] = [
     title: "Kiosk",
     url: "/admin/kiosk",
     icon: Monitor,
+  },
+  {
+    title: "Events",
+    url: "/admin/events",
+    icon: CalendarDays,
   },
   {
     title: "Gallery",

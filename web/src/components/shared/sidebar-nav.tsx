@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ChevronUp, LoaderCircle, LogOut } from "lucide-react"
+import { ChevronUp, LoaderCircle, LogOut, UserRound } from "lucide-react"
 import { NavLink, useLocation, useNavigate } from "react-router-dom"
 
 import photoBoothLogo from "@/assets/Logo Kolase.png"
@@ -189,6 +189,11 @@ export function AdminSidebar() {
                       {user?.email}
                     </p>
                   </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/admin/profile")}>
+                    <UserRound aria-hidden="true" />
+                    Profile
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     variant="destructive"
