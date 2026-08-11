@@ -1,61 +1,52 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect } from 'react'
+import type { JSX } from 'react'
+import { useNavigate } from 'react-router-dom'
 
-import CameraCapture from "@/features/camera/components/CameraCapture";
-import { useSessionStore } from "@/store/sessionStore";
+import CameraCapture from '@/features/camera/components/CameraCapture'
+import { useSessionStore } from '@/store/sessionStore'
 
-export default function CameraPage() {
+export default function CameraPage(): JSX.Element | null {
+  const navigate = useNavigate()
 
-    const navigate = useNavigate();
+  const template = useSessionStore((state) => state.template)
 
-    const template = useSessionStore((state) => state.template);
+  const configuration = useSessionStore((state) => state.eventConfiguration)
 
-    const filter = useSessionStore((state) => state.filter);
+  const filter = useSessionStore((state) => state.filter)
 
-    const requiredShots = useSessionStore((state) => state.requiredShots);
+  const requiredShots = useSessionStore((state) => state.requiredShots)
 
-    const addShot = useSessionStore((state) => state.addShot);
+  const addShot = useSessionStore((state) => state.addShot)
 
-    const resetShots = useSessionStore((state) => state.resetShots);
+  const resetShots = useSessionStore((state) => state.resetShots)
 
-    useEffect(() => {
-
-        if (!template) {
-
-            navigate("/template", { replace: true });
-
-        }
-
-    }, [template, navigate]);
-
-    useEffect(() => {
-
-        // mulai dengan slate bersih setiap kali masuk halaman kamera
-        // (misal user "Ambil Ulang" dari halaman preview)
-        resetShots();
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    if (!template) {
-
-        return null;
-
+  useEffect(() => {
+    if (!template || !configuration) {
+      navigate('/dashboard', { replace: true })
     }
+  }, [configuration, template, navigate])
 
-    return (
+  useEffect(() => {
+    // mulai dengan slate bersih setiap kali masuk halaman kamera
+    // (misal user "Ambil Ulang" dari halaman preview)
+    resetShots()
 
-        <div className="-m-6 flex h-[calc(100%+3rem)] flex-col bg-slate-900">
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-            <CameraCapture
-                totalShots={requiredShots}
-                cssFilter={filter?.cssFilter ?? "none"}
-                onShotCaptured={addShot}
-                onAllShotsDone={() => navigate("/preview")}
-            />
+  if (!template || !configuration) {
+    return null
+  }
 
-        </div>
-
-    );
-
+  return (
+    <div className="-m-6 flex h-[calc(100%+3rem)] flex-col bg-slate-900">
+      <CameraCapture
+        totalShots={requiredShots}
+        countdownSeconds={configuration.camera.countdown_seconds}
+        cssFilter={filter?.cssFilter ?? 'none'}
+        onShotCaptured={addShot}
+        onAllShotsDone={() => navigate('/preview')}
+      />
+    </div>
+  )
 }

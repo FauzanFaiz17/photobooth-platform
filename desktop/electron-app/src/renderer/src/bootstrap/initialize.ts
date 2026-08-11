@@ -1,48 +1,53 @@
-import { restoreAuth } from "./restoreAuth";
+import { restoreAuth } from './restoreAuth'
 
-import { restoreDevice } from "./restoreDevice";
+import { restoreDevice } from './restoreDevice'
 
-import { restoreBootstrap } from "./restoreBootstrap";
+import { restoreBootstrap } from './restoreBootstrap'
+import { restoreDeviceRegistration } from './restoreDeviceRegistration'
 
-import type {
+import type { StartupResult } from './types'
 
-    StartupResult
+export async function initialize(): Promise<StartupResult> {
+  await restoreDevice()
 
-} from "./types";
+  const deviceRegistered = await restoreDeviceRegistration()
 
-export async function initialize():
-Promise<StartupResult> {
-
-    const authenticated =
-        await restoreAuth();
-
-    if (!authenticated) {
-
-        return {
-
-            authenticated: false,
-
-            bootstrapLoaded: false,
-
-            deviceRegistered: false,
-
-        };
-
-    }
-
-    await restoreDevice();
-
-    const bootstrapLoaded =
-        await restoreBootstrap();
-
+  if (!deviceRegistered) {
     return {
+      authenticated: false,
+      bootstrapLoaded: false,
+      deviceRegistered: false
+    }
+  }
 
-        authenticated: true,
+  const authenticated = await restoreAuth()
 
-        bootstrapLoaded,
+  if (!authenticated) {
+    return {
+      authenticated: false,
 
-        deviceRegistered: true,
+      bootstrapLoaded: false,
 
-    };
+      deviceRegistered: true
+    }
+  }
 
+  const bootstrap = await restoreBootstrap()
+
+  if (bootstrap.loginMessage) {
+    return {
+      authenticated: false,
+      bootstrapLoaded: false,
+      deviceRegistered,
+      loginMessage: bootstrap.loginMessage
+    }
+  }
+
+  return {
+    authenticated: true,
+
+    bootstrapLoaded: bootstrap.loaded,
+
+    deviceRegistered
+  }
 }

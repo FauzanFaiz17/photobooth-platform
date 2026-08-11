@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\CameraProfile;
+use App\Models\Device;
 use App\Models\Event;
 use App\Models\Filter;
 use App\Models\Partner;
@@ -10,6 +11,7 @@ use App\Models\PrinterProfile;
 use App\Models\Template;
 use App\Models\User;
 use App\Policies\CameraProfilePolicy;
+use App\Policies\DevicePolicy;
 use App\Policies\EventPolicy;
 use App\Policies\FilterPolicy;
 use App\Policies\PartnerPolicy;
@@ -48,6 +50,8 @@ class AppServiceProvider extends ServiceProvider
             Event::class,
             EventPolicy::class
         );
+
+        Gate::policy(Device::class, DevicePolicy::class);
 
         Gate::policy(Template::class, TemplatePolicy::class);
         Gate::policy(Filter::class, FilterPolicy::class);

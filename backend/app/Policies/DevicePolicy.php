@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Device;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class DevicePolicy
 {
@@ -18,11 +17,8 @@ class DevicePolicy
 
     public function view(User $user, Device $device)
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->partner_id === $device->partner_id;
+        return $user->hasPermission('devices.view')
+            && ($user->isSuperAdmin() || $user->partner_id === $device->partner_id);
     }
 
     public function create(User $user)
@@ -32,19 +28,13 @@ class DevicePolicy
 
     public function update(User $user, Device $device)
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->partner_id === $device->partner_id;
+        return $user->hasPermission('devices.update')
+            && ($user->isSuperAdmin() || $user->partner_id === $device->partner_id);
     }
 
     public function delete(User $user, Device $device)
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return $user->partner_id === $device->partner_id;
+        return $user->hasPermission('devices.delete')
+            && ($user->isSuperAdmin() || $user->partner_id === $device->partner_id);
     }
 }

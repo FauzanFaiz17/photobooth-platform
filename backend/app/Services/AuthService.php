@@ -2,68 +2,88 @@
 
 namespace App\Services;
 
+use App\Models\Device;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
 class AuthService
 {
-
-    public function login(array $data,$ip)
+    public function login(array $data, $ip)
     {
 
-        $user=User::with([
+        $user = User::with([
             'role',
-            'partner'
+            'partner',
         ])
-        ->where('email',$data['email'])
-        ->first();
+            ->where('email', $data['email'])
+            ->first();
 
-        if(!$user){
+        if (! $user) {
 
             return [
-                'success'=>false,
-                'message'=>'Email tidak ditemukan'
+                'success' => false,
+                'message' => 'Email tidak ditemukan',
             ];
 
         }
 
-        if(!Hash::check($data['password'],$user->password)){
+        if (! Hash::check($data['password'], $user->password)) {
 
             return [
-                'success'=>false,
-                'message'=>'Password salah'
+                'success' => false,
+                'message' => 'Password salah',
             ];
 
         }
 
-        if($user->status!='active'){
+        if ($user->status != 'active') {
 
             return [
-                'success'=>false,
-                'message'=>'User tidak aktif'
+                'success' => false,
+                'message' => 'User tidak aktif',
             ];
 
         }
 
-        $token=$user->createToken('API Token')->plainTextToken;
+        if (! empty($data['device_uuid'])) {
+            $device = Device::query()
+                ->where('device_uuid', $data['device_uuid'])
+                ->where('status', 'active')
+                ->first();
+
+            if (! $device) {
+                return [
+                    'success' => false,
+                    'message' => 'Device aktif tidak ditemukan.',
+                ];
+            }
+
+            if ($device->partner_id !== $user->partner_id) {
+                return [
+                    'success' => false,
+                    'message' => 'Akun operator tidak terdaftar pada partner device ini.',
+                ];
+            }
+        }
+
+        $token = $user->createToken('API Token')->plainTextToken;
 
         $user->update([
-            'last_login_at'=>now(),
-            'last_login_ip'=>$ip
+            'last_login_at' => now(),
+            'last_login_ip' => $ip,
         ]);
 
         return [
 
-            'success'=>true,
+            'success' => true,
 
-            'message'=>'Login berhasil',
+            'message' => 'Login berhasil',
 
-            'token'=>$token,
+            'token' => $token,
 
-            'user'=>$user
+            'user' => $user,
 
         ];
 
     }
-
 }

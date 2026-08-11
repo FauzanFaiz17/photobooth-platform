@@ -1,70 +1,123 @@
-import { useNavigate } from "react-router-dom";
+import { useState } from 'react'
+import type { JSX } from 'react'
+import { useNavigate } from 'react-router-dom'
 
-import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
-import CardBody from "@/components/ui/CardBody";
+import { getApiErrorMessage, isNetworkError } from '@/api/axios'
+import { getEventConfiguration } from '@/api/event'
+import { createPhotoSession } from '@/api/media'
+import Alert from '@/components/ui/Alert'
+import Button from '@/components/ui/Button'
+import Card from '@/components/ui/Card'
+import CardBody from '@/components/ui/CardBody'
+import Input from '@/components/ui/Input'
+import { eventStorage } from '@/features/event/services/eventStorage'
+import { useAuthStore } from '@/store/authStore'
+import { useDeviceStore } from '@/store/deviceStore'
+import { useSessionStore } from '@/store/sessionStore'
 
-import { useSessionStore } from "@/store/sessionStore";
-import { useAuthStore } from "@/store/authStore";
+const EVENT_CODE_PATTERN = /^EVT-[A-Z0-9]{8}$/
 
-export default function DashboardPage() {
+export default function DashboardPage(): JSX.Element {
+  const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
+  const device = useDeviceStore((state) => state.device)
+  const reset = useSessionStore((state) => state.reset)
+  const beginEvent = useSessionStore((state) => state.beginEvent)
+  const setRemoteSession = useSessionStore((state) => state.setRemoteSession)
+  const setSyncStatus = useSessionStore((state) => state.setSyncStatus)
+  const [eventCode, setEventCode] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-    const navigate = useNavigate();
+  async function handleStart(): Promise<void> {
+    const normalizedCode = eventCode.trim().toUpperCase()
 
-    const reset = useSessionStore((state) => state.reset);
-
-    const user = useAuthStore((state) => state.user);
-
-    function handleStart() {
-
-        reset();
-
-        navigate("/template");
-
+    if (!EVENT_CODE_PATTERN.test(normalizedCode)) {
+      setError('Kode event harus mengikuti format EVT-XXXXXXXX.')
+      return
     }
 
-    return (
+    setLoading(true)
+    setError(null)
+    reset()
 
-        <div className="flex h-full flex-col items-center justify-center gap-8 text-center">
+    try {
+      let configuration
 
-            <div>
+      try {
+        configuration = await getEventConfiguration(normalizedCode)
+        await eventStorage.save(configuration)
+      } catch (requestError) {
+        if (!isNetworkError(requestError)) throw requestError
 
-                <h1 className="text-4xl font-bold text-slate-800">
+        configuration = await eventStorage.get(normalizedCode)
+        if (!configuration) throw requestError
+      }
 
-                    Selamat Datang{user?.name ? `, ${user.name}` : ""}!
+      beginEvent(configuration)
 
-                </h1>
+      try {
+        const remoteSession = await createPhotoSession(configuration.event.id)
+        setRemoteSession(remoteSession.id)
+        setSyncStatus('ready')
+      } catch (sessionError) {
+        if (!isNetworkError(sessionError)) throw sessionError
 
-                <p className="mt-2 text-lg text-slate-500">
+        setSyncStatus('local-only', 'Sesi cloud belum dibuat. Foto tetap akan disimpan lokal.')
+      }
 
-                    Sentuh tombol di bawah untuk memulai sesi foto baru.
+      navigate('/template')
+    } catch (requestError) {
+      reset()
+      setError(
+        getApiErrorMessage(
+          requestError,
+          'Event tidak dapat dimuat. Periksa koneksi dan kode event.'
+        )
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
 
-                </p>
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-7 text-center">
+      <div>
+        <h1 className="text-3xl font-bold text-slate-800">
+          Selamat Datang{user?.name ? `, ${user.name}` : ''}
+        </h1>
+        <p className="mt-2 text-slate-500">{device?.device_name ?? 'Perangkat photobooth'}</p>
+      </div>
 
-            </div>
+      <Card className="w-full max-w-md">
+        <CardBody>
+          <form
+            className="flex flex-col gap-4 text-left"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void handleStart()
+            }}
+          >
+            <label htmlFor="event-code" className="text-sm font-semibold text-slate-700">
+              Kode Event
+            </label>
+            <Input
+              id="event-code"
+              value={eventCode}
+              onChange={(event) => setEventCode(event.target.value.toUpperCase())}
+              placeholder="EVT-AB12CD34"
+              maxLength={12}
+              autoComplete="off"
+              className="text-center text-lg uppercase tracking-wider"
+            />
 
-            <Button onClick={handleStart} className="px-10 py-4 text-xl">
-
-                Mulai Sesi Foto
-
+            {error && <Alert type="error">{error}</Alert>}
+            <Button type="submit" loading={loading} className="py-3 text-lg">
+              Mulai Sesi
             </Button>
-
-            <Card className="w-full max-w-md">
-
-                <CardBody>
-
-                    <p className="text-sm text-slate-500">
-
-                        Mode kamera saat ini: <span className="font-semibold text-slate-700">Webcam</span>
-
-                    </p>
-
-                </CardBody>
-
-            </Card>
-
-        </div>
-
-    );
-
+          </form>
+        </CardBody>
+      </Card>
+    </div>
+  )
 }

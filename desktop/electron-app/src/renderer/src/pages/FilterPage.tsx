@@ -1,100 +1,53 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect } from 'react'
+import type { JSX } from 'react'
+import { useNavigate } from 'react-router-dom'
 
-import Button from "@/components/ui/Button";
+import Button from '@/components/ui/Button'
+import { useSessionStore } from '@/store/sessionStore'
 
-import { mockFilters } from "@/features/filter/mockFilters";
-import { useSessionStore } from "@/store/sessionStore";
+export default function FilterPage(): JSX.Element | null {
+  const navigate = useNavigate()
+  const configuration = useSessionStore((state) => state.eventConfiguration)
+  const template = useSessionStore((state) => state.template)
+  const filter = useSessionStore((state) => state.filter)
 
-export default function FilterPage() {
-
-    const navigate = useNavigate();
-
-    const template = useSessionStore((state) => state.template);
-
-    const setFilter = useSessionStore((state) => state.setFilter);
-
-    useEffect(() => {
-
-        // jangan biarkan user masuk ke halaman ini tanpa pilih template dulu
-        if (!template) {
-
-            navigate("/template", { replace: true });
-
-        }
-
-    }, [template, navigate]);
-
-    function handleSelect(filterId: string) {
-
-        const filter = mockFilters.find((f) => f.id === filterId) ?? null;
-
-        setFilter(filter);
-
-        navigate("/camera");
-
+  useEffect(() => {
+    if (!configuration || !template || !filter) {
+      navigate('/dashboard', { replace: true })
     }
+  }, [configuration, filter, navigate, template])
 
-    if (!template) {
+  if (!configuration || !template || !filter) return null
 
-        return null;
+  return (
+    <div className="flex h-full flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">Filter Event</h1>
+        <p className="text-slate-500">Template: {template.name}</p>
+      </div>
 
-    }
-
-    return (
-
-        <div className="flex h-full flex-col gap-6">
-
+      <div className="mx-auto flex w-full max-w-lg flex-1 items-center">
+        <div className="grid w-full grid-cols-[1fr_180px] gap-5 border border-slate-200 bg-white p-5 shadow-sm">
+          <div
+            className="min-h-64 bg-[linear-gradient(135deg,#d6d3d1,#64748b,#f1f5f9)]"
+            style={{ filter: filter.cssFilter }}
+          />
+          <div className="flex flex-col justify-between">
             <div>
-
-                <h1 className="text-2xl font-bold text-slate-800">Pilih Filter</h1>
-
-                <p className="text-slate-500">Template: {template.name}</p>
-
+              <p className="text-lg font-semibold text-slate-800">{filter.name}</p>
+              <p className="mt-1 text-sm text-slate-500">Versi {filter.version}</p>
             </div>
-
-            <div className="grid grid-cols-2 gap-6 md:grid-cols-5">
-
-                {mockFilters.map((filter) => (
-
-                    <button
-                        key={filter.id}
-                        onClick={() => handleSelect(filter.id)}
-                        className="group flex flex-col items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
-                    >
-
-                        <div
-                            className="h-28 w-full rounded-lg bg-gradient-to-br from-slate-400 to-slate-600"
-                            style={{ filter: filter.cssFilter }}
-                        />
-
-                        <span className="font-semibold text-slate-700">
-
-                            {filter.name}
-
-                        </span>
-
-                    </button>
-
-                ))}
-
-            </div>
-
-            <div className="mt-auto flex justify-start">
-
-                <Button
-                    onClick={() => navigate("/template")}
-                    className="bg-slate-500 hover:bg-slate-600"
-                >
-
-                    Kembali
-
-                </Button>
-
-            </div>
-
+            <Button onClick={() => navigate('/camera')}>Mulai Foto</Button>
+          </div>
         </div>
+      </div>
 
-    );
-
+      <Button
+        onClick={() => navigate('/template')}
+        className="mr-auto bg-slate-500 hover:bg-slate-600"
+      >
+        Kembali
+      </Button>
+    </div>
+  )
 }

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Booth;
+use App\Models\Device;
 use App\Models\Partner;
 use App\Models\Permission;
 use App\Models\SubscriptionPlan;
@@ -173,6 +174,68 @@ class ManagementApiTest extends ApiTestCase
             ->assertJsonPath('success', true);
 
         $this->assertSoftDeleted(Booth::class, ['id' => $boothId]);
+    }
+
+    public function test_device_management_routes_and_subscription_limit_succeed(): void
+    {
+        $partner = $this->createPartner();
+        $this->trialPlan->update(['max_devices' => 2]);
+        $this->activateSubscription($partner);
+        $booth = Booth::create([
+            'partner_id' => $partner->id,
+            'name' => 'Activation Booth',
+            'status' => 'active',
+        ]);
+        $this->authenticateAsSuperAdmin();
+
+        $first = $this->postJson('/api/v1/devices', [
+            'partner_id' => $partner->id,
+            'booth_id' => $booth->id,
+            'device_name' => 'Front Kiosk',
+        ])->assertCreated()
+            ->assertJsonPath('data.device.status', 'pending')
+            ->assertJsonPath('data.device.device_uuid', null)
+            ->assertJsonStructure(['data' => ['device', 'activation_code']]);
+
+        $firstId = $first->json('data.device.id');
+        $this->assertNotEmpty($first->json('data.activation_code'));
+
+        $this->getJson('/api/v1/devices?status=pending')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1);
+
+        $this->getJson("/api/v1/devices/{$firstId}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $firstId);
+
+        $this->putJson("/api/v1/devices/{$firstId}", [
+            'booth_id' => $booth->id,
+            'device_name' => 'Updated Front Kiosk',
+            'status' => 'pending',
+        ])->assertOk()
+            ->assertJsonPath('data.device_name', 'Updated Front Kiosk');
+
+        $this->postJson("/api/v1/devices/{$firstId}/regenerate-activation")
+            ->assertOk()
+            ->assertJsonStructure(['data' => ['device', 'activation_code']]);
+
+        $this->postJson('/api/v1/devices', [
+            'partner_id' => $partner->id,
+            'booth_id' => $booth->id,
+            'device_name' => 'Second Kiosk',
+        ])->assertCreated();
+
+        $this->postJson('/api/v1/devices', [
+            'partner_id' => $partner->id,
+            'booth_id' => $booth->id,
+            'device_name' => 'Third Kiosk',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('device');
+
+        $this->deleteJson("/api/v1/devices/{$firstId}")
+            ->assertOk();
+
+        $this->assertSoftDeleted(Device::class, ['id' => $firstId]);
     }
 
     public function test_management_routes_require_authentication_and_permission(): void

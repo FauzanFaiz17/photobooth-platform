@@ -2,17 +2,15 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 export interface DeviceFingerprint {
+  deviceUuid: string
 
-    deviceUuid: string;
+  windowsUuid: string
 
-    windowsUuid: string;
+  cpuIdentifier: string
 
-    cpuIdentifier: string;
+  macAddress: string
 
-    macAddress: string;
-
-    appVersion: string;
-
+  appVersion: string
 }
 
 // Gabungkan electronAPI bawaan @electron-toolkit/preload dengan
@@ -20,27 +18,18 @@ export interface DeviceFingerprint {
 const electron = {
   ...electronAPI,
   device: {
-    getFingerprint: (): Promise<DeviceFingerprint> =>
-      ipcRenderer.invoke('device:fingerprint')
+    getFingerprint: (): Promise<DeviceFingerprint> => ipcRenderer.invoke('device:fingerprint')
   }
 }
 
 declare global {
-
-    interface Window {
-
-        electron: typeof electronAPI & {
-
-            device: {
-
-                getFingerprint(): Promise<DeviceFingerprint>;
-
-            };
-
-        };
-
+  interface Window {
+    electron: typeof electronAPI & {
+      device: {
+        getFingerprint(): Promise<DeviceFingerprint>
+      }
     }
-
+  }
 }
 
 // Custom APIs for renderer
@@ -66,16 +55,17 @@ if (process.contextIsolated) {
   window.api = api
 }
 
-contextBridge.exposeInMainWorld("session", {
-    saveWebcamShots: (shots: string[]): Promise<{ directory: string }> =>
-        ipcRenderer.invoke("session:save-webcam-shots", shots),
-});
-contextBridge.exposeInMainWorld("storage", {
-    get: (key: string) => ipcRenderer.invoke("store:get", key),
+contextBridge.exposeInMainWorld('session', {
+  saveWebcamShots: (shots: string[], finalImage?: string): Promise<{ directory: string }> =>
+    ipcRenderer.invoke('session:save-webcam-shots', shots, finalImage)
+})
+contextBridge.exposeInMainWorld('asset', {
+  loadImage: (url: string): Promise<string> => ipcRenderer.invoke('asset:load-image', url)
+})
+contextBridge.exposeInMainWorld('storage', {
+  get: (key: string) => ipcRenderer.invoke('store:get', key),
 
-    set: (key: string, value: unknown) =>
-        ipcRenderer.invoke("store:set", key, value),
+  set: (key: string, value: unknown) => ipcRenderer.invoke('store:set', key, value),
 
-    delete: (key: string) =>
-        ipcRenderer.invoke("store:delete", key),
-});
+  delete: (key: string) => ipcRenderer.invoke('store:delete', key)
+})

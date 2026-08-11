@@ -18,6 +18,10 @@ class DeviceResource extends JsonResource
 
             'status' => $this->status,
 
+            'activation_expires_at' => $this->activation_expires_at,
+
+            'activated_at' => $this->activated_at,
+
             'app_version' => $this->app_version,
 
             'last_sync_at' => $this->last_sync_at,

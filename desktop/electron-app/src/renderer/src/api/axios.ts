@@ -1,36 +1,45 @@
-import axios from "axios";
-import { useAuthStore } from "../store/authStore";
-import { useDeviceStore } from "../store/deviceStore";
+import axios from 'axios'
+import { useAuthStore } from '../store/authStore'
+import { useDeviceStore } from '../store/deviceStore'
 
 const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
 
-    baseURL: import.meta.env.VITE_API_URL,
-
-    timeout: 30000,
-
-});
+  timeout: 30000
+})
 
 api.interceptors.request.use((config) => {
+  const token = useAuthStore.getState().token
 
-    const token = useAuthStore.getState().token;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
 
-    if (token) {
+  const deviceUuid = useDeviceStore.getState().fingerprint?.deviceUuid
 
-        config.headers.Authorization = `Bearer ${token}`;
+  if (deviceUuid) {
+    config.headers['X-Device-UUID'] = deviceUuid
+  }
 
-    }
+  return config
+})
 
-    const deviceUuid =
-        useDeviceStore.getState().fingerprint?.deviceUuid;
+export default api
 
-    if (deviceUuid) {
+export function isNetworkError(error: unknown): boolean {
+  return axios.isAxiosError(error) && !error.response
+}
 
-        config.headers["X-Device-UUID"] = deviceUuid;
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (!axios.isAxiosError(error)) return fallback
 
-    }
+  const data = error.response?.data as
+    { message?: string; errors?: Record<string, string[]> } | undefined
 
-    return config;
+  if (data?.errors) {
+    const firstError = Object.values(data.errors)[0]?.[0]
+    if (firstError) return firstError
+  }
 
-});
-
-export default api;
+  return data?.message || error.message || fallback
+}

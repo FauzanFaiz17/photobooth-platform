@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Device extends Model
 {
@@ -15,6 +15,9 @@ class Device extends Model
         'booth_id',
         'device_key',
         'device_uuid',
+        'activation_code_hash',
+        'activation_expires_at',
+        'activated_at',
         'device_name',
         'windows_uuid',
         'cpu_identifier',
@@ -22,7 +25,7 @@ class Device extends Model
         'app_version',
         'last_sync_at',
         'last_login_at',
-        'status'
+        'status',
     ];
 
     protected function casts(): array
@@ -32,6 +35,10 @@ class Device extends Model
             'last_sync_at' => 'datetime',
 
             'last_login_at' => 'datetime',
+
+            'activation_expires_at' => 'datetime',
+
+            'activated_at' => 'datetime',
 
         ];
     }

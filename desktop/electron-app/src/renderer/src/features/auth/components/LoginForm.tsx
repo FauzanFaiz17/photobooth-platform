@@ -1,105 +1,84 @@
-import { useState } from "react";
-import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
-import CardHeader from "@/components/ui/CardHeader";
-import CardBody from "@/components/ui/CardBody";
-import CardFooter from "@/components/ui/CardFooter";
-import Input from "@/components/ui/Input";
-import Label from "@/components/ui/Label";
+import { useState } from 'react'
+import type { JSX } from 'react'
+import { useNavigate } from 'react-router-dom'
+import Button from '@/components/ui/Button'
+import Card from '@/components/ui/Card'
+import CardHeader from '@/components/ui/CardHeader'
+import CardBody from '@/components/ui/CardBody'
+import CardFooter from '@/components/ui/CardFooter'
+import Input from '@/components/ui/Input'
+import Label from '@/components/ui/Label'
+import Alert from '@/components/ui/Alert'
+import { getApiErrorMessage } from '@/api/axios'
 
-import { useLogin } from "@/features/auth/hooks/useLogin";
+import { useLogin } from '@/features/auth/hooks/useLogin'
 
-export default function LoginForm() {
+interface LoginFormProps {
+  initialMessage?: string
+}
 
-    const { loading, handleLogin } = useLogin();
+export default function LoginForm({ initialMessage }: LoginFormProps): JSX.Element {
+  const { loading, handleLogin } = useLogin()
 
-    const [email, setEmail] = useState("");
+  const navigate = useNavigate()
 
-    const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('')
 
-    const handleSubmit = async (
-        e: React.FormEvent
-    ) => {
+  const [password, setPassword] = useState('')
 
-        e.preventDefault();
+  const [error, setError] = useState<string | null>(initialMessage ?? null)
 
-        try {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
+    e.preventDefault()
 
-            const result = await handleLogin(
-                email,
-                password
-            );
+    setError(null)
 
-            console.log(result);
+    try {
+      await handleLogin(email, password)
 
-        } catch (err) {
+      navigate('/', { replace: true })
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Login gagal. Periksa email dan password.'))
+    }
+  }
 
-            console.error(err);
+  return (
+    <form onSubmit={handleSubmit}>
+      <Card className="w-full max-w-md">
+        <CardHeader>Login</CardHeader>
 
-        }
+        <CardBody>
+          <div>
+            <Label>Email</Label>
 
-    };
+            <Input
+              type="email"
+              placeholder="Masukkan email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
 
-    return (
+          <div>
+            <Label>Password</Label>
 
-        <form onSubmit={handleSubmit}>
+            <Input
+              type="password"
+              placeholder="Masukkan password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+        </CardBody>
 
-            <Card className="w-full max-w-md">
+        <CardFooter>
+          {error && <Alert type="error">{error}</Alert>}
 
-                <CardHeader>
-                    Login
-                </CardHeader>
-
-                <CardBody>
-
-                    <div>
-
-                        <Label>Email</Label>
-
-                        <Input
-                            type="email"
-                            placeholder="Masukkan email"
-                            value={email}
-                            onChange={(e) =>
-                                setEmail(e.target.value)
-                            }
-                        />
-
-                    </div>
-
-                    <div>
-
-                        <Label>Password</Label>
-
-                        <Input
-                            type="password"
-                            placeholder="Masukkan password"
-                            value={password}
-                            onChange={(e) =>
-                                setPassword(e.target.value)
-                            }
-                        />
-
-                    </div>
-
-                </CardBody>
-
-                <CardFooter>
-
-                    <Button
-                        loading={loading}
-                        type="submit"
-                        className="w-full"
-                    >
-                        Masuk
-                    </Button>
-
-                </CardFooter>
-
-            </Card>
-
-        </form>
-
-    );
-
+          <Button loading={loading} type="submit" className="w-full">
+            Masuk
+          </Button>
+        </CardFooter>
+      </Card>
+    </form>
+  )
 }

@@ -2,26 +2,44 @@ import { ElectronAPI } from '@electron-toolkit/preload'
 
 declare global {
   interface Window {
-    electron: ElectronAPI
+    electron: ElectronAPI & {
+      device: {
+        getFingerprint(): Promise<{
+          deviceUuid: string
+          windowsUuid: string
+          cpuIdentifier: string
+          macAddress: string
+          appVersion: string
+        }>
+      }
+    }
     api: unknown
   }
 }
 
+declare global {
+  interface Window {
+    asset: {
+      loadImage(url: string): Promise<string>
+    }
+  }
+}
+
 export interface StorageAPI {
-    get(key: string): Promise<unknown>;
-    set(key: string, value: unknown): Promise<void>;
-    delete(key: string): Promise<void>;
+  get(key: string): Promise<unknown>
+  set(key: string, value: unknown): Promise<void>
+  delete(key: string): Promise<void>
 }
 
 declare global {
-    interface Window {
-        storage: StorageAPI;
-    }
+  interface Window {
+    storage: StorageAPI
+  }
 }
 declare global {
-    interface Window {
-        session: {
-            saveWebcamShots(shots: string[]): Promise<{ directory: string }>;
-        };
+  interface Window {
+    session: {
+      saveWebcamShots(shots: string[], finalImage?: string): Promise<{ directory: string }>
     }
+  }
 }

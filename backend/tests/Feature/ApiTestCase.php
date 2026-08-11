@@ -57,6 +57,7 @@ abstract class ApiTestCase extends TestCase
             'subscriptions.view', 'subscriptions.create',
             'subscriptions.update', 'subscriptions.delete',
             'booths.view', 'booths.create', 'booths.update', 'booths.delete',
+            'devices.view', 'devices.create', 'devices.update', 'devices.delete',
             'templates.view', 'templates.create', 'templates.update', 'templates.delete',
             'filters.view', 'filters.create', 'filters.update', 'filters.delete',
             'camera_profiles.view', 'camera_profiles.create',

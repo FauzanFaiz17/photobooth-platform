@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\Desktop\BootstrapController;
 use App\Http\Controllers\Api\V1\Desktop\DeviceController;
 use App\Http\Controllers\Api\V1\Desktop\EventConfigurationController;
 use App\Http\Controllers\Api\V1\Desktop\PhotoSessionController;
+use App\Http\Controllers\Api\V1\DeviceController as ManagementDeviceController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\FilterController;
 use App\Http\Controllers\Api\V1\PartnerController;
@@ -43,6 +44,7 @@ Route::prefix('v1')->group(function () {
     Route::prefix('desktop')->group(function () {
 
         Route::post('/devices/verify', [DeviceController::class, 'verify']);
+        Route::post('/devices/activate', [DeviceController::class, 'activate']);
 
     });
 
@@ -57,7 +59,9 @@ Route::prefix('v1')->group(function () {
             'camera-profiles' => CameraProfileController::class,
             'printer-profiles' => PrinterProfileController::class,
             'events' => EventController::class,
+            'devices' => ManagementDeviceController::class,
         ]);
+        Route::post('/devices/{device}/regenerate-activation', [ManagementDeviceController::class, 'regenerateActivation']);
         /*
         |--------------------------------------------------------------------------
         | Users

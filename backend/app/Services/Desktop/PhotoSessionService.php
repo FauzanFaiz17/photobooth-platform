@@ -62,6 +62,17 @@ class PhotoSessionService
             ]);
         }
 
+        $checksum = hash('sha256', $binary);
+        $existingMedia = $photoSession->media()
+            ->where('type', $data['type'])
+            ->where('filename', $data['filename'])
+            ->where('checksum', $checksum)
+            ->first();
+
+        if ($existingMedia) {
+            return $existingMedia;
+        }
+
         $objectKey = sprintf(
             'sessions/%d/%s-%s',
             $photoSession->id,
@@ -83,7 +94,7 @@ class PhotoSessionService
                 'filename' => $data['filename'],
                 'mime_type' => $mimeType,
                 'size_bytes' => strlen($binary),
-                'checksum' => hash('sha256', $binary),
+                'checksum' => $checksum,
                 'width' => $data['width'] ?? null,
                 'height' => $data['height'] ?? null,
                 'duration_seconds' => $data['duration_seconds'] ?? null,
@@ -101,6 +112,10 @@ class PhotoSessionService
         string $deviceUuid
     ): PhotoSession {
         $this->ensureSessionAccess($photoSession, $user, $deviceUuid);
+
+        if ($photoSession->status === 'completed') {
+            return $photoSession->load('media');
+        }
 
         if ($photoSession->status !== 'started') {
             throw ValidationException::withMessages([

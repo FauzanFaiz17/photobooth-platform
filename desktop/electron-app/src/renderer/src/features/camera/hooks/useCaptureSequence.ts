@@ -1,23 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-export type CaptureStage = "idle" | "countdown" | "flash" | "review" | "done";
+export type CaptureStage = 'idle' | 'countdown' | 'flash' | 'review' | 'done'
 
 interface UseCaptureSequenceOptions {
-    totalShots: number;
-    countdownSeconds?: number;
-    reviewPauseMs?: number;
-    onCapture: () => string | null;
-    onComplete?: () => void;
+  totalShots: number
+  countdownSeconds?: number
+  reviewPauseMs?: number
+  onCapture: () => string | null
+  onComplete?: () => void
 }
 
 interface UseCaptureSequenceResult {
-    stage: CaptureStage;
-    countdown: number;
-    currentShotIndex: number;
-    start: () => void;
-    continueAfterReview: () => void;
-    retakeCurrent: () => void;
-    isActive: boolean;
+  stage: CaptureStage
+  countdown: number
+  currentShotIndex: number
+  start: () => void
+  continueAfterReview: () => void
+  retakeCurrent: () => void
+  isActive: boolean
 }
 
 /**
@@ -29,128 +29,101 @@ interface UseCaptureSequenceResult {
  * closure-nya selalu memakai nilai onCapture/onComplete/dst yang terbaru.
  */
 export function useCaptureSequence({
-    totalShots,
-    countdownSeconds = 3,
-    reviewPauseMs = 900,
-    onCapture,
-    onComplete,
+  totalShots,
+  countdownSeconds = 3,
+  reviewPauseMs = 900,
+  onCapture,
+  onComplete
 }: UseCaptureSequenceOptions): UseCaptureSequenceResult {
+  const [stage, setStage] = useState<CaptureStage>('idle')
+  const [countdown, setCountdown] = useState(countdownSeconds)
+  const [currentShotIndex, setCurrentShotIndex] = useState(0)
 
-    const [stage, setStage] = useState<CaptureStage>("idle");
-    const [countdown, setCountdown] = useState(countdownSeconds);
-    const [currentShotIndex, setCurrentShotIndex] = useState(0);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
-    const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const tickRef = useRef<(secondsLeft: number) => void>(() => {})
 
-    const tickRef = useRef<(secondsLeft: number) => void>(() => {});
+  const clearPendingTimeout = useCallback((): void => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+  }, [])
 
-    const clearPendingTimeout = useCallback((): void => {
+  useEffect(() => {
+    tickRef.current = (secondsLeft: number): void => {
+      setCountdown(secondsLeft)
 
-        if (timeoutRef.current) {
+      if (secondsLeft <= 0) {
+        setStage('flash')
 
-            clearTimeout(timeoutRef.current);
+        const captured = onCapture()
 
+        if (!captured) {
+          setStage('idle')
+          return
         }
 
-    }, []);
+        timeoutRef.current = setTimeout(() => {
+          setStage('review')
 
-    useEffect(() => {
+          // Tunggu keputusan pengguna (ulangi atau lanjutkan).
+        }, 250)
 
-        tickRef.current = (secondsLeft: number): void => {
+        return
+      }
 
-            setCountdown(secondsLeft);
+      timeoutRef.current = setTimeout(() => {
+        tickRef.current(secondsLeft - 1)
+      }, 1000)
+    }
+  }, [countdownSeconds, onCapture, onComplete, reviewPauseMs, totalShots])
 
-            if (secondsLeft <= 0) {
+  const start = useCallback((): void => {
+    clearPendingTimeout()
 
-                setStage("flash");
+    setCurrentShotIndex(0)
 
-                onCapture();
+    setStage('countdown')
 
-                timeoutRef.current = setTimeout(() => {
+    tickRef.current(countdownSeconds)
+  }, [clearPendingTimeout, countdownSeconds])
 
-                    setStage("review");
+  const continueAfterReview = useCallback((): void => {
+    setCurrentShotIndex((currentIndex) => {
+      const nextIndex = currentIndex + 1
 
-                    // Tunggu keputusan pengguna (ulangi atau lanjutkan).
+      if (nextIndex >= totalShots) {
+        setStage('done')
 
-                }, 250);
+        onComplete?.()
+      } else {
+        setStage('countdown')
 
-                return;
+        tickRef.current(countdownSeconds)
+      }
 
-            }
+      return nextIndex
+    })
+  }, [countdownSeconds, onComplete, totalShots])
 
-            timeoutRef.current = setTimeout(() => {
+  const retakeCurrent = useCallback((): void => {
+    setStage('countdown')
 
-                tickRef.current(secondsLeft - 1);
+    tickRef.current(countdownSeconds)
+  }, [countdownSeconds])
+  useEffect(() => {
+    return (): void => {
+      clearPendingTimeout()
+    }
+  }, [clearPendingTimeout])
 
-            }, 1000);
-
-        };
-
-    }, [countdownSeconds, onCapture, onComplete, reviewPauseMs, totalShots]);
-
-    const start = useCallback((): void => {
-
-        clearPendingTimeout();
-
-        setCurrentShotIndex(0);
-
-        setStage("countdown");
-
-        tickRef.current(countdownSeconds);
-
-    }, [clearPendingTimeout, countdownSeconds]);
-
-    const continueAfterReview = useCallback((): void => {
-
-        setCurrentShotIndex((currentIndex) => {
-
-            const nextIndex = currentIndex + 1;
-
-            if (nextIndex >= totalShots) {
-
-                setStage("done");
-
-                onComplete?.();
-
-            } else {
-
-                setStage("countdown");
-
-                tickRef.current(countdownSeconds);
-
-            }
-
-            return nextIndex;
-
-        });
-
-    }, [countdownSeconds, onComplete, totalShots]);
-
-    const retakeCurrent = useCallback((): void => {
-
-        setStage("countdown");
-
-        tickRef.current(countdownSeconds);
-
-    }, [countdownSeconds]);
-    useEffect(() => {
-
-        return (): void => {
-
-            clearPendingTimeout();
-
-        };
-
-    }, [clearPendingTimeout]);
-
-    return {
-        stage,
-        countdown,
-        currentShotIndex,
-        start,
-        continueAfterReview,
-        retakeCurrent,
-        isActive: stage !== "idle" && stage !== "done",
-    };
-
+  return {
+    stage,
+    countdown,
+    currentShotIndex,
+    start,
+    continueAfterReview,
+    retakeCurrent,
+    isActive: stage !== 'idle' && stage !== 'done'
+  }
 }

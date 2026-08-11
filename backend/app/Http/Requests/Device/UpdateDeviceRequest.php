@@ -2,28 +2,21 @@
 
 namespace App\Http\Requests\Device;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateDeviceRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
-            //
+            'booth_id' => ['required', 'integer', 'exists:booths,id'],
+            'device_name' => ['required', 'string', 'max:150'],
+            'status' => ['required', 'in:pending,active,blocked,revoked'],
         ];
     }
 }

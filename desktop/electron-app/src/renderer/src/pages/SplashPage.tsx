@@ -1,113 +1,87 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from 'react'
+import type { JSX } from 'react'
+import { useNavigate } from 'react-router-dom'
 
-import { initialize } from "@/bootstrap/initialize";
+import { initialize } from '@/bootstrap/initialize'
+import { getApiErrorMessage } from '@/api/axios'
 
-export default function SplashPage() {
+export default function SplashPage(): JSX.Element {
+  const navigate = useNavigate()
 
-    const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null)
 
-    const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0)
 
-    const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let cancelled = false
 
-    useEffect(() => {
+    async function run(): Promise<void> {
+      try {
+        setError(null)
 
-        let cancelled = false;
+        const result = await initialize()
 
-        async function run() {
-
-            try {
-
-                setError(null);
-
-                const result = await initialize();
-
-                if (cancelled) {
-
-                    return;
-
-                }
-
-                if (!result.authenticated) {
-
-                    navigate("/login", { replace: true });
-
-                    return;
-
-                }
-
-                if (!result.bootstrapLoaded) {
-
-                    setError(
-                        "Data booth belum dapat dimuat. Periksa koneksi ke server lalu coba lagi."
-                    );
-
-                    return;
-
-                }
-
-                navigate("/dashboard", { replace: true });
-
-            } catch (caughtError) {
-
-                if (cancelled) {
-
-                    return;
-
-                }
-
-                const message =
-                    caughtError instanceof Error
-                        ? caughtError.message
-                        : "Terjadi kesalahan saat memuat aplikasi.";
-
-                setError(message);
-
-            }
-
+        if (cancelled) {
+          return
         }
 
-        run();
+        if (!result.deviceRegistered) {
+          navigate('/activate-device', { replace: true })
 
-        return () => {
+          return
+        }
 
-            cancelled = true;
+        if (!result.authenticated) {
+          navigate('/login', {
+            replace: true,
+            state: result.loginMessage ? { message: result.loginMessage } : undefined
+          })
 
-        };
+          return
+        }
 
-    }, [attempt, navigate]);
+        if (!result.bootstrapLoaded) {
+          setError('Data booth belum dapat dimuat. Periksa koneksi ke server lalu coba lagi.')
 
-    return (
+          return
+        }
 
-        <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        navigate('/dashboard', { replace: true })
+      } catch (caughtError) {
+        if (cancelled) {
+          return
+        }
 
-            <h1 className="text-3xl font-bold">
+        const message = getApiErrorMessage(caughtError, 'Terjadi kesalahan saat memuat aplikasi.')
 
-                Photobooth
+        setError(message)
+      }
+    }
 
-            </h1>
+    run()
 
-            {error && (
+    return () => {
+      cancelled = true
+    }
+  }, [attempt, navigate])
 
-                <div className="max-w-md space-y-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+  return (
+    <div className="flex h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+      <h1 className="text-3xl font-bold">Photobooth</h1>
 
-                    <p>{error}</p>
+      {error && (
+        <div className="max-w-md space-y-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <p>{error}</p>
 
-                    <button
-                        type="button"
-                        className="rounded-md bg-red-700 px-3 py-2 font-medium text-white"
-                        onClick={() => setAttempt((current) => current + 1)}
-                    >
-                        Coba lagi
-                    </button>
-
-                </div>
-
-            )}
-
+          <button
+            type="button"
+            className="rounded-md bg-red-700 px-3 py-2 font-medium text-white"
+            onClick={() => setAttempt((current) => current + 1)}
+          >
+            Coba lagi
+          </button>
         </div>
-
-    );
-
+      )}
+    </div>
+  )
 }

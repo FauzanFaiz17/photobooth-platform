@@ -1,37 +1,35 @@
 export interface DeviceFingerprint {
+  deviceUuid: string
 
-    deviceUuid: string;
+  windowsUuid: string
 
-    windowsUuid: string;
+  cpuIdentifier: string
 
-    cpuIdentifier: string;
+  macAddress: string
 
-    macAddress: string;
-
-    appVersion: string;
-
+  appVersion: string
 }
 
 export interface Device {
+  id: number
 
-    id: number;
+  device_key: string
 
-    device_key: string;
+  device_uuid: string
 
-    device_uuid: string;
+  device_name: string
 
-    device_name: string;
+  status: string
 
-    status: string;
+  activation_expires_at?: string | null
 
+  activated_at?: string | null
 }
 
 export interface DeviceLocalState {
+  fingerprint: DeviceFingerprint
 
-    fingerprint: DeviceFingerprint;
+  registered: boolean
 
-    registered: boolean;
-
-    lastSync: string | null;
-
+  lastSync: string | null
 }

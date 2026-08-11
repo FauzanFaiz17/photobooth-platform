@@ -38,6 +38,89 @@ class DesktopApiTest extends ApiTestCase
         ])->assertNotFound();
     }
 
+    public function test_pending_device_can_be_activated_once(): void
+    {
+        $partner = $this->createPartner();
+        $this->activateSubscription($partner);
+        $booth = $this->createBooth($partner->id);
+        $activationCode = 'PB-ABCD-EFGH';
+        $device = Device::create([
+            'partner_id' => $partner->id,
+            'booth_id' => $booth->id,
+            'device_key' => 'pending-device',
+            'device_name' => 'Pending Device',
+            'activation_code_hash' => hash('sha256', $activationCode),
+            'activation_expires_at' => now()->addMinutes(30),
+            'status' => 'pending',
+        ]);
+        $uuid = '55555555-5555-4555-8555-555555555555';
+
+        $this->postJson('/api/v1/desktop/devices/activate', [
+            'activation_code' => strtolower($activationCode),
+            'device_uuid' => $uuid,
+            'windows_uuid' => 'windows-uuid',
+            'cpu_identifier' => 'test-cpu',
+            'mac_address' => '00:00:00:00:00:55',
+            'app_version' => '1.0.0',
+        ])->assertOk()
+            ->assertJsonPath('data.id', $device->id)
+            ->assertJsonPath('data.device_uuid', $uuid)
+            ->assertJsonPath('data.status', 'active');
+
+        $this->assertDatabaseHas('devices', [
+            'id' => $device->id,
+            'device_uuid' => $uuid,
+            'activation_code_hash' => null,
+            'status' => 'active',
+        ]);
+
+        $this->postJson('/api/v1/desktop/devices/activate', [
+            'activation_code' => $activationCode,
+            'device_uuid' => $uuid,
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('activation_code');
+    }
+
+    public function test_device_activation_rejects_expired_code_and_inactive_booth(): void
+    {
+        $partner = $this->createPartner();
+        $this->activateSubscription($partner);
+        $booth = $this->createBooth($partner->id);
+
+        Device::create([
+            'partner_id' => $partner->id,
+            'booth_id' => $booth->id,
+            'device_key' => 'expired-device',
+            'device_name' => 'Expired Device',
+            'activation_code_hash' => hash('sha256', 'PB-EXPIRED-01'),
+            'activation_expires_at' => now()->subMinute(),
+            'status' => 'pending',
+        ]);
+
+        $this->postJson('/api/v1/desktop/devices/activate', [
+            'activation_code' => 'PB-EXPIRED-01',
+            'device_uuid' => '66666666-6666-4666-8666-666666666666',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('activation_code');
+
+        $booth->update(['status' => 'inactive']);
+        Device::create([
+            'partner_id' => $partner->id,
+            'booth_id' => $booth->id,
+            'device_key' => 'inactive-booth-device',
+            'device_name' => 'Inactive Booth Device',
+            'activation_code_hash' => hash('sha256', 'PB-INACTIVE-01'),
+            'activation_expires_at' => now()->addMinutes(30),
+            'status' => 'pending',
+        ]);
+
+        $this->postJson('/api/v1/desktop/devices/activate', [
+            'activation_code' => 'PB-INACTIVE-01',
+            'device_uuid' => '77777777-7777-4777-8777-777777777777',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('activation_code');
+    }
+
     public function test_bootstrap_route_returns_the_authenticated_device_context(): void
     {
         [$operator, $device] = $this->desktopContext();
@@ -94,6 +177,11 @@ class DesktopApiTest extends ApiTestCase
             ->assertOk()
             ->assertJsonPath('data.status', 'completed')
             ->assertJsonCount(1, 'data.media');
+
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/desktop/photo-sessions/{$sessionId}/complete")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'completed');
 
         $this->assertDatabaseHas('photo_sessions', [
             'id' => $sessionId,
@@ -155,6 +243,35 @@ class DesktopApiTest extends ApiTestCase
                 'data_url' => 'data:image/png;base64,'.base64_encode('image'),
             ])->assertUnprocessable()
             ->assertJsonValidationErrors('photo_session');
+    }
+
+    public function test_retrying_the_same_media_does_not_create_a_duplicate(): void
+    {
+        Storage::fake('local');
+        [$operator, $device] = $this->desktopContext();
+        Sanctum::actingAs($operator);
+        $headers = ['X-Device-UUID' => $device->device_uuid];
+        $sessionId = $this->withHeaders($headers)
+            ->postJson('/api/v1/desktop/photo-sessions')
+            ->json('data.id');
+        $payload = [
+            'type' => 'edited',
+            'filename' => 'capture-01.png',
+            'mime_type' => 'image/png',
+            'data_url' => 'data:image/png;base64,'.base64_encode('image'),
+        ];
+
+        $firstId = $this->withHeaders($headers)
+            ->postJson("/api/v1/desktop/photo-sessions/{$sessionId}/media", $payload)
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/desktop/photo-sessions/{$sessionId}/media", $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.id', $firstId);
+
+        $this->assertDatabaseCount('media', 1);
     }
 
     private function desktopContext(

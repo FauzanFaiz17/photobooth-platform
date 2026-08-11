@@ -1,9 +1,8 @@
 export interface StartupResult {
+  authenticated: boolean
 
-    authenticated: boolean;
+  deviceRegistered: boolean
 
-    deviceRegistered: boolean;
-
-    bootstrapLoaded: boolean;
-
+  bootstrapLoaded: boolean
+  loginMessage?: string
 }

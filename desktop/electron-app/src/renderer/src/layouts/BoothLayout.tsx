@@ -1,25 +1,35 @@
-import { Outlet } from "react-router-dom";
+import { Outlet } from 'react-router-dom'
+import type { JSX } from 'react'
 
-export default function BoothLayout() {
-    return (
-        <div className="h-screen flex flex-col">
+import { useDeviceStore } from '@/store/deviceStore'
+import { useSessionStore } from '@/store/sessionStore'
 
-            <header className="bg-slate-900 text-white p-4 flex justify-between">
-                <div>Photobooth</div>
+export default function BoothLayout(): JSX.Element {
+  const device = useDeviceStore((state) => state.device)
+  const configuration = useSessionStore((state) => state.eventConfiguration)
 
-                <div>
-                    Booth A
-                </div>
-            </header>
-
-            <main className="flex-1 overflow-auto bg-gray-100 p-6">
-                <Outlet />
-            </main>
-
-            <footer className="bg-white border-t p-3 text-sm text-gray-600">
-                Camera : Offline
-            </footer>
-
+  return (
+    <div className="flex h-screen flex-col">
+      <header className="flex items-center justify-between bg-slate-900 px-5 py-3 text-white">
+        <div className="font-semibold">Photobooth</div>
+        <div className="text-right text-sm">
+          <p>{configuration?.event.event_name ?? device?.device_name}</p>
+          <p className="text-slate-400">
+            {configuration?.event.booth.name ?? 'Booth belum dipilih'}
+          </p>
         </div>
-    );
+      </header>
+
+      <main className="flex-1 overflow-auto bg-gray-100 p-6">
+        <Outlet />
+      </main>
+
+      <footer className="flex items-center justify-between border-t bg-white px-5 py-2 text-xs text-gray-600">
+        <span>{device?.device_name ?? 'Perangkat belum dimuat'}</span>
+        <span className="font-medium text-emerald-700">
+          {device?.status === 'active' ? 'Perangkat aktif' : 'Perangkat offline'}
+        </span>
+      </footer>
+    </div>
+  )
 }

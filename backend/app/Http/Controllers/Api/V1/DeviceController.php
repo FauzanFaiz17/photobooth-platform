@@ -3,54 +3,75 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Http\Requests\Device\DeviceIndexRequest;
+use App\Http\Requests\Device\StoreDeviceRequest;
+use App\Http\Requests\Device\UpdateDeviceRequest;
+use App\Http\Resources\DeviceResource;
+use App\Models\Device;
+use App\Services\DeviceManagementService;
+use App\Support\ApiResponse;
 
 class DeviceController extends Controller
 {
-    public function verify(Request $request)
+    public function __construct(
+        protected DeviceManagementService $service
+    ) {}
+
+    public function index(DeviceIndexRequest $request)
     {
-        $device = Device::where(
-            'device_uuid',
-            $request->device_uuid
-        )->first();
+        $this->authorize('viewAny', Device::class);
 
-        if (!$device) {
+        return DeviceResource::collection(
+            $this->service->index($request->validated(), $request->user())
+        );
+    }
 
-            return response()->json([
+    public function show(Device $device)
+    {
+        $this->authorize('view', $device);
 
-                'success' => false,
+        return new DeviceResource($device->load(['partner', 'booth']));
+    }
 
-                'registered' => false,
+    public function store(StoreDeviceRequest $request)
+    {
+        $this->authorize('create', Device::class);
+        [$device, $activationCode] = $this->service->create(
+            $request->validated(),
+            $request->user()
+        );
 
-                'message' => 'Perangkat belum terdaftar.'
+        return ApiResponse::success([
+            'device' => (new DeviceResource($device))->resolve($request),
+            'activation_code' => $activationCode,
+        ], 'Device created. Save the activation code now.', 201);
+    }
 
-            ],404);
+    public function update(UpdateDeviceRequest $request, Device $device)
+    {
+        $this->authorize('update', $device);
 
-        }
+        return new DeviceResource(
+            $this->service->update($device, $request->validated())
+        );
+    }
 
-        if($device->status!='active'){
+    public function regenerateActivation(Device $device)
+    {
+        $this->authorize('update', $device);
+        [$updatedDevice, $activationCode] = $this->service->regenerateActivation($device);
 
-            return response()->json([
+        return ApiResponse::success([
+            'device' => (new DeviceResource($updatedDevice))->resolve(request()),
+            'activation_code' => $activationCode,
+        ], 'A new activation code was generated.');
+    }
 
-                'success'=>false,
+    public function destroy(Device $device)
+    {
+        $this->authorize('delete', $device);
+        $this->service->delete($device);
 
-                'registered'=>true,
-
-                'message'=>'Perangkat tidak aktif.'
-
-            ],403);
-
-        }
-
-        return response()->json([
-
-            'success'=>true,
-
-            'registered'=>true,
-
-            'device'=>$device
-
-        ]);
-
+        return ApiResponse::success(null, 'Device deleted successfully.');
     }
 }

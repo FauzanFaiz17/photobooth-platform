@@ -1,67 +1,139 @@
-import { create } from "zustand";
+import { create } from 'zustand'
 
-import type { PhotoTemplate } from "@/features/template/types";
-import type { PhotoFilter } from "@/features/filter/types";
+import type { EventConfiguration } from '@/features/event/types'
+import { mapFilterSnapshot, mapTemplateSnapshot } from '@/features/event/types'
+import type { PhotoFilter } from '@/features/filter/types'
+import type { ComposedImage } from '@/features/template/services/composeTemplate'
+import type { PhotoTemplate } from '@/features/template/types'
 
 export interface CapturedShot {
-    id: string;
-    dataUrl: string;
+  id: string
+  dataUrl: string
+  width?: number
+  height?: number
 }
+
+export type SessionSyncStatus =
+  'idle' | 'creating' | 'ready' | 'syncing' | 'synced' | 'local-only' | 'failed'
 
 interface SessionState {
-
-    template: PhotoTemplate | null;
-
-    filter: PhotoFilter | null;
-
-    shots: CapturedShot[];
-
-    requiredShots: number;
-
-    setTemplate: (template: PhotoTemplate) => void;
-
-    setFilter: (filter: PhotoFilter | null) => void;
-
-    addShot: (shot: CapturedShot) => void;
-
-    resetShots: () => void;
-
-    reset: () => void;
+  eventConfiguration: EventConfiguration | null
+  template: PhotoTemplate | null
+  filter: PhotoFilter | null
+  shots: CapturedShot[]
+  requiredShots: number
+  remoteSessionId: number | null
+  syncStatus: SessionSyncStatus
+  syncError: string | null
+  localDirectory: string | null
+  uploadedShotCount: number
+  composedImage: ComposedImage | null
+  composedImageUploaded: boolean
+  beginEvent: (configuration: EventConfiguration) => void
+  setRemoteSession: (sessionId: number | null) => void
+  setSyncStatus: (status: SessionSyncStatus, error?: string | null) => void
+  setLocalDirectory: (directory: string) => void
+  setUploadedShotCount: (count: number) => void
+  setComposedImage: (image: ComposedImage | null) => void
+  setComposedImageUploaded: (uploaded: boolean) => void
+  setTemplate: (template: PhotoTemplate) => void
+  setFilter: (filter: PhotoFilter | null) => void
+  addShot: (shot: CapturedShot) => void
+  resetShots: () => void
+  reset: () => void
 }
 
-const DEFAULT_REQUIRED_SHOTS = 4;
+const DEFAULT_REQUIRED_SHOTS = 4
 
 export const useSessionStore = create<SessionState>((set) => ({
+  eventConfiguration: null,
+  template: null,
+  filter: null,
+  shots: [],
+  requiredShots: DEFAULT_REQUIRED_SHOTS,
+  remoteSessionId: null,
+  syncStatus: 'idle',
+  syncError: null,
+  localDirectory: null,
+  uploadedShotCount: 0,
+  composedImage: null,
+  composedImageUploaded: false,
 
-    template: null,
+  beginEvent: (configuration) => {
+    const mappedTemplate = mapTemplateSnapshot(configuration.template)
+    const filter = mapFilterSnapshot(configuration.filter)
+    const frames = configuration.template.json_layout.frames
+    const requiredShots =
+      Array.isArray(frames) && frames.length > 0
+        ? frames.length
+        : Math.max(1, configuration.camera.burst_count)
+    const template = {
+      ...mappedTemplate,
+      slots: requiredShots
+    }
 
-    filter: null,
+    set({
+      eventConfiguration: configuration,
+      template,
+      filter,
+      shots: [],
+      requiredShots,
+      remoteSessionId: null,
+      syncStatus: 'creating',
+      syncError: null,
+      localDirectory: null,
+      uploadedShotCount: 0,
+      composedImage: null,
+      composedImageUploaded: false
+    })
+  },
 
-    shots: [],
+  setRemoteSession: (remoteSessionId) => set({ remoteSessionId }),
 
-    requiredShots: DEFAULT_REQUIRED_SHOTS,
+  setSyncStatus: (syncStatus, syncError = null) => set({ syncStatus, syncError }),
 
-    setTemplate: (template) =>
-        set({
-            template,
-            requiredShots: template.slots ?? DEFAULT_REQUIRED_SHOTS,
-        }),
+  setLocalDirectory: (localDirectory) => set({ localDirectory }),
 
-    setFilter: (filter) => set({ filter }),
+  setUploadedShotCount: (uploadedShotCount) => set({ uploadedShotCount }),
 
-    addShot: (shot) =>
-        set((state) => ({
-            shots: [...state.shots, shot],
-        })),
+  setComposedImage: (composedImage) => set({ composedImage, composedImageUploaded: false }),
 
-    resetShots: () => set({ shots: [] }),
+  setComposedImageUploaded: (composedImageUploaded) => set({ composedImageUploaded }),
 
-    reset: () =>
-        set({
-            template: null,
-            filter: null,
-            shots: [],
-            requiredShots: DEFAULT_REQUIRED_SHOTS,
-        }),
+  setTemplate: (template) =>
+    set({
+      template,
+      requiredShots: template.slots ?? DEFAULT_REQUIRED_SHOTS
+    }),
 
-}));
+  setFilter: (filter) => set({ filter }),
+
+  addShot: (shot) =>
+    set((state) => ({
+      shots: [...state.shots, shot]
+    })),
+
+  resetShots: () =>
+    set({
+      shots: [],
+      composedImage: null,
+      composedImageUploaded: false,
+      uploadedShotCount: 0
+    }),
+
+  reset: () =>
+    set({
+      eventConfiguration: null,
+      template: null,
+      filter: null,
+      shots: [],
+      requiredShots: DEFAULT_REQUIRED_SHOTS,
+      remoteSessionId: null,
+      syncStatus: 'idle',
+      syncError: null,
+      localDirectory: null,
+      uploadedShotCount: 0,
+      composedImage: null,
+      composedImageUploaded: false
+    })
+}))

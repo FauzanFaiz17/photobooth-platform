@@ -146,4 +146,36 @@ class SubscriptionLimitService
     {
         $this->ensureSubscriptionIsActive($partner);
     }
+
+    public function deviceUsage(Partner $partner): array
+    {
+        $plan = $this->currentPlan($partner);
+
+        if (! $plan) {
+            return ['used' => 0, 'limit' => 0, 'remaining' => 0];
+        }
+
+        $used = $partner->devices()
+            ->whereIn('status', ['pending', 'active', 'blocked'])
+            ->count();
+
+        return [
+            'used' => $used,
+            'limit' => $plan->max_devices,
+            'remaining' => max(0, $plan->max_devices - $used),
+        ];
+    }
+
+    public function ensureCanCreateDevice(Partner $partner): void
+    {
+        $this->ensureSubscriptionIsActive($partner);
+
+        $usage = $this->deviceUsage($partner);
+
+        if ($usage['used'] >= $usage['limit']) {
+            throw ValidationException::withMessages([
+                'device' => 'Maximum device limit reached.',
+            ]);
+        }
+    }
 }
