@@ -23,6 +23,7 @@ interface LayoutBreadcrumbItem {
 
 const pageLabels: Record<string, string> = {
   kiosk: "Kiosk",
+  events: "Events",
   gallery: "Gallery",
   statistics: "Statistics",
   transactions: "Transactions",
@@ -32,6 +33,7 @@ const pageLabels: Record<string, string> = {
   "payment-key": "Payment Key",
   "frame-gift": "Frame Gift",
   forbidden: "Akses Ditolak",
+  profile: "Profile",
 }
 
 function formatPathSegment(segment: string): string {
@@ -66,6 +68,10 @@ function createBreadcrumbItems(pathname: string): ReadonlyArray<LayoutBreadcrumb
 
   if (section === "kiosk" && detail) {
     return [root, { label: "Kiosk", href: "/admin/kiosk" }, { label: formatPathSegment(detail) }]
+  }
+
+  if (section === "events" && detail) {
+    return [root, { label: "Events", href: "/admin/events" }, { label: "Detail Event" }]
   }
 
   if (section === "gallery" && detail) {

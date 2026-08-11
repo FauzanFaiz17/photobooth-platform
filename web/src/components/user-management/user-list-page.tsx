@@ -1,10 +1,15 @@
 import {
+  Plus,
+} from "lucide-react"
+import {
   useCallback,
   useEffect,
   useState,
 } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { toast } from "sonner"
 
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -12,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Toaster } from "@/components/ui/sonner"
 import { useAuth } from "@/features/auth/auth-context"
 import { getUsers } from "@/features/users/user-service"
 import {
@@ -20,6 +26,7 @@ import {
   isUserStatus,
   type SortDirection,
   type UserListResponse,
+  type UserRecord,
   type UserSortField,
 } from "@/features/users/user.types"
 import { ApiError } from "@/lib/api-client"
@@ -31,6 +38,7 @@ import {
   UserListLoadingState,
 } from "./user-list-states"
 import { UserListTable } from "./user-list-table"
+import { UserCreateDialog } from "./user-create-dialog"
 import {
   UserListToolbar,
   type UserStatusFilter,
@@ -94,6 +102,7 @@ export function UserListPage() {
   const [loadState, setLoadState] = useState<LoadState>("loading")
   const [errorMessage, setErrorMessage] = useState("")
   const [retryKey, setRetryKey] = useState(0)
+  const [createOpen, setCreateOpen] = useState(false)
 
   const updateQuery = useCallback(
     (updates: Readonly<Record<string, string | null>>) => {
@@ -217,6 +226,17 @@ export function UserListPage() {
     setSearchParams(new URLSearchParams(), { replace: true })
   }
 
+  async function handleUnauthorized() {
+    await logout()
+    navigate("/login", { replace: true })
+  }
+
+  function handleCreated(user: UserRecord) {
+    toast.success(`User ${user.name} berhasil ditambahkan.`)
+    setCreateOpen(false)
+    setRetryKey((value) => value + 1)
+  }
+
   return (
     <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
       <header>
@@ -230,11 +250,17 @@ export function UserListPage() {
 
       <Card className="min-w-0 shadow-sm">
         <CardHeader className="gap-4 border-b">
-          <div>
-            <CardTitle>Daftar user</CardTitle>
-            <CardDescription>
-              Pencarian, filter, dan pagination diproses oleh server.
-            </CardDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle>Daftar user</CardTitle>
+              <CardDescription>
+                Pencarian, filter, dan pagination diproses oleh server.
+              </CardDescription>
+            </div>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus aria-hidden="true" />
+              Tambah user
+            </Button>
           </div>
           <UserListToolbar
             key={querySearch}
@@ -314,6 +340,17 @@ export function UserListPage() {
           )}
         </CardContent>
       </Card>
+
+      {createOpen && (
+        <UserCreateDialog
+          open
+          onOpenChange={setCreateOpen}
+          onSaved={(user) => handleCreated(user)}
+          onUnauthorized={() => void handleUnauthorized()}
+        />
+      )}
+
+      <Toaster position="top-right" />
     </div>
   )
 }

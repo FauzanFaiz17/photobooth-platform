@@ -64,6 +64,17 @@ export interface CreateUserInput {
   status?: UserStatus
 }
 
+export interface UpdateUserInput {
+  name: string
+  email: string
+  phone?: string | null
+  status: UserStatus
+  role_id?: number
+  partner_id?: number | null
+  password?: string
+  password_confirmation?: string
+}
+
 export interface PaginationLink {
   url: string | null
   label: string

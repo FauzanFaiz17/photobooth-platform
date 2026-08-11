@@ -1,6 +1,7 @@
 import {
   Building2,
   CalendarDays,
+  ChevronRight,
   CircleAlert,
   Mail,
   MapPin,
@@ -8,7 +9,7 @@ import {
   RefreshCw,
 } from "lucide-react"
 import { useCallback, useEffect, useState, type ReactElement } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 
 import { PartnerStatusBadge } from "@/components/partner-management/partner-status-badge"
 import {
@@ -49,66 +50,89 @@ function KioskCard({ kiosk }: { readonly kiosk: PartnerRecord }) {
   const logoUrl = resolvePartnerLogoUrl(kiosk.logo)
 
   return (
-    <Card className="min-w-0">
-      <CardHeader className="border-b">
-        <div className="flex min-w-0 items-start gap-3">
-          <Avatar className="size-12">
-            {logoUrl && <AvatarImage src={logoUrl} alt={displayName} />}
-            <AvatarFallback className="font-semibold">
-              {createPartnerInitials(kiosk.company_name) || "KS"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <CardTitle className="truncate">
-              <h2>{displayName}</h2>
-            </CardTitle>
-            <CardDescription className="mt-1 truncate">
-              {kiosk.brand_name ? kiosk.company_name : `Kiosk #${kiosk.id}`}
-            </CardDescription>
-          </div>
-          <PartnerStatusBadge status={kiosk.status} />
-        </div>
-      </CardHeader>
-
-      <CardContent className="grid gap-4">
-        <div className="grid gap-3 text-sm">
+    <Link
+      to={`/admin/kiosk/${kiosk.id}`}
+      state={{ from: KIOSK_PATH }}
+      className="rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={`Lihat booth ${displayName}`}
+    >
+      <Card className="h-full min-w-0 transition-colors hover:bg-muted/30">
+        <CardHeader className="border-b">
           <div className="flex min-w-0 items-start gap-3">
-            <Mail className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span className="min-w-0 break-all">{kiosk.email}</span>
+            <Avatar className="size-12">
+              {logoUrl && <AvatarImage src={logoUrl} alt={displayName} />}
+              <AvatarFallback className="font-semibold">
+                {createPartnerInitials(kiosk.company_name) || "KS"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <CardTitle className="truncate">
+                <h2>{displayName}</h2>
+              </CardTitle>
+              <CardDescription className="mt-1 truncate">
+                {kiosk.brand_name
+                  ? kiosk.company_name
+                  : `Kiosk #${kiosk.id}`}
+              </CardDescription>
+            </div>
+            <PartnerStatusBadge status={kiosk.status} />
           </div>
-          <div className="flex min-w-0 items-start gap-3">
-            <Phone className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span>{kiosk.phone || "Nomor telepon belum diisi"}</span>
-          </div>
-          <div className="flex min-w-0 items-start gap-3">
-            <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span className="min-w-0 break-words">
-              {kiosk.address || "Alamat belum diisi"}
-            </span>
-          </div>
-        </div>
+        </CardHeader>
 
-        <dl className="grid gap-3 border-t pt-4 sm:grid-cols-2">
-          <div>
-            <dt className="text-xs text-muted-foreground">Paket</dt>
-            <dd className="mt-1 font-medium">{getPartnerPlanName(kiosk)}</dd>
+        <CardContent className="grid gap-4">
+          <div className="grid gap-3 text-sm">
+            <div className="flex min-w-0 items-start gap-3">
+              <Mail
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <span className="min-w-0 break-all">{kiosk.email}</span>
+            </div>
+            <div className="flex min-w-0 items-start gap-3">
+              <Phone
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <span>{kiosk.phone || "Nomor telepon belum diisi"}</span>
+            </div>
+            <div className="flex min-w-0 items-start gap-3">
+              <MapPin
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <span className="min-w-0 wrap-break-word">
+                {kiosk.address || "Alamat belum diisi"}
+              </span>
+            </div>
           </div>
-          <div>
-            <dt className="text-xs text-muted-foreground">Masa aktif</dt>
-            <dd className="mt-1 font-medium">
-              {kiosk.subscription
-                ? formatPartnerDate(kiosk.subscription.ends_at)
-                : "Tidak tersedia"}
-            </dd>
-          </div>
-        </dl>
-      </CardContent>
 
-      <CardFooter className="gap-2 text-xs text-muted-foreground">
-        <CalendarDays className="size-4" aria-hidden="true" />
-        Terdaftar {formatPartnerDateTime(kiosk.created_at)}
-      </CardFooter>
-    </Card>
+          <dl className="grid gap-3 border-t pt-4 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs text-muted-foreground">Paket</dt>
+              <dd className="mt-1 font-medium">
+                {getPartnerPlanName(kiosk)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Masa aktif</dt>
+              <dd className="mt-1 font-medium">
+                {kiosk.subscription
+                  ? formatPartnerDate(kiosk.subscription.ends_at)
+                  : "Tidak tersedia"}
+              </dd>
+            </div>
+          </dl>
+        </CardContent>
+
+        <CardFooter className="justify-between gap-2 text-xs text-muted-foreground">
+          <span className="flex items-center gap-2">
+            <CalendarDays className="size-4" aria-hidden="true" />
+            Terdaftar {formatPartnerDateTime(kiosk.created_at)}
+          </span>
+          <ChevronRight className="size-4" aria-hidden="true" />
+        </CardFooter>
+      </Card>
+    </Link>
   )
 }
 

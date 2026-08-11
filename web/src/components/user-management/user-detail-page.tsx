@@ -4,12 +4,16 @@ import {
   useNavigate,
   useParams,
 } from "react-router-dom"
+import { toast } from "sonner"
 
+import { Toaster } from "@/components/ui/sonner"
 import { useAuth } from "@/features/auth/auth-context"
 import { getUser } from "@/features/users/user-service"
 import type { UserRecord } from "@/features/users/user.types"
 import { ApiError } from "@/lib/api-client"
 
+import { UserCreateDialog } from "./user-create-dialog"
+import { UserDeleteDialog } from "./user-delete-dialog"
 import { UserDetailHeader } from "./user-detail-header"
 import { UserDetailInformation } from "./user-detail-information"
 import {
@@ -56,6 +60,24 @@ export function UserDetailPage() {
   const [loadState, setLoadState] = useState<LoadState>("loading")
   const [errorMessage, setErrorMessage] = useState("")
   const [retryKey, setRetryKey] = useState(0)
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+
+  async function handleUnauthorized() {
+    await logout()
+    navigate("/login", { replace: true })
+  }
+
+  function handleSaved(savedUser: UserRecord) {
+    setUser(savedUser)
+    setEditOpen(false)
+    toast.success(`User ${savedUser.name} berhasil diperbarui.`)
+  }
+
+  function handleDeleted(deletedUser: UserRecord) {
+    toast.success(`User ${deletedUser.name} berhasil dihapus.`)
+    navigate(returnTo, { replace: true })
+  }
 
   useEffect(() => {
     if (!token || userId === null) return
@@ -158,10 +180,39 @@ export function UserDetailPage() {
 
       {loadState === "success" && user && (
         <>
-          <UserDetailHeader user={user} returnTo={returnTo} />
+          <UserDetailHeader
+            user={user}
+            returnTo={returnTo}
+            onEdit={() => setEditOpen(true)}
+            onDelete={() => setDeleteOpen(true)}
+          />
           <UserDetailInformation user={user} />
+
+          {editOpen && (
+            <UserCreateDialog
+              key={user.id}
+              user={user}
+              open
+              onOpenChange={setEditOpen}
+              onSaved={(savedUser) => handleSaved(savedUser)}
+              onUnauthorized={() => void handleUnauthorized()}
+            />
+          )}
+
+          {deleteOpen && (
+            <UserDeleteDialog
+              key={user.id}
+              user={user}
+              open
+              onOpenChange={setDeleteOpen}
+              onDeleted={handleDeleted}
+              onUnauthorized={() => void handleUnauthorized()}
+            />
+          )}
         </>
       )}
+
+      <Toaster position="top-right" />
     </div>
   )
 }

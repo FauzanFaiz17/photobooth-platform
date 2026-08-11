@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Pencil, Trash2 } from "lucide-react"
 import { Link } from "react-router-dom"
 
 import {
@@ -16,11 +16,15 @@ import { UserStatusBadge } from "./user-status-badge"
 interface UserDetailHeaderProps {
   readonly user: UserRecord
   readonly returnTo: string
+  readonly onEdit: () => void
+  readonly onDelete: () => void
 }
 
 export function UserDetailHeader({
   user,
   returnTo,
+  onEdit,
+  onDelete,
 }: UserDetailHeaderProps) {
   const avatarUrl = resolveStorageUrl(user.avatar)
 
@@ -55,7 +59,17 @@ export function UserDetailHeader({
           </p>
         </div>
 
-        <UserStatusBadge status={user.status} />
+        <div className="flex flex-wrap items-center gap-2">
+          <UserStatusBadge status={user.status} />
+          <Button variant="outline" onClick={onEdit}>
+            <Pencil aria-hidden="true" />
+            Edit
+          </Button>
+          <Button variant="destructive" onClick={onDelete}>
+            <Trash2 aria-hidden="true" />
+            Hapus
+          </Button>
+        </div>
       </div>
     </header>
   )
