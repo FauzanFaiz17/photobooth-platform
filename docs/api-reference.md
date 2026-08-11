@@ -174,11 +174,13 @@ Status yang umum:
 | `PUT/PATCH` | `/events/{event}` | `events.update` |
 | `DELETE` | `/events/{event}` | `events.delete` |
 
-### Public gateway callback
+### Public routes
 
 | Method | Route | Auth | Verification |
 | --- | --- | --- | --- |
 | `POST` | `/payments/midtrans/notification` | Tidak | Signature Midtrans wajib valid |
+| `GET` | `/gallery/{token}` | Tidak | Token 64 karakter, belum kedaluwarsa |
+| `GET` | `/gallery/{token}/media/{media}` | Tidak | Token valid dan media milik session token |
 
 ### Desktop
 
@@ -1506,7 +1508,7 @@ Response `201`:
 }
 ```
 
-Development storage menggunakan disk Laravel `local` dengan object key internal `sessions/{session_id}/...`. `bucket` dan `object_key` tidak dikirim ke desktop agar lokasi storage tidak menjadi kontrak publik.
+Media disimpan melalui `MediaStorage` pada disk yang ditentukan `MEDIA_DISK`. Development menggunakan disk Laravel `local`; konfigurasi production dapat diarahkan ke disk S3-compatible Cloudflare R2. Object key internal tetap berbentuk `sessions/{session_id}/...`. `bucket` dan `object_key` tidak dikirim ke desktop atau gallery agar lokasi storage tidak menjadi kontrak publik.
 
 Alur Electron mengunggah setiap capture terfilter sebagai `edited`, lalu hasil gabungan canvas, slot foto, dan overlay PNG sebagai:
 
@@ -1537,6 +1539,10 @@ Response `200` mengembalikan photo session berstatus `completed`, `completed_at`
     "id": 100,
     "status": "completed",
     "completed_at": "2026-08-06T10:05:00.000000Z",
+    "gallery": {
+      "url": "http://localhost/api/v1/gallery/64-character-random-token",
+      "expires_at": "2026-09-05T10:05:00.000000Z"
+    },
     "media": [
       {
         "id": 200,
@@ -1556,11 +1562,84 @@ Response `200` mengembalikan photo session berstatus `completed`, `completed_at`
 }
 ```
 
-Completion bersifat idempotent: request complete dapat diulang dengan aman dan tetap mengembalikan session `completed`. Session yang sudah selesai tidak menerima media baru. Upload ulang dengan kombinasi session, type, filename, dan checksum yang sama mengembalikan media yang sudah ada tanpa membuat duplikasi.
+Completion bersifat idempotent: request complete dapat diulang dengan aman dan tetap mengembalikan session `completed`. Pada completion pertama backend membuat satu `download_tokens` record dengan TTL default 30 hari. Session yang sudah selesai tidak menerima media baru. Upload ulang dengan kombinasi session, type, filename, dan checksum yang sama mengembalikan media yang sudah ada tanpa membuat duplikasi.
+
+## Public Gallery dan Download
+
+### Membuka gallery
+
+`GET /gallery/{token}`
+
+Endpoint tidak membutuhkan login. Token hanya aktif untuk photo session `completed` dan sebelum `expires_at`. Token kedaluwarsa menghasilkan `410 Gone`. Setiap tampilan valid dicatat di `gallery_views` menggunakan IP, user agent, dan waktu akses.
+
+```json
+{
+  "success": true,
+  "message": "Gallery retrieved.",
+  "data": {
+    "session_id": 100,
+    "completed_at": "2026-08-06T10:05:00.000000Z",
+    "expires_at": "2026-09-05T10:05:00.000000Z",
+    "media": [
+      {
+        "id": 200,
+        "type": "template",
+        "filename": "final-composite.png",
+        "mime_type": "image/png",
+        "size_bytes": 125000,
+        "width": 1200,
+        "height": 1800,
+        "download_url": "http://localhost/api/v1/gallery/{token}/media/200"
+      }
+    ]
+  }
+}
+```
+
+Response tidak pernah menyertakan `bucket` atau `object_key`.
+
+### Download media gallery
+
+`GET /gallery/{token}/media/{media}`
+
+Backend memastikan media berada di session yang dimiliki token, kemudian melakukan streaming file dari private storage. Download yang valid menaikkan `download_count` dan memperbarui `last_download_at`. Header menggunakan nama file dan MIME type yang tersimpan. Rate limit default adalah 60 request gallery dan 30 download per menit per client.
+
+Konfigurasi:
+
+```dotenv
+MEDIA_DISK=local
+MEDIA_BUCKET=local
+GALLERY_TOKEN_TTL_DAYS=30
+```
+
+Untuk R2, arahkan `MEDIA_DISK` ke disk S3-compatible yang telah dikonfigurasi dengan endpoint, bucket, dan kredensial R2. File tetap private dan dilayani melalui endpoint Laravel; tidak ada URL object permanen di database.
+
+Driver `league/flysystem-aws-s3-v3` sudah terpasang dan disk `r2` tersedia. Contoh konfigurasi:
+
+```dotenv
+MEDIA_DISK=r2
+MEDIA_BUCKET=nama-bucket-r2
+
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+R2_BUCKET=nama-bucket-r2
+R2_ENDPOINT=https://ACCOUNT_ID.r2.cloudflarestorage.com
+R2_REGION=auto
+R2_USE_PATH_STYLE_ENDPOINT=true
+```
+
+Sesudah mengubah `.env`, bersihkan cache dan validasi koneksi tanpa mengunggah file permanen:
+
+```powershell
+php artisan config:clear
+php artisan media:storage-check
+```
+
+Command hanya memeriksa konfigurasi dan melakukan operasi `exists` terhadap key health-check yang tidak dibuat. Kredensial tidak ditampilkan pada output.
 
 ## Route Belum Aktif
 
-Route dashboard untuk gallery/media management, report, role, dan permission belum aktif. Dashboard payment menyediakan list/detail dan transisi Super Admin, sedangkan pembuatan cash/QRIS dilakukan dari desktop dan status Midtrans diperbarui melalui callback tersignature. Frontend tidak boleh menganggap endpoint lain tersedia sampai didokumentasikan di file ini dan muncul pada `php artisan route:list --path=api`.
+Route dashboard untuk pengelolaan gallery/media, report, role, dan permission belum aktif. Public gallery/download berbasis token sudah aktif, tetapi belum ada halaman customer atau dashboard yang mengonsumsinya. Dashboard payment menyediakan list/detail dan transisi Super Admin, sedangkan pembuatan cash/QRIS dilakukan dari desktop dan status Midtrans diperbarui melalui callback tersignature. Frontend tidak boleh menganggap endpoint lain tersedia sampai didokumentasikan di file ini dan muncul pada `php artisan route:list --path=api`.
 
 ## Verifikasi Backend
 
@@ -1575,6 +1654,7 @@ Suite API berada di:
 - `backend/tests/Feature/CustomerVoucherApiTest.php`
 - `backend/tests/Feature/PaymentLifecycleApiTest.php`
 - `backend/tests/Feature/MidtransPaymentTest.php`
+- `backend/tests/Feature/GalleryApiTest.php`
 
 Pada instalasi PHP yang belum mengaktifkan `pdo_sqlite`, suite dapat dijalankan tanpa mengubah `php.ini` menggunakan:
 

@@ -9,6 +9,7 @@ use App\Services\PaymentService;
 use App\Services\VoucherService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Storage;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -80,3 +81,48 @@ Artisan::command('payments:expire', function () {
     $count = app(PaymentService::class)->expireDue();
     $this->info("{$count} payment(s) expired.");
 })->purpose('Mark pending payments past their expiration date as expired');
+
+Artisan::command('media:storage-check', function () {
+    $disk = config('media.disk', 'local');
+    $filesystem = config("filesystems.disks.{$disk}", []);
+    $required = ($filesystem['driver'] ?? null) === 's3'
+        ? ['key', 'secret', 'bucket', 'endpoint']
+        : [];
+    $missing = collect($required)
+        ->filter(fn (string $key) => blank($filesystem[$key] ?? null))
+        ->values();
+
+    $this->table([
+        'Setting',
+        'Value',
+    ], [
+        ['MEDIA_DISK', $disk],
+        ['Driver', $filesystem['driver'] ?? 'unknown'],
+        ['Bucket', filled($filesystem['bucket'] ?? null) ? 'configured' : 'missing'],
+        ['Endpoint', filled($filesystem['endpoint'] ?? null) ? 'configured' : 'missing'],
+        ['Credentials', $missing->isEmpty() ? 'configured' : 'missing'],
+    ]);
+
+    if ($missing->isNotEmpty()) {
+        $this->warn('Missing storage configuration: '.$missing->implode(', '));
+
+        return 1;
+    }
+
+    if ($disk === 'local') {
+        $this->info('Local media storage is ready.');
+
+        return 0;
+    }
+
+    try {
+        Storage::disk($disk)->exists('__photobooth_storage_check__');
+        $this->info("Storage disk [{$disk}] is reachable.");
+    } catch (Throwable $exception) {
+        $this->error('Storage check failed: '.$exception->getMessage());
+
+        return 1;
+    }
+
+    return 0;
+})->purpose('Validate the configured private media storage disk');

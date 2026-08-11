@@ -2,20 +2,23 @@
 
 namespace App\Services\Desktop;
 
+use App\Contracts\MediaStorage;
 use App\Models\Customer;
 use App\Models\Device;
+use App\Models\DownloadToken;
 use App\Models\Event;
 use App\Models\Media;
 use App\Models\Payment;
 use App\Models\PhotoSession;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class PhotoSessionService
 {
+    public function __construct(protected MediaStorage $storage) {}
+
     public function create(
         User $user,
         string $deviceUuid,
@@ -80,7 +83,7 @@ class PhotoSessionService
             $data['filename']
         );
 
-        if (! Storage::disk('local')->put($objectKey, $binary)) {
+        if (! $this->storage->put($objectKey, $binary)) {
             throw ValidationException::withMessages([
                 'data_url' => 'Media could not be stored.',
             ]);
@@ -89,7 +92,7 @@ class PhotoSessionService
         try {
             return $photoSession->media()->create([
                 'type' => $data['type'],
-                'bucket' => 'local',
+                'bucket' => $this->storage->bucketName(),
                 'object_key' => $objectKey,
                 'filename' => $data['filename'],
                 'mime_type' => $mimeType,
@@ -101,7 +104,7 @@ class PhotoSessionService
                 'visibility' => 'private',
             ]);
         } catch (\Throwable $exception) {
-            Storage::disk('local')->delete($objectKey);
+            $this->storage->delete($objectKey);
             throw $exception;
         }
     }
@@ -114,7 +117,9 @@ class PhotoSessionService
         $this->ensureSessionAccess($photoSession, $user, $deviceUuid);
 
         if ($photoSession->status === 'completed') {
-            return $photoSession->load('media');
+            $this->ensureDownloadToken($photoSession);
+
+            return $photoSession->load(['media', 'downloadAccess']);
         }
 
         if ($photoSession->status !== 'started') {
@@ -128,7 +133,22 @@ class PhotoSessionService
             'completed_at' => now(),
         ]);
 
-        return $photoSession->fresh()->load('media');
+        $this->ensureDownloadToken($photoSession);
+
+        return $photoSession->fresh()->load(['media', 'downloadAccess']);
+    }
+
+    private function ensureDownloadToken(PhotoSession $photoSession): DownloadToken
+    {
+        return DownloadToken::firstOrCreate(
+            ['photo_session_id' => $photoSession->id],
+            [
+                'token' => $photoSession->download_token,
+                'expires_at' => now()->addDays(
+                    config('media.gallery_token_ttl_days', 30)
+                ),
+            ]
+        );
     }
 
     private function activeDeviceForUser(

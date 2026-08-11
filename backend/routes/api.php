@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\Desktop\VoucherController as DesktopVoucherContr
 use App\Http\Controllers\Api\V1\DeviceController as ManagementDeviceController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\FilterController;
+use App\Http\Controllers\Api\V1\GalleryController;
 use App\Http\Controllers\Api\V1\MidtransNotificationController;
 use App\Http\Controllers\Api\V1\PartnerController;
 use App\Http\Controllers\Api\V1\PartnerSubscriptionController;
@@ -37,6 +38,15 @@ Route::prefix('v1')->group(function () {
     */
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/payments/midtrans/notification', [MidtransNotificationController::class, 'store']);
+    Route::get('/gallery/{token}', [GalleryController::class, 'show'])
+        ->where('token', '[A-Za-z0-9]{64}')
+        ->middleware('throttle:60,1')
+        ->name('gallery.show');
+    Route::get('/gallery/{token}/media/{media}', [GalleryController::class, 'download'])
+        ->where('token', '[A-Za-z0-9]{64}')
+        ->whereNumber('media')
+        ->middleware('throttle:30,1')
+        ->name('gallery.media.download');
     // Route::post('/devices/verify', [DeviceController::class, 'verify']);
 
     // khusus dekstop

@@ -20,6 +20,16 @@ class PhotoSessionResource extends JsonResource
             'payment_id' => $this->payment_id,
             'status' => $this->status,
             'download_token' => $this->download_token,
+            'gallery' => $this->whenLoaded('downloadAccess', function () {
+                if (! $this->downloadAccess) {
+                    return null;
+                }
+
+                return [
+                    'url' => route('gallery.show', $this->downloadAccess->token),
+                    'expires_at' => $this->downloadAccess->expires_at,
+                ];
+            }),
             'started_at' => $this->started_at,
             'completed_at' => $this->completed_at,
             'media' => MediaResource::collection(

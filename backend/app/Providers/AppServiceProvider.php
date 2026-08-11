@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Contracts\MediaStorage;
 use App\Contracts\PaymentGateway;
 use App\Models\CameraProfile;
 use App\Models\Customer;
@@ -29,6 +30,7 @@ use App\Policies\TemplatePolicy;
 use App\Policies\UserPolicy;
 use App\Policies\VoucherPackagePolicy;
 use App\Policies\VoucherPolicy;
+use App\Services\Media\LaravelMediaStorage;
 use App\Services\Payments\MidtransGateway;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -41,6 +43,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(PaymentGateway::class, MidtransGateway::class);
+        $this->app->singleton(MediaStorage::class, LaravelMediaStorage::class);
     }
 
     /**
