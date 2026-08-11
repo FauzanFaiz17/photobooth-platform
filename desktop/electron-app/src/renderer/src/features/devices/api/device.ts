@@ -33,3 +33,11 @@ export async function activateDevice(
 
   return response.data.data
 }
+
+export async function heartbeatDevice(appVersion?: string): Promise<Device> {
+  const response = await api.post<ApiEnvelope<Device>>('/v1/desktop/devices/heartbeat', {
+    app_version: appVersion || null
+  })
+
+  return response.data.data
+}

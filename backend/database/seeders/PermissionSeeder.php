@@ -23,6 +23,7 @@ class PermissionSeeder extends Seeder
             'camera_profiles',
             'printer_profiles',
             'events',
+            'customers',
             'vouchers',
             'payments',
             'sessions',

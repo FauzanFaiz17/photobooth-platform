@@ -138,6 +138,52 @@ class DesktopApiTest extends ApiTestCase
             ]);
     }
 
+    public function test_authenticated_desktop_heartbeat_updates_presence_and_app_version(): void
+    {
+        [$operator, $device] = $this->desktopContext();
+        $device->update(['last_sync_at' => now()->subMinutes(10)]);
+        Sanctum::actingAs($operator);
+
+        $this->withHeader('X-Device-UUID', $device->device_uuid)
+            ->postJson('/api/v1/desktop/devices/heartbeat', [
+                'app_version' => '1.2.3',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.app_version', '1.2.3')
+            ->assertJsonPath('data.presence_status', 'online');
+
+        $device->refresh();
+        $this->assertSame('1.2.3', $device->app_version);
+        $this->assertNotNull($device->last_sync_at);
+        $this->assertTrue($device->last_sync_at->greaterThan(now()->subSecond()));
+    }
+
+    public function test_heartbeat_rejects_cross_tenant_and_inactive_devices(): void
+    {
+        [$operator] = $this->desktopContext();
+        [, $otherDevice] = $this->desktopContext(
+            'heartbeat-other',
+            '44444444-4444-4444-8444-444444444444'
+        );
+        Sanctum::actingAs($operator);
+
+        $this->withHeader('X-Device-UUID', $otherDevice->device_uuid)
+            ->postJson('/api/v1/desktop/devices/heartbeat')
+            ->assertForbidden();
+
+        $otherDevice->update(['status' => 'blocked']);
+        $otherOperator = $this->createOperator($otherDevice->partner, [
+            'email' => 'heartbeat-blocked@example.test',
+        ]);
+        Sanctum::actingAs($otherOperator);
+
+        $this->withHeader('X-Device-UUID', $otherDevice->device_uuid)
+            ->postJson('/api/v1/desktop/devices/heartbeat')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('device_uuid');
+    }
+
     public function test_photo_session_create_upload_and_complete_routes_succeed(): void
     {
         Storage::fake('local');

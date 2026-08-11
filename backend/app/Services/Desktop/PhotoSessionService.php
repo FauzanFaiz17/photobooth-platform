@@ -208,11 +208,12 @@ class PhotoSessionService
         if (! empty($data['payment_id'])) {
             $validPayment = Payment::whereKey($data['payment_id'])
                 ->where('partner_id', $device->partner_id)
+                ->where('status', 'paid')
                 ->exists();
 
             if (! $validPayment) {
                 throw ValidationException::withMessages([
-                    'payment_id' => 'The payment does not belong to this partner.',
+                    'payment_id' => 'A paid payment belonging to this partner is required.',
                 ]);
             }
         }

@@ -3,19 +3,29 @@
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BoothController;
 use App\Http\Controllers\Api\V1\CameraProfileController;
+use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\Desktop\BootstrapController;
+use App\Http\Controllers\Api\V1\Desktop\CustomerController as DesktopCustomerController;
 use App\Http\Controllers\Api\V1\Desktop\DeviceController;
 use App\Http\Controllers\Api\V1\Desktop\EventConfigurationController;
+use App\Http\Controllers\Api\V1\Desktop\HeartbeatController;
+use App\Http\Controllers\Api\V1\Desktop\PaymentController as DesktopPaymentController;
 use App\Http\Controllers\Api\V1\Desktop\PhotoSessionController;
+use App\Http\Controllers\Api\V1\Desktop\VoucherController as DesktopVoucherController;
 use App\Http\Controllers\Api\V1\DeviceController as ManagementDeviceController;
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\FilterController;
+use App\Http\Controllers\Api\V1\MidtransNotificationController;
 use App\Http\Controllers\Api\V1\PartnerController;
+use App\Http\Controllers\Api\V1\PartnerSubscriptionController;
+use App\Http\Controllers\Api\V1\PaymentController;
 // khusus desktop
 use App\Http\Controllers\Api\V1\PrinterProfileController;
 use App\Http\Controllers\Api\V1\SubscriptionPlanController;
 use App\Http\Controllers\Api\V1\TemplateController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\VoucherController;
+use App\Http\Controllers\Api\V1\VoucherPackageController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -26,6 +36,7 @@ Route::prefix('v1')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/payments/midtrans/notification', [MidtransNotificationController::class, 'store']);
     // Route::post('/devices/verify', [DeviceController::class, 'verify']);
 
     // khusus dekstop
@@ -34,6 +45,10 @@ Route::prefix('v1')->group(function () {
         ->group(function () {
 
             Route::get('/bootstrap', [BootstrapController::class, 'index']);
+            Route::post('/devices/heartbeat', [HeartbeatController::class, 'store']);
+            Route::post('/customers/resolve', [DesktopCustomerController::class, 'resolve']);
+            Route::post('/vouchers/redeem', [DesktopVoucherController::class, 'redeem']);
+            Route::post('/payments', [DesktopPaymentController::class, 'store']);
             Route::post('/photo-sessions', [PhotoSessionController::class, 'store']);
             Route::post('/photo-sessions/{photoSession}/media', [PhotoSessionController::class, 'media']);
             Route::post('/photo-sessions/{photoSession}/complete', [PhotoSessionController::class, 'complete']);
@@ -120,6 +135,56 @@ Route::prefix('v1')->group(function () {
 
             Route::delete('/{subscriptionPlan}', [SubscriptionPlanController::class, 'destroy'])
                 ->middleware('permission:subscriptions.delete');
+        });
+
+        Route::prefix('partner-subscriptions')->group(function () {
+            Route::get('/', [PartnerSubscriptionController::class, 'index'])
+                ->middleware('permission:subscriptions.view');
+            Route::get('/{partnerSubscription}', [PartnerSubscriptionController::class, 'show'])
+                ->middleware('permission:subscriptions.view');
+            Route::post('/', [PartnerSubscriptionController::class, 'store'])
+                ->middleware('permission:subscriptions.create');
+            Route::post('/{partnerSubscription}/activate', [PartnerSubscriptionController::class, 'activate'])
+                ->middleware('permission:subscriptions.update');
+            Route::post('/{partnerSubscription}/renew', [PartnerSubscriptionController::class, 'renew'])
+                ->middleware('permission:subscriptions.update');
+            Route::post('/{partnerSubscription}/cancel', [PartnerSubscriptionController::class, 'cancel'])
+                ->middleware('permission:subscriptions.update');
+            Route::post('/{partnerSubscription}/expire', [PartnerSubscriptionController::class, 'expire'])
+                ->middleware('permission:subscriptions.update');
+        });
+
+        Route::prefix('customers')->group(function () {
+            Route::get('/', [CustomerController::class, 'index'])
+                ->middleware('permission:customers.view');
+            Route::get('/{customer}', [CustomerController::class, 'show'])
+                ->middleware('permission:customers.view');
+        });
+
+        Route::apiResource('voucher-packages', VoucherPackageController::class)
+            ->middlewareFor(['index', 'show'], 'permission:vouchers.view')
+            ->middlewareFor('store', 'permission:vouchers.create')
+            ->middlewareFor('update', 'permission:vouchers.update')
+            ->middlewareFor('destroy', 'permission:vouchers.delete');
+
+        Route::prefix('vouchers')->group(function () {
+            Route::get('/', [VoucherController::class, 'index'])
+                ->middleware('permission:vouchers.view');
+            Route::post('/', [VoucherController::class, 'store'])
+                ->middleware('permission:vouchers.create');
+            Route::get('/{voucher}', [VoucherController::class, 'show'])
+                ->middleware('permission:vouchers.view');
+            Route::post('/{voucher}/void', [VoucherController::class, 'void'])
+                ->middleware('permission:vouchers.update');
+        });
+
+        Route::prefix('payments')->group(function () {
+            Route::get('/', [PaymentController::class, 'index'])
+                ->middleware('permission:payments.view');
+            Route::get('/{payment}', [PaymentController::class, 'show'])
+                ->middleware('permission:payments.view');
+            Route::post('/{payment}/transition', [PaymentController::class, 'transition'])
+                ->middleware('permission:payments.update');
         });
 
         Route::prefix('booths')->group(function () {

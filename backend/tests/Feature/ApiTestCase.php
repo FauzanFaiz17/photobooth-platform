@@ -65,6 +65,9 @@ abstract class ApiTestCase extends TestCase
             'printer_profiles.view', 'printer_profiles.create',
             'printer_profiles.update', 'printer_profiles.delete',
             'events.view', 'events.create', 'events.update', 'events.delete',
+            'customers.view', 'customers.create', 'customers.update', 'customers.delete',
+            'vouchers.view', 'vouchers.create', 'vouchers.update', 'vouchers.delete',
+            'payments.view', 'payments.create', 'payments.update', 'payments.delete',
         ];
 
         foreach ($permissionSlugs as $slug) {

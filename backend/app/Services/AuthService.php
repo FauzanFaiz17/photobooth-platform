@@ -10,6 +10,7 @@ class AuthService
 {
     public function login(array $data, $ip)
     {
+        $device = null;
 
         $user = User::with([
             'role',
@@ -66,11 +67,17 @@ class AuthService
             }
         }
 
+        $now = now();
         $token = $user->createToken('API Token')->plainTextToken;
 
         $user->update([
-            'last_login_at' => now(),
+            'last_login_at' => $now,
             'last_login_ip' => $ip,
+        ]);
+
+        $device?->update([
+            'last_login_at' => $now,
+            'last_sync_at' => $now,
         ]);
 
         return [

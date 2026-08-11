@@ -35,4 +35,17 @@ return [
         ],
     ],
 
+    'midtrans' => [
+        'server_key' => env('MIDTRANS_SERVER_KEY'),
+        'client_key' => env('MIDTRANS_CLIENT_KEY'),
+        'production' => (bool) env('MIDTRANS_IS_PRODUCTION', false),
+        'api_url' => env(
+            'MIDTRANS_API_URL',
+            env('MIDTRANS_IS_PRODUCTION', false)
+                ? 'https://api.midtrans.com'
+                : 'https://api.sandbox.midtrans.com'
+        ),
+        'timeout' => (int) env('MIDTRANS_TIMEOUT', 15),
+    ],
+
 ];

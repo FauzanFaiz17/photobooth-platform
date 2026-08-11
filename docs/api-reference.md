@@ -122,6 +122,27 @@ Status yang umum:
 | `GET` | `/subscription-plans/{subscriptionPlan}` | `subscriptions.view` |
 | `PUT` | `/subscription-plans/{subscriptionPlan}` | `subscriptions.update` |
 | `DELETE` | `/subscription-plans/{subscriptionPlan}` | `subscriptions.delete` |
+| `GET` | `/partner-subscriptions` | `subscriptions.view` |
+| `POST` | `/partner-subscriptions` | `subscriptions.create` |
+| `GET` | `/partner-subscriptions/{partnerSubscription}` | `subscriptions.view` |
+| `POST` | `/partner-subscriptions/{partnerSubscription}/activate` | `subscriptions.update` |
+| `POST` | `/partner-subscriptions/{partnerSubscription}/renew` | `subscriptions.update` |
+| `POST` | `/partner-subscriptions/{partnerSubscription}/cancel` | `subscriptions.update` |
+| `POST` | `/partner-subscriptions/{partnerSubscription}/expire` | `subscriptions.update` |
+| `GET` | `/customers` | `customers.view` |
+| `GET` | `/customers/{customer}` | `customers.view` |
+| `GET` | `/voucher-packages` | `vouchers.view` |
+| `POST` | `/voucher-packages` | `vouchers.create` |
+| `GET` | `/voucher-packages/{voucher_package}` | `vouchers.view` |
+| `PUT/PATCH` | `/voucher-packages/{voucher_package}` | `vouchers.update` |
+| `DELETE` | `/voucher-packages/{voucher_package}` | `vouchers.delete` |
+| `GET` | `/vouchers` | `vouchers.view` |
+| `POST` | `/vouchers` | `vouchers.create` |
+| `GET` | `/vouchers/{voucher}` | `vouchers.view` |
+| `POST` | `/vouchers/{voucher}/void` | `vouchers.update` |
+| `GET` | `/payments` | `payments.view` |
+| `GET` | `/payments/{payment}` | `payments.view` |
+| `POST` | `/payments/{payment}/transition` | `payments.update` + Super Admin |
 | `GET` | `/booths` | `booths.view` |
 | `POST` | `/booths` | `booths.create` |
 | `GET` | `/booths/{booth}` | `booths.view` |
@@ -153,12 +174,22 @@ Status yang umum:
 | `PUT/PATCH` | `/events/{event}` | `events.update` |
 | `DELETE` | `/events/{event}` | `events.delete` |
 
+### Public gateway callback
+
+| Method | Route | Auth | Verification |
+| --- | --- | --- | --- |
+| `POST` | `/payments/midtrans/notification` | Tidak | Signature Midtrans wajib valid |
+
 ### Desktop
 
 | Method | Route | Auth | Device header |
 | --- | --- | --- | --- |
 | `POST` | `/desktop/devices/verify` | Tidak | Tidak |
 | `POST` | `/desktop/devices/activate` | Tidak | Tidak |
+| `POST` | `/desktop/devices/heartbeat` | Bearer token | Wajib |
+| `POST` | `/desktop/customers/resolve` | Bearer token | Wajib |
+| `POST` | `/desktop/vouchers/redeem` | Bearer token | Wajib |
+| `POST` | `/desktop/payments` | Bearer token | Wajib |
 | `GET` | `/desktop/bootstrap` | Bearer token | Wajib |
 | `GET` | `/desktop/events/{eventCode}/configuration` | Bearer token | Wajib |
 | `POST` | `/desktop/photo-sessions` | Bearer token | Wajib |
@@ -494,6 +525,363 @@ Menggunakan bentuk request yang sama dengan create. Seluruh field wajib kecuali 
 `DELETE /subscription-plans/{subscriptionPlan}`
 
 Menggunakan soft delete. Ditolak `422` jika plan sudah dipakai pada `partner_subscriptions`.
+
+## Partner Subscription API
+
+Endpoint ini mengelola penugasan plan dan lifecycle subscription partner. User partner dengan permission `subscriptions.view` hanya dapat melihat subscription tenant sendiri. Seluruh operasi mutasi hanya dapat dilakukan oleh Super Admin.
+
+### Bentuk partner subscription
+
+```json
+{
+  "id": 10,
+  "status": "active",
+  "starts_at": "2026-08-12T02:00:00.000000Z",
+  "ends_at": "2026-09-12T02:00:00.000000Z",
+  "auto_renew": true,
+  "cancelled_at": null,
+  "is_current": true,
+  "remaining_days": 31,
+  "partner": {
+    "id": 4,
+    "company_name": "PT Example",
+    "slug": "pt-example"
+  },
+  "plan": {
+    "id": 2,
+    "name": "Professional",
+    "billing_cycle": "monthly",
+    "price": 499000,
+    "max_booths": 10,
+    "max_devices": 20,
+    "max_operators": 30
+  }
+}
+```
+
+Status: `pending`, `active`, `expired`, atau `cancelled`.
+
+### List dan detail
+
+- `GET /partner-subscriptions`
+- `GET /partner-subscriptions/{partnerSubscription}`
+
+Query list opsional: `partner_id`, `subscription_plan_id`, `status`, `sort`, `direction`, `per_page`, dan `page`.
+
+- `sort`: `starts_at`, `ends_at`, `created_at`, atau `status`.
+- Filter `partner_id` hanya dipercaya untuk Super Admin. User partner selalu dibatasi ke `partner_id` dari tokennya.
+- Akses detail subscription tenant lain mengembalikan `403`.
+
+### Buat/assign subscription
+
+`POST /partner-subscriptions`
+
+```json
+{
+  "partner_id": 4,
+  "subscription_plan_id": 2,
+  "status": "pending",
+  "starts_at": "2026-08-12T09:00:00+07:00",
+  "ends_at": null,
+  "auto_renew": true
+}
+```
+
+- `status` opsional, hanya `pending` atau `active`; default `pending`.
+- `starts_at` default ke waktu saat request diproses.
+- Jika `ends_at` tidak diberikan, backend menghitung satu periode berdasarkan `billing_cycle` plan: satu bulan atau satu tahun.
+- Plan yang tidak aktif ditolak `422`.
+- Subscription aktif yang periodenya bertumpang tindih dengan subscription aktif lain pada partner yang sama ditolak `422`.
+
+### Aktivasi pending subscription
+
+`POST /partner-subscriptions/{partnerSubscription}/activate`
+
+Body kosong. Hanya subscription `pending` yang dapat diaktifkan, dan waktu saat request harus berada di antara `starts_at` dan `ends_at`. Overlap dengan subscription aktif lain tetap ditolak.
+
+### Renew subscription
+
+`POST /partner-subscriptions/{partnerSubscription}/renew`
+
+```json
+{
+  "periods": 2,
+  "auto_renew": true
+}
+```
+
+- Hanya status `active` atau `expired` yang dapat diperpanjang.
+- `periods` bernilai 1 sampai 36 dan default 1.
+- Subscription aktif diperpanjang dari `ends_at` yang sekarang dan harus memakai plan yang sama agar riwayat entitlement periode aktif tidak berubah.
+- Subscription expired dimulai kembali dari waktu renew dan boleh memilih `subscription_plan_id` lain yang masih aktif.
+- Hasil renew berstatus `active` dan `cancelled_at` dikosongkan.
+
+### Cancel subscription
+
+`POST /partner-subscriptions/{partnerSubscription}/cancel`
+
+Pembatalan berlaku langsung: status menjadi `cancelled`, `auto_renew` menjadi `false`, `cancelled_at` diisi, dan periode dipotong ke waktu pembatalan jika belum berakhir.
+
+### Expire subscription
+
+`POST /partner-subscriptions/{partnerSubscription}/expire`
+
+Hanya subscription aktif yang dapat di-expire secara manual. Status menjadi `expired`, `auto_renew` menjadi `false`, dan periode dipotong ke waktu request jika belum berakhir.
+
+Backend juga menyediakan command berikut untuk menutup subscription aktif yang sudah melewati `ends_at`:
+
+```powershell
+php artisan subscriptions:expire
+```
+
+Command dijadwalkan berjalan setiap jam melalui Laravel scheduler. Pada production, proses `php artisan schedule:run` harus dipicu oleh cron/Task Scheduler setiap menit atau gunakan worker scheduler Laravel yang sesuai dengan deployment.
+
+## Customer, Voucher, dan Payment API
+
+### Customer resolution desktop
+
+`POST /desktop/customers/resolve`
+
+Endpoint ini membuat atau menemukan customer pada tenant device. Customer tetap opsional untuk anonymous walk-in; panggil endpoint hanya ketika customer memberikan nomor telepon atau email.
+
+```json
+{
+  "name": "Siti Customer",
+  "phone": "+62 812-3456-789",
+  "email": "siti@example.com"
+}
+```
+
+- Bearer token dan `X-Device-UUID` wajib.
+- Minimal salah satu dari `phone` atau `email` wajib.
+- Email disimpan lowercase. Nomor Indonesia seperti `+62 812...`, `62812...`, dan `0812...` dinormalisasi ke bentuk `0812...`.
+- Kombinasi tenant+phone dan tenant+email unik. Retry dengan identitas yang sama mengembalikan customer yang sama.
+- Jika phone dan email menunjuk dua record berbeda, request ditolak `422` agar backend tidak menggabungkan identitas secara ambigu.
+
+Dashboard dapat membaca customer melalui `GET /customers` dan `GET /customers/{customer}`. User partner hanya melihat tenant sendiri; list mendukung `search`, `partner_id` untuk Super Admin, `sort`, `direction`, dan `per_page`.
+
+### Voucher package
+
+CRUD tersedia pada `/voucher-packages`. Package dapat global (`partner_id = null`) atau dimiliki partner.
+
+- Partner dapat membaca package global dan package tenant sendiri.
+- Partner hanya dapat membuat/mengubah/menghapus package tenant sendiri; global package hanya dapat dimutasi Super Admin.
+- `template_id`, jika diisi, harus berupa template global atau template dari tenant package.
+- Package yang sudah digunakan voucher tidak dapat dihapus.
+- Field utama: `price`, `persons`, `captures`, `print_count`, `gif_included`, `video_included`, `template_id`, `validity_days`, dan `is_active`.
+
+### Issue voucher
+
+`POST /vouchers`
+
+```json
+{
+  "partner_id": 4,
+  "voucher_package_id": 10,
+  "idempotency_key": "dashboard-request-8a92",
+  "code": "WEDDING-001",
+  "expired_at": "2026-09-12T10:00:00+07:00"
+}
+```
+
+- `partner_id` wajib secara bisnis untuk Super Admin dan selalu diambil dari token untuk user partner.
+- `idempotency_key` wajib dan unik per partner. Retry dengan key+package yang sama mengembalikan voucher lama tanpa duplikasi.
+- Reuse key untuk package lain ditolak `422`.
+- `code` opsional; backend membuat kode acak jika tidak diberikan. Kode disimpan uppercase dan unik secara global.
+- `expired_at` default dihitung dari `validity_days` package.
+- Hanya package aktif yang global atau dimiliki tenant voucher yang dapat digunakan.
+
+Status voucher hanya bergerak melalui transisi berikut:
+
+```text
+unused -> redeemed
+unused -> expired
+unused -> void
+```
+
+Voucher yang sudah redeemed, expired, atau void tidak dapat digunakan kembali. `POST /vouchers/{voucher}/void` hanya menerima voucher `unused`.
+
+### Redeem voucher desktop
+
+`POST /desktop/vouchers/redeem`
+
+```json
+{
+  "code": "WEDDING-001"
+}
+```
+
+Redemption dilakukan dalam transaksi database dan lock row:
+
+1. Validasi operator, device aktif, booth aktif, dan tenant voucher.
+2. Validasi status `unused` serta waktu kedaluwarsa.
+3. Buat payment `paid` dengan gateway `voucher` dan reference deterministik `VCH-{voucher_id}`.
+4. Ubah voucher menjadi `redeemed`, lalu simpan `redeemed_by` dan `redeemed_at`.
+
+Retry voucher yang sudah berhasil redeemed mengembalikan payment yang sama. Payment tidak dibuat dua kali.
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "Voucher redeemed successfully.",
+  "data": {
+    "voucher": {},
+    "payment": {
+      "id": 20,
+      "gateway": "voucher",
+      "status": "paid",
+      "amount": 50000,
+      "net_amount": 50000
+    }
+  }
+}
+```
+
+Payment `paid` tersebut dapat dikirim sebagai `payment_id` ketika membuat photo session. Payment tenant lain atau payment yang belum `paid` ditolak.
+
+### Membuat payment desktop
+
+`POST /desktop/payments`
+
+```json
+{
+  "event_id": 10,
+  "gateway": "midtrans_qris",
+  "idempotency_key": "desktop-payment-8a92"
+}
+```
+
+Alternatif tanpa event:
+
+```json
+{
+  "amount": 50000,
+  "gateway": "cash",
+  "idempotency_key": "desktop-payment-cash-001"
+}
+```
+
+- Bearer token operator dan `X-Device-UUID` wajib.
+- Jika `event_id` diberikan, backend mengambil nominal dari `events.price`; `amount` dari client tidak dipercaya dan harus sama jika ikut dikirim.
+- Tanpa event, `amount` wajib diberikan.
+- Gateway desktop yang diterima: `cash`, `midtrans_qris`, atau `other`. Gateway `voucher` hanya dapat dibuat oleh proses redemption voucher.
+- `idempotency_key` wajib dan unik per partner. Retry payload yang sama mengembalikan payment lama; reuse key dengan gateway/amount berbeda ditolak `422`.
+- Payment cash langsung berstatus `paid`. Gateway eksternal dimulai sebagai `pending` dengan masa berlaku 15 menit.
+- Pembuatan `midtrans_qris` memanggil Midtrans Core API QRIS. Backend tidak membuat payment jika `MIDTRANS_SERVER_KEY` belum dikonfigurasi.
+- Retry dengan `idempotency_key` yang sama memakai payment dan transaksi Midtrans yang sudah ada; request charge tidak dikirim dua kali.
+
+Contoh bagian response QRIS:
+
+```json
+{
+  "data": {
+    "reference": "PAY-...",
+    "gateway": "midtrans_qris",
+    "status": "pending",
+    "expired_at": "2026-08-12T12:15:00.000000Z",
+    "gateway_response": {
+      "transaction_id": "midtrans-transaction-id",
+      "transaction_status": "pending",
+      "qr_string": "00020101021226...",
+      "qr_url": "https://api.sandbox.midtrans.com/v2/qris/.../qr-code",
+      "deeplink_url": "https://simulator.sandbox.midtrans.com/qris/index"
+    }
+  }
+}
+```
+
+Renderer desktop dapat menampilkan `qr_url` sebagai gambar QR atau membangkitkan QR dari `qr_string`. Jangan menganggap `deeplink_url` selalu tersedia karena actions yang dikembalikan Midtrans dapat berbeda.
+
+### Payment state machine
+
+Transisi yang diizinkan:
+
+```text
+pending -> paid | failed | expired
+paid -> refunded
+failed, expired, refunded -> terminal
+```
+
+Request transisi internal/admin:
+
+`POST /payments/{payment}/transition`
+
+```json
+{
+  "status": "paid",
+  "gateway_response": {
+    "transaction_id": "gateway-transaction-id"
+  }
+}
+```
+
+- Endpoint hanya dapat digunakan Super Admin dengan `payments.update`.
+- Mengirim status yang sama bersifat idempotent.
+- Terminal state tidak dapat dikembalikan ke state sebelumnya.
+- Voucher payment tidak dapat ditransisikan manual karena lifecycle-nya dimiliki proses redemption.
+- Endpoint ini bukan webhook publik dan tetap ditujukan untuk operasi Super Admin.
+
+### Midtrans notification
+
+`POST /payments/midtrans/notification`
+
+Endpoint ini publik agar dapat dipanggil server Midtrans, tetapi setiap payload diverifikasi menggunakan:
+
+```text
+SHA512(order_id + status_code + gross_amount + MIDTRANS_SERVER_KEY)
+```
+
+Backend juga mencocokkan `order_id` dengan reference payment QRIS dan memastikan `gross_amount` sama dengan nominal tersimpan. Signature tidak valid ditolak `403`, nominal berbeda ditolak `422`, dan callback replay bersifat idempotent.
+
+Mapping status yang aktif:
+
+| Midtrans | Payment |
+| --- | --- |
+| `settlement` | `paid` |
+| `capture` + fraud `accept` | `paid` |
+| `capture` + fraud `deny`, `deny`, `cancel`, `failure` | `failed` |
+| `expire` | `expired` |
+| `refund`, `partial_refund` | `refunded` |
+| `pending` | Tidak mengubah status |
+
+Callback terlambat yang akan memundurkan status, misalnya `pending` setelah `paid`, diabaikan. URL notification pada dashboard Midtrans harus diarahkan ke URL HTTPS publik aplikasi, misalnya `https://api.example.com/api/v1/payments/midtrans/notification`.
+
+Konfigurasi sandbox:
+
+```dotenv
+MIDTRANS_SERVER_KEY=SB-Mid-server-...
+MIDTRANS_CLIENT_KEY=SB-Mid-client-...
+MIDTRANS_IS_PRODUCTION=false
+MIDTRANS_API_URL=https://api.sandbox.midtrans.com
+MIDTRANS_TIMEOUT=15
+```
+
+Untuk production, gunakan key production, set `MIDTRANS_IS_PRODUCTION=true`, dan gunakan `https://api.midtrans.com`. Jangan commit key ke repository.
+
+Payment pending yang melewati `expired_at` ditutup setiap menit:
+
+```powershell
+php artisan payments:expire
+```
+
+### Payment dashboard
+
+- `GET /payments`
+- `GET /payments/{payment}`
+
+Endpoint list/detail bersifat tenant-safe. Filter list: `partner_id` untuk Super Admin, `gateway`, `status`, `search` reference, `sort`, `direction`, dan `per_page`.
+
+Cash dan QRIS Midtrans sudah dapat dibuat dari desktop. QRIS hanya tersedia ketika kredensial Midtrans dikonfigurasi; callback tersignature menjadi sumber transisi status gateway.
+
+### Expiry voucher otomatis
+
+```powershell
+php artisan vouchers:expire
+```
+
+Command mengubah voucher `unused` yang melewati `expired_at` menjadi `expired` dan dijadwalkan setiap jam.
 
 ## Booth API
 
@@ -965,6 +1353,29 @@ php artisan device:regenerate-activation 1
 
 Command ini mengosongkan fingerprint lama, mengubah status menjadi `pending`, dan mencetak kode aktivasi baru. Device tetap dimiliki partner dan booth yang sama; login tidak memindahkan kepemilikan device antar-partner.
 
+### Heartbeat perangkat
+
+`POST /desktop/devices/heartbeat`
+
+Heartbeat membutuhkan bearer token operator dan header `X-Device-UUID`. Electron mengirimnya secara berkala setelah login untuk memperbarui `last_sync_at` dan versi aplikasi perangkat.
+
+Request body opsional:
+
+```json
+{
+  "app_version": "1.2.3"
+}
+```
+
+Response `200` mengembalikan `DeviceResource`. Selain status lifecycle (`active`, `blocked`, atau `revoked`), resource memiliki:
+
+- `presence_status`: `online` jika heartbeat terakhir maksimal 120 detik, `stale` jika lebih lama tetapi belum melewati 15 menit, dan `offline` setelah itu atau jika device tidak aktif.
+- `presence_age_seconds`: umur heartbeat terakhir dalam detik, atau `null` jika belum pernah ada heartbeat.
+
+Ambang tersebut dapat diubah melalui `DEVICE_ONLINE_AFTER_SECONDS` dan `DEVICE_OFFLINE_AFTER_SECONDS`. Interval heartbeat Electron saat ini adalah 60 detik.
+
+Heartbeat lintas tenant, device tidak aktif, booth tidak aktif, atau header yang hilang ditolak; heartbeat gagal tidak menghapus sesi lokal desktop agar booth tetap dapat berjalan offline sementara.
+
 ### Bootstrap desktop
 
 `GET /desktop/bootstrap`
@@ -1149,7 +1560,7 @@ Completion bersifat idempotent: request complete dapat diulang dengan aman dan t
 
 ## Route Belum Aktif
 
-Route dashboard untuk device, customer, voucher, payment, gallery/media management, report, role, dan permission belum aktif. Frontend tidak boleh menganggap endpoint tersebut tersedia sampai didokumentasikan di file ini dan muncul pada `php artisan route:list --path=api`.
+Route dashboard untuk gallery/media management, report, role, dan permission belum aktif. Dashboard payment menyediakan list/detail dan transisi Super Admin, sedangkan pembuatan cash/QRIS dilakukan dari desktop dan status Midtrans diperbarui melalui callback tersignature. Frontend tidak boleh menganggap endpoint lain tersedia sampai didokumentasikan di file ini dan muncul pada `php artisan route:list --path=api`.
 
 ## Verifikasi Backend
 
@@ -1160,6 +1571,10 @@ Suite API berada di:
 - `backend/tests/Feature/DesktopApiTest.php`
 - `backend/tests/Feature/MasterConfigurationApiTest.php`
 - `backend/tests/Feature/EventApiTest.php`
+- `backend/tests/Feature/PartnerSubscriptionApiTest.php`
+- `backend/tests/Feature/CustomerVoucherApiTest.php`
+- `backend/tests/Feature/PaymentLifecycleApiTest.php`
+- `backend/tests/Feature/MidtransPaymentTest.php`
 
 Pada instalasi PHP yang belum mengaktifkan `pdo_sqlite`, suite dapat dijalankan tanpa mengubah `php.ini` menggunakan:
 

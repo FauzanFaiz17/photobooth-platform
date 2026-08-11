@@ -16,6 +16,7 @@ class DeviceIndexRequest extends FormRequest
         return [
             'search' => ['nullable', 'string', 'max:150'],
             'status' => ['nullable', 'in:pending,active,blocked,revoked'],
+            'presence' => ['nullable', 'in:online,stale,offline'],
             'booth_id' => ['nullable', 'integer', 'exists:booths,id'],
             'partner_id' => ['nullable', 'integer', 'exists:partners,id'],
             'sort' => ['nullable', 'in:id,device_name,status,created_at,activated_at'],

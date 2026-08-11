@@ -24,6 +24,16 @@ export interface Device {
   activation_expires_at?: string | null
 
   activated_at?: string | null
+
+  app_version?: string | null
+
+  last_sync_at?: string | null
+
+  last_login_at?: string | null
+
+  presence_status?: 'online' | 'stale' | 'offline'
+
+  presence_age_seconds?: number | null
 }
 
 export interface DeviceLocalState {

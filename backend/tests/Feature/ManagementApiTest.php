@@ -8,6 +8,7 @@ use App\Models\Partner;
 use App\Models\Permission;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
+use Carbon\Carbon;
 use Laravel\Sanctum\Sanctum;
 
 class ManagementApiTest extends ApiTestCase
@@ -251,6 +252,57 @@ class ManagementApiTest extends ApiTestCase
         $this->getJson('/api/v1/users')
             ->assertForbidden()
             ->assertJsonPath('success', false);
+    }
+
+    public function test_device_list_can_filter_by_presence_status(): void
+    {
+        $partner = $this->createPartner();
+        $booth = Booth::create([
+            'partner_id' => $partner->id,
+            'name' => 'Presence Booth',
+            'status' => 'active',
+        ]);
+        Device::create([
+            'partner_id' => $partner->id,
+            'booth_id' => $booth->id,
+            'device_key' => 'online-presence-device',
+            'device_uuid' => '88888888-8888-4888-8888-888888888888',
+            'device_name' => 'Online Device',
+            'last_sync_at' => Carbon::now()->subSeconds(30),
+            'status' => 'active',
+        ]);
+        Device::create([
+            'partner_id' => $partner->id,
+            'booth_id' => $booth->id,
+            'device_key' => 'stale-presence-device',
+            'device_uuid' => '99999999-9999-4999-8999-999999999999',
+            'device_name' => 'Stale Device',
+            'last_sync_at' => Carbon::now()->subMinutes(5),
+            'status' => 'active',
+        ]);
+        Device::create([
+            'partner_id' => $partner->id,
+            'booth_id' => $booth->id,
+            'device_key' => 'offline-presence-device',
+            'device_uuid' => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            'device_name' => 'Offline Device',
+            'last_sync_at' => Carbon::now()->subHours(2),
+            'status' => 'active',
+        ]);
+        $this->authenticateAsSuperAdmin();
+
+        $this->getJson('/api/v1/devices?presence=online')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.presence_status', 'online');
+        $this->getJson('/api/v1/devices?presence=stale')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.presence_status', 'stale');
+        $this->getJson('/api/v1/devices?presence=offline')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.presence_status', 'offline');
     }
 
     public function test_partner_user_cannot_view_another_tenant_user(): void

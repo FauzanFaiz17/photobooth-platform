@@ -4,6 +4,9 @@ use App\Models\Booth;
 use App\Models\Device;
 use App\Models\Partner;
 use App\Services\DeviceManagementService;
+use App\Services\PartnerSubscriptionService;
+use App\Services\PaymentService;
+use App\Services\VoucherService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 
@@ -62,3 +65,18 @@ Artisan::command(
         $this->line('Restart Electron lalu masukkan kode ini dalam 30 menit.');
     }
 )->purpose('Regenerate a production-style activation code for an existing device');
+
+Artisan::command('subscriptions:expire', function () {
+    $count = app(PartnerSubscriptionService::class)->expireDue();
+    $this->info("{$count} subscription(s) expired.");
+})->purpose('Mark active partner subscriptions past their end date as expired');
+
+Artisan::command('vouchers:expire', function () {
+    $count = app(VoucherService::class)->expireDue();
+    $this->info("{$count} voucher(s) expired.");
+})->purpose('Mark unused vouchers past their expiration date as expired');
+
+Artisan::command('payments:expire', function () {
+    $count = app(PaymentService::class)->expireDue();
+    $this->info("{$count} payment(s) expired.");
+})->purpose('Mark pending payments past their expiration date as expired');

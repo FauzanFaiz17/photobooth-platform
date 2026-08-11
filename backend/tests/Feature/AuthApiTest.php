@@ -78,6 +78,9 @@ class AuthApiTest extends ApiTestCase
             ])->assertOk()
             ->assertJsonPath('data.user.partner.id', $devicePartner->id);
 
+        $this->assertNotNull($device->fresh()->last_login_at);
+        $this->assertNotNull($device->fresh()->last_sync_at);
+
         $this->withHeader('X-Device-UUID', $device->device_uuid)
             ->postJson('/api/v1/login', [
                 'email' => $otherOperator->email,

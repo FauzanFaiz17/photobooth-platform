@@ -4,6 +4,7 @@ use App\Http\Middleware\PermissionMiddleware;
 use App\Support\ApiResponse;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -17,6 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__.'/../routes/api.php',
         health: '/up',
     )
+    ->withSchedule(function (Schedule $schedule) {
+        $schedule->command('subscriptions:expire')->hourly();
+        $schedule->command('vouchers:expire')->hourly();
+        $schedule->command('payments:expire')->everyMinute();
+    })
     ->withMiddleware(function ($middleware) {
         $middleware->alias([
             'permission' => PermissionMiddleware::class,

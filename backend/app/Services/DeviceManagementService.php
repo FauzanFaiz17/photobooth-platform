@@ -37,6 +37,26 @@ class DeviceManagementService
             $query->where('status', $filters['status']);
         }
 
+        if (! empty($filters['presence'])) {
+            $onlineCutoff = now()->subSeconds(config('device.online_after_seconds', 120));
+            $offlineCutoff = now()->subSeconds(config('device.offline_after_seconds', 900));
+
+            if ($filters['presence'] === 'online') {
+                $query->where('status', 'active')
+                    ->where('last_sync_at', '>=', $onlineCutoff);
+            } elseif ($filters['presence'] === 'stale') {
+                $query->where('status', 'active')
+                    ->where('last_sync_at', '<', $onlineCutoff)
+                    ->where('last_sync_at', '>=', $offlineCutoff);
+            } else {
+                $query->where(function ($nested) use ($offlineCutoff) {
+                    $nested->where('status', '!=', 'active')
+                        ->orWhereNull('last_sync_at')
+                        ->orWhere('last_sync_at', '<', $offlineCutoff);
+                });
+            }
+        }
+
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($nested) use ($search) {
