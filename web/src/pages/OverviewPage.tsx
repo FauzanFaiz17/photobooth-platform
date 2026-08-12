@@ -11,6 +11,8 @@ import { isSuperAdmin } from "@/features/auth/auth-access"
 import { useAuth } from "@/features/auth/auth-context"
 import { getBooths } from "@/features/booths/booth-service"
 import type { BoothRecord, BoothStatus } from "@/features/booths/booth.types"
+import { getDevices } from "@/features/devices/device-service"
+import type { DeviceRecord } from "@/features/devices/device.types"
 import { getEvents } from "@/features/events/event-service"
 import type { EventRecord, EventStatus } from "@/features/events/event.types"
 import { getPartners } from "@/features/partners/partner-service"
@@ -21,7 +23,9 @@ interface OverviewData {
   boothTotal: number | null
   activeBooths: number | null
   deviceTotal: number | null
-  devicesComplete: boolean
+  onlineDevices: number | null
+  staleDevices: number | null
+  offlineDevices: number | null
   ongoingEvents: number | null
   booths: ReadonlyArray<BoothRecord>
   events: ReadonlyArray<EventRecord>
@@ -33,7 +37,9 @@ const emptyData: OverviewData = {
   boothTotal: null,
   activeBooths: null,
   deviceTotal: null,
-  devicesComplete: true,
+  onlineDevices: null,
+  staleDevices: null,
+  offlineDevices: null,
   ongoingEvents: null,
   booths: [],
   events: [],
@@ -88,6 +94,7 @@ export default function OverviewPage() {
         getEvents(accessToken, { status: "ongoing", per_page: 5 }, controller.signal),
         getEvents(accessToken, { sort: "event_date", direction: "desc", per_page: 5 }, controller.signal),
         superAdmin ? getPartners(accessToken, { per_page: 5 }, controller.signal) : Promise.resolve(null),
+        getDevices(accessToken, { per_page: 100 }, controller.signal),
       ] as const)
       if (controller.signal.aborted) return
 
@@ -97,25 +104,29 @@ export default function OverviewPage() {
       })
       if (unauthorized) return void handleUnauthorized()
 
-      const [boothsResult, ongoingResult, eventsResult, partnersResult] = results
+      const [boothsResult, ongoingResult, eventsResult, partnersResult, devicesResult] = results
       const boothsResponse = boothsResult.status === "fulfilled" ? boothsResult.value : null
       const ongoingResponse = ongoingResult.status === "fulfilled" ? ongoingResult.value : null
       const eventsResponse = eventsResult.status === "fulfilled" ? eventsResult.value : null
       const partnersResponse = partnersResult.status === "fulfilled" ? partnersResult.value : null
+      const devicesResponse = devicesResult.status === "fulfilled" ? devicesResult.value : null
+      const devices: ReadonlyArray<DeviceRecord> = devicesResponse?.data ?? []
       const notes = [
         accessNote("Data Booth dan perangkat", boothsResult),
         accessNote("Jumlah Event berlangsung", ongoingResult),
         accessNote("Daftar Event terbaru", eventsResult),
         superAdmin ? accessNote("Jumlah Partner", partnersResult) : null,
-        "Status perangkat online/offline belum tersedia karena backend belum menyediakan endpoint heartbeat untuk dashboard admin.",
+        accessNote("Status perangkat", devicesResult),
       ].filter((note): note is string => Boolean(note))
 
       setData({
         partnerTotal: superAdmin ? partnersResponse?.meta.total ?? null : user?.partner ? 1 : 0,
         boothTotal: boothsResponse?.meta.total ?? null,
         activeBooths: boothsResponse ? boothsResponse.data.filter((booth) => booth.status === "active").length : null,
-        deviceTotal: boothsResponse ? boothsResponse.data.reduce((total, booth) => total + (booth.devices_count ?? 0), 0) : null,
-        devicesComplete: boothsResponse ? boothsResponse.data.length >= boothsResponse.meta.total : true,
+        deviceTotal: devicesResponse?.meta.total ?? null,
+        onlineDevices: devicesResponse ? devices.filter((device) => device.presence_status === "online").length : null,
+        staleDevices: devicesResponse ? devices.filter((device) => device.presence_status === "stale").length : null,
+        offlineDevices: devicesResponse ? devices.filter((device) => device.presence_status === "offline").length : null,
         ongoingEvents: ongoingResponse?.meta.total ?? null,
         booths: boothsResponse?.data ?? [],
         events: eventsResponse?.data ?? [],
@@ -133,7 +144,7 @@ export default function OverviewPage() {
       <header className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-3xl font-semibold tracking-tight">Beranda</h1><p className="mt-1 text-sm text-muted-foreground">Ringkasan operasional menggunakan data backend.</p></div><Button variant="outline" disabled={loadState === "loading"} onClick={() => setRetryKey((value) => value + 1)}><RefreshCw className={loadState === "loading" ? "animate-spin" : ""} aria-hidden="true" /> Refresh</Button></header>
 
       {loadState === "loading" ? <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-busy>{[0, 1, 2, 3].map((item) => <Skeleton key={item} className="h-40 rounded-xl" />)}</div><Skeleton className="h-80 rounded-xl" /><Skeleton className="h-80 rounded-xl" /></> : <>
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Statistik backend"><StatCard icon={Building2} label="Partner/Kiosk" value={data.partnerTotal?.toLocaleString("id-ID") ?? "—"} description={superAdmin ? "Partner terdaftar" : "Partner akun ini"} /><StatCard icon={Monitor} label="Booth" value={data.boothTotal?.toLocaleString("id-ID") ?? "—"} description={`${data.activeBooths ?? 0} Booth berstatus aktif pada data termuat`} /><StatCard icon={CalendarDays} label="Event aktif" value={data.ongoingEvents?.toLocaleString("id-ID") ?? "—"} description="Event berstatus berlangsung" /><StatCard icon={Cpu} label="Perangkat" value={data.deviceTotal === null ? "—" : `${data.devicesComplete ? "" : "≥"}${data.deviceTotal.toLocaleString("id-ID")}`} description="Perangkat yang terdaftar pada Booth" /></section>
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Statistik backend"><StatCard icon={Building2} label="Partner/Kiosk" value={data.partnerTotal?.toLocaleString("id-ID") ?? "—"} description={superAdmin ? "Partner terdaftar" : "Partner akun ini"} /><StatCard icon={Monitor} label="Booth" value={data.boothTotal?.toLocaleString("id-ID") ?? "—"} description={`${data.activeBooths ?? 0} Booth berstatus aktif pada data termuat`} /><StatCard icon={CalendarDays} label="Event aktif" value={data.ongoingEvents?.toLocaleString("id-ID") ?? "—"} description="Event berstatus berlangsung" /><StatCard icon={Cpu} label="Perangkat" value={data.deviceTotal?.toLocaleString("id-ID") ?? "—"} description={`${data.onlineDevices ?? 0} online · ${data.staleDevices ?? 0} stale · ${data.offlineDevices ?? 0} offline`} /></section>
 
         {data.notes.length > 0 && <Card><CardContent className="flex items-start gap-3 p-4"><CircleAlert className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" /><div><p className="font-medium">Keterangan data</p><ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">{data.notes.map((note) => <li key={note}>{note}</li>)}</ul></div></CardContent></Card>}
 
