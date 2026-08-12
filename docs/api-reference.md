@@ -1639,6 +1639,28 @@ Command hanya memeriksa konfigurasi dan melakukan operasi `exists` terhadap key 
 
 ## Route Belum Aktif
 
+## Printing
+
+Printer management requires the `printers.*` permissions:
+
+- `GET|POST /printers`
+- `GET|PUT|DELETE /printers/{printer}`
+
+Print jobs require the `print_jobs.*` permissions. A completed photo session can create one idempotent queued job:
+
+- `GET|POST /print-jobs`
+- `GET /print-jobs/{printJob}`
+- `POST /print-jobs/{printJob}/transition`
+- `POST /print-jobs/{printJob}/retry` (failed jobs only)
+
+The desktop queue is device-bound:
+
+- `GET /desktop/print-jobs` with `X-Device-UUID`
+- `POST /desktop/print-jobs/{printJob}/status` with `status=printing|success|failed`
+- `GET /desktop/print-jobs/{printJob}/media` streams the private final template media
+
+Print status transitions are monotonic: `queued -> printing -> success|failed`, `queued -> cancelled`, and `failed -> queued` for retry. A failed transition requires `error_log`. Desktop polling only claims jobs whose printer is explicitly assigned to that device.
+
 Route dashboard untuk pengelolaan gallery/media, report, role, dan permission belum aktif. Public gallery/download berbasis token sudah aktif, tetapi belum ada halaman customer atau dashboard yang mengonsumsinya. Dashboard payment menyediakan list/detail dan transisi Super Admin, sedangkan pembuatan cash/QRIS dilakukan dari desktop dan status Midtrans diperbarui melalui callback tersignature. Frontend tidak boleh menganggap endpoint lain tersedia sampai didokumentasikan di file ini dan muncul pada `php artisan route:list --path=api`.
 
 ## Verifikasi Backend

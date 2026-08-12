@@ -13,6 +13,8 @@ use App\Models\Partner;
 use App\Models\PartnerSubscription;
 use App\Models\Payment;
 use App\Models\PrinterProfile;
+use App\Models\Printer;
+use App\Models\PrintJob;
 use App\Models\Template;
 use App\Models\User;
 use App\Models\Voucher;
@@ -26,6 +28,8 @@ use App\Policies\PartnerPolicy;
 use App\Policies\PartnerSubscriptionPolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\PrinterProfilePolicy;
+use App\Policies\PrinterPolicy;
+use App\Policies\PrintJobPolicy;
 use App\Policies\TemplatePolicy;
 use App\Policies\UserPolicy;
 use App\Policies\VoucherPackagePolicy;
@@ -77,5 +81,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Filter::class, FilterPolicy::class);
         Gate::policy(CameraProfile::class, CameraProfilePolicy::class);
         Gate::policy(PrinterProfile::class, PrinterProfilePolicy::class);
+        Gate::policy(Printer::class, PrinterPolicy::class);
+        Gate::policy(PrintJob::class, PrintJobPolicy::class);
     }
 }

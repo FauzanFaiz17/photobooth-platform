@@ -36,4 +36,9 @@ class Booth extends Model
         return $this->devices()
             ->where('status', 'active');
     }
+
+    public function printers()
+    {
+        return $this->hasMany(Printer::class);
+    }
 }

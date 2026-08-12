@@ -56,4 +56,9 @@ class Device extends Model
             Booth::class
         );
     }
+
+    public function printers()
+    {
+        return $this->hasMany(Printer::class);
+    }
 }

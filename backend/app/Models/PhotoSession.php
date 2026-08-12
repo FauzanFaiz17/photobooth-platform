@@ -76,4 +76,9 @@ class PhotoSession extends Model
     {
         return $this->hasMany(GalleryView::class);
     }
+
+    public function printJobs()
+    {
+        return $this->hasMany(PrintJob::class);
+    }
 }
