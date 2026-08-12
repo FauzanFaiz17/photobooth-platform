@@ -36,7 +36,11 @@ function parseEvent(payload: unknown): EventRecord {
   if (!isEventResponse(payload)) {
     throw new ApiError("Format response event dari server tidak sesuai.", 500)
   }
-  return payload.data
+  return normalizeEvent(payload.data)
+}
+
+function normalizeEvent(event: EventRecord): EventRecord {
+  return { ...event, event_date: event.event_date.slice(0, 10) }
 }
 
 function parseConfigurationOptions(payload: unknown, nameField: "name" | "printer_name"): ReadonlyArray<EventConfigurationOption> {
@@ -76,7 +80,7 @@ export async function getEvents(token: string, filters: EventListFilters = {}, s
   if (!isEventListResponse(payload)) {
     throw new ApiError("Format response daftar event dari server tidak sesuai.", 500)
   }
-  return payload
+  return { ...payload, data: payload.data.map(normalizeEvent) }
 }
 
 export async function getEvent(token: string, eventId: number, signal?: AbortSignal): Promise<EventRecord> {

@@ -1,298 +1,85 @@
-import { ArrowLeft, Download, Plus } from "lucide-react"
-import { useMemo, useState, type ReactElement } from "react"
-import { Link, useParams } from "react-router-dom"
+import { ArrowLeft, Ban, ChevronLeft, ChevronRight, Ellipsis, Package, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react"
+import { useCallback, useEffect, useState, type FormEvent, type ReactElement } from "react"
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Toaster } from "@/components/ui/sonner"
-import {
-  createVoucherFormDefaults,
-  defaultVoucherDetailFilters,
-  findVoucherKiosk,
-  getVouchersForKiosk,
-  initialKioskVouchers,
-  voucherKioskCatalog,
-} from "../catalog/voucher-catalog.data"
-import type {
-  KioskVoucher,
-  VoucherDetailFilters as VoucherFilters,
-  VoucherFormValues,
-} from "../catalog/voucher-catalog.types"
-import {
-  filterKioskVouchers,
-  formatVoucherValue,
-  voucherTypeLabels,
-} from "../catalog/voucher-catalog.utils"
-import { VoucherDeleteDialog } from "./voucher-delete-dialog"
-import { VoucherDetailDialog } from "./voucher-detail-dialog"
-import { VoucherDetailFilters } from "./voucher-detail-filters"
-import { VoucherDetailPagination } from "./voucher-detail-pagination"
-import {
-  VoucherDetailEmptyState,
-  VoucherDetailLoadingState,
-} from "./voucher-detail-states"
-import { VoucherDetailTable } from "./voucher-detail-table"
-import { VoucherFormDialog } from "./voucher-form-dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useAuth } from "@/features/auth/auth-context"
+import { isSuperAdmin } from "@/features/auth/auth-access"
+import { getPartner } from "@/features/partners/partner-service"
+import { deleteVoucherPackage, getVoucherPackages, getVouchers, voidVoucher } from "@/features/vouchers/voucher-service"
+import { VOUCHER_STATUSES, type VoucherListResponse, type VoucherPackageRecord, type VoucherRecord, type VoucherStatus } from "@/features/vouchers/voucher.types"
+import { ApiError } from "@/lib/api-client"
+import { VoucherIssueDialog } from "./voucher-issue-dialog"
+import { VoucherPackageFormDialog } from "./voucher-package-form-dialog"
 
-const pageSize = 10
-
-function exportVoucherData(vouchers: ReadonlyArray<KioskVoucher>, kioskName: string): void {
-  const rows = [
-    ["ID", "Nama", "Tipe", "Nilai", "Kode", "Jumlah Cetak", "Batas Penggunaan", "Sudah Digunakan", "Tanggal Dibuat", "Tanggal Kedaluwarsa", "Status"],
-    ...vouchers.map((voucher) => [
-      voucher.id,
-      voucher.name,
-      voucherTypeLabels[voucher.type],
-      formatVoucherValue(voucher),
-      voucher.code,
-      String(voucher.printCount),
-      String(voucher.usageLimit),
-      String(voucher.usedCount),
-      voucher.createdAt,
-      voucher.expiresAt,
-      voucher.status,
-    ]),
-  ]
-  const csv = rows
-    .map((row) => row.map((value) => `"${value.replaceAll('"', '""')}"`).join(","))
-    .join("\n")
-  const file = new Blob([csv], { type: "text/csv;charset=utf-8" })
-  const url = URL.createObjectURL(file)
-  const link = document.createElement("a")
-  link.href = url
-  link.download = `voucher-${kioskName.toLocaleLowerCase("id-ID").replaceAll(" ", "-")}.csv`
-  document.body.append(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-}
-
-function formValuesFromVoucher(voucher: KioskVoucher): VoucherFormValues {
-  return {
-    name: voucher.name,
-    type: voucher.type,
-    value: String(voucher.value),
-    code: voucher.code,
-    kioskId: voucher.kioskId,
-    quantity: "1",
-    printCount: String(voucher.printCount),
-    usageLimit: String(voucher.usageLimit),
-    startDate: voucher.startsAt,
-    expirationDate: voucher.expiresAt,
-    active: voucher.status !== "inactive",
-  }
-}
+const statusLabels: Record<VoucherStatus, string> = { unused: "Belum dipakai", redeemed: "Sudah dipakai", expired: "Kedaluwarsa", void: "Dibatalkan" }
+function parseId(value: string | undefined): number { const parsed = Number(value); return Number.isInteger(parsed) && parsed > 0 ? parsed : 0 }
+function formatCurrency(value: number): string { return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value) }
+function formatDate(value: string): string { return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) }
 
 export function VoucherKioskDetailPage(): ReactElement {
-  const { kioskId } = useParams<{ kioskId: string }>()
-  const kiosk = findVoucherKiosk(kioskId)
-  const fallbackKioskId = kiosk?.id ?? voucherKioskCatalog[0].id
-  const [vouchers, setVouchers] = useState<ReadonlyArray<KioskVoucher>>(initialKioskVouchers)
-  const [filters, setFilters] = useState<VoucherFilters>(defaultVoucherDetailFilters)
-  const [page, setPage] = useState(1)
-  const [detailVoucher, setDetailVoucher] = useState<KioskVoucher | null>(null)
-  const [deleteVoucher, setDeleteVoucher] = useState<KioskVoucher | null>(null)
-  const [editVoucherId, setEditVoucherId] = useState<string | null>(null)
-  const [formMode, setFormMode] = useState<"generate" | "edit">("generate")
-  const [formOpen, setFormOpen] = useState(false)
-  const [formInitialValues, setFormInitialValues] = useState<VoucherFormValues>(
-    () => createVoucherFormDefaults(fallbackKioskId)
-  )
-  const isLoading = false
+  const { kioskId } = useParams<{ kioskId: string }>(); const partnerId = parseId(kioskId); const navigate = useNavigate(); const [params, setParams] = useSearchParams(); const { token, user, logout } = useAuth(); const superAdmin = isSuperAdmin(user)
+  const page = Math.max(1, Number(params.get("page")) || 1); const statusParam = params.get("status"); const status = VOUCHER_STATUSES.find((item) => item === statusParam); const packageFilter = Math.max(0, Number(params.get("package_id")) || 0); const search = params.get("search") ?? ""
+  const [partnerName, setPartnerName] = useState(""); const [packages, setPackages] = useState<ReadonlyArray<VoucherPackageRecord>>([]); const [vouchers, setVouchers] = useState<VoucherListResponse | null>(null); const [state, setState] = useState<"loading" | "success" | "error" | "not-found">("loading"); const [error, setError] = useState(""); const [retry, setRetry] = useState(0)
+  const [packageDialog, setPackageDialog] = useState(false); const [editingPackage, setEditingPackage] = useState<VoucherPackageRecord | null>(null); const [deletingPackage, setDeletingPackage] = useState<VoucherPackageRecord | null>(null); const [issueOpen, setIssueOpen] = useState(false); const [voidingVoucher, setVoidingVoucher] = useState<VoucherRecord | null>(null); const [actionPending, setActionPending] = useState(false)
 
-  const kioskVouchers = useMemo(
-    () => kiosk ? getVouchersForKiosk(vouchers, kiosk.id) : [],
-    [kiosk, vouchers]
-  )
-  const filteredVouchers = useMemo(
-    () => filterKioskVouchers(kioskVouchers, filters),
-    [filters, kioskVouchers]
-  )
-  const totalPages = Math.max(1, Math.ceil(filteredVouchers.length / pageSize))
-  const currentPage = Math.min(page, totalPages)
-  const visibleVouchers = filteredVouchers.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  )
+  const updateParams = useCallback((updates: Readonly<Record<string, string | null>>) => { setParams((current) => { const next = new URLSearchParams(current); for (const [key, value] of Object.entries(updates)) { if (value) next.set(key, value); else next.delete(key) } return next }, { replace: true }) }, [setParams])
+  const unauthorized = useCallback(async () => { await logout(); navigate("/login", { replace: true }) }, [logout, navigate])
+  const forbidden = useCallback(() => navigate("/admin/forbidden", { replace: true, state: { from: `/voucher/${partnerId}` } }), [navigate, partnerId])
 
-  if (isLoading) return <VoucherDetailLoadingState />
-
-  if (!kiosk) {
-    return (
-      <div className="p-4 sm:p-6 lg:p-8">
-        <Card className="mx-auto max-w-lg shadow-none">
-          <CardHeader><CardTitle><h1>Kiosk tidak ditemukan</h1></CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm opacity-70">Data voucher kiosk yang Anda cari tidak tersedia.</p>
-            <Button render={<Link to="/voucher" />}>
-              <ArrowLeft aria-hidden="true" />
-              Kembali ke Daftar Voucher
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  function openGenerateDialog(): void {
-    setFormMode("generate")
-    setEditVoucherId(null)
-    setFormInitialValues(createVoucherFormDefaults(fallbackKioskId))
-    setFormOpen(true)
-  }
-
-  function openEditDialog(voucher: KioskVoucher): void {
-    setFormMode("edit")
-    setEditVoucherId(voucher.id)
-    setFormInitialValues(formValuesFromVoucher(voucher))
-    setFormOpen(true)
-  }
-
-  function handleFormSubmit(values: VoucherFormValues): void {
-    if (formMode === "edit" && editVoucherId) {
-      setVouchers((current) => current.map((voucher) => {
-        if (voucher.id !== editVoucherId) return voucher
-        return {
-          ...voucher,
-          kioskId: values.kioskId,
-          name: values.name.trim(),
-          type: values.type,
-          value: Number(values.value),
-          code: values.code,
-          printCount: Number(values.printCount),
-          usageLimit: Number(values.usageLimit),
-          startsAt: values.startDate,
-          expiresAt: values.expirationDate,
-          status: values.active
-            ? voucher.status === "inactive" ? "unused" : voucher.status
-            : "inactive",
-        }
-      }))
-      toast.success("Voucher berhasil diperbarui")
-    } else {
-      const quantity = Number(values.quantity)
-      const generated = Array.from({ length: quantity }, (_, index): KioskVoucher => ({
-        id: `VCR-GEN-${String(vouchers.length + index + 1).padStart(4, "0")}`,
-        kioskId: values.kioskId,
-        name: values.name.trim(),
-        type: values.type,
-        value: Number(values.value),
-        code: quantity === 1 ? values.code : `${values.code}-${String(index + 1).padStart(3, "0")}`,
-        printCount: Number(values.printCount),
-        usageLimit: Number(values.usageLimit),
-        usedCount: 0,
-        createdAt: "2026-07-18T12:00:00+07:00",
-        startsAt: values.startDate,
-        expiresAt: values.expirationDate,
-        status: values.active ? "unused" : "inactive",
-      }))
-      setVouchers((current) => [...generated, ...current])
-      toast.success(`${generated.length} voucher berhasil dibuat`)
+  useEffect(() => {
+    if (!token || !partnerId) return
+    const controller = new AbortController(); const accessToken = token
+    async function load(): Promise<void> {
+      setState("loading"); setError("")
+      try {
+        const packageRequests = superAdmin
+          ? [getVoucherPackages(accessToken, { partner_id: partnerId, per_page: 100 }, controller.signal), getVoucherPackages(accessToken, { scope: "global", per_page: 100 }, controller.signal)]
+          : [getVoucherPackages(accessToken, { per_page: 100 }, controller.signal)]
+        const [partnerResult, packageResults, voucherResult] = await Promise.all([
+          superAdmin ? getPartner(accessToken, partnerId, controller.signal) : Promise.resolve(null),
+          Promise.all(packageRequests),
+          getVouchers(accessToken, { partner_id: partnerId, status, voucher_package_id: packageFilter || undefined, search: search || undefined, per_page: 10, page }, controller.signal),
+        ])
+        if (controller.signal.aborted) return
+        if (!superAdmin && user?.partner?.id !== partnerId) { setState("not-found"); return }
+        if (page > Math.max(1, voucherResult.meta.last_page)) { updateParams({ page: voucherResult.meta.last_page > 1 ? String(voucherResult.meta.last_page) : null }); return }
+        const uniquePackages = Array.from(new Map(packageResults.flatMap((result) => result.data).map((item) => [item.id, item])).values())
+        setPartnerName(partnerResult?.brand_name || partnerResult?.company_name || user?.partner?.brand_name || user?.partner?.company_name || "Partner")
+        setPackages(uniquePackages); setVouchers(voucherResult); setState("success")
+      } catch (caught: unknown) {
+        if (controller.signal.aborted) return
+        if (caught instanceof ApiError && caught.status === 401) return void unauthorized()
+        if (caught instanceof ApiError && caught.status === 403) return forbidden()
+        if (caught instanceof ApiError && caught.status === 404) return setState("not-found")
+        setError(caught instanceof ApiError ? caught.message : "Tidak dapat terhubung ke server."); setState("error")
+      }
     }
-    setFormOpen(false)
-  }
+    void load(); return () => controller.abort()
+  }, [forbidden, packageFilter, page, partnerId, retry, search, status, superAdmin, token, unauthorized, updateParams, user])
 
-  function handleDelete(): void {
-    if (!deleteVoucher) return
-    setVouchers((current) => current.filter((voucher) => voucher.id !== deleteVoucher.id))
-    toast.success("Voucher berhasil dihapus")
-    setDeleteVoucher(null)
-  }
+  function submitSearch(event: FormEvent<HTMLFormElement>): void { event.preventDefault(); const value = new FormData(event.currentTarget).get("search"); updateParams({ search: typeof value === "string" ? value.trim() || null : null, page: null }) }
+  async function confirmDelete(): Promise<void> { if (!token || !deletingPackage || actionPending) return; setActionPending(true); try { await deleteVoucherPackage(token, deletingPackage.id); setPackages((current) => current.filter((item) => item.id !== deletingPackage.id)); toast.success(`Package ${deletingPackage.name} dihapus.`); setDeletingPackage(null) } catch (caught: unknown) { if (caught instanceof ApiError && caught.status === 401) return void unauthorized(); if (caught instanceof ApiError && caught.status === 403) return forbidden(); toast.error(caught instanceof ApiError ? caught.validationErrors.voucher_package?.[0] ?? caught.message : "Tidak dapat terhubung ke server.") } finally { setActionPending(false) } }
+  async function confirmVoid(): Promise<void> { if (!token || !voidingVoucher || actionPending) return; setActionPending(true); try { const saved = await voidVoucher(token, voidingVoucher.id); setVouchers((current) => current ? { ...current, data: current.data.map((item) => item.id === saved.id ? saved : item) } : current); toast.success(`Voucher ${saved.code} dibatalkan.`); setVoidingVoucher(null) } catch (caught: unknown) { if (caught instanceof ApiError && caught.status === 401) return void unauthorized(); if (caught instanceof ApiError && caught.status === 403) return forbidden(); toast.error(caught instanceof ApiError ? caught.message : "Tidak dapat terhubung ke server.") } finally { setActionPending(false) } }
 
-  return (
-    <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
-      <header className="space-y-5">
-        <Button variant="ghost" render={<Link to="/voucher" />}>
-          <ArrowLeft aria-hidden="true" />
-          Daftar Voucher
-        </Button>
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Daftar Voucher {kiosk.name}</h1>
-            <p className="mt-2 text-sm opacity-70">{kioskVouchers.length} voucher tersedia untuk kiosk ini.</p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button variant="outline" onClick={() => exportVoucherData(filteredVouchers, kiosk.name)}>
-              <Download aria-hidden="true" />
-              Export
-            </Button>
-            <Button onClick={openGenerateDialog}>
-              <Plus aria-hidden="true" />
-              Generate Voucher
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <VoucherDetailFilters
-        filters={filters}
-        onChange={(nextFilters) => {
-          setFilters(nextFilters)
-          setPage(1)
-        }}
-      />
-
-      {visibleVouchers.length > 0 ? (
-        <Card className="min-w-0 shadow-none">
-          <CardContent className="space-y-4 px-0">
-            <VoucherDetailTable
-              vouchers={visibleVouchers}
-              onView={setDetailVoucher}
-              onEdit={openEditDialog}
-              onDisable={(voucher) => {
-                setVouchers((current) => current.map((item) =>
-                  item.id === voucher.id ? { ...item, status: "inactive" } : item
-                ))
-                toast.success(`${voucher.code} dinonaktifkan`)
-              }}
-              onDelete={setDeleteVoucher}
-            />
-            <div className="px-4">
-              <VoucherDetailPagination
-                page={currentPage}
-                totalPages={totalPages}
-                totalItems={filteredVouchers.length}
-                pageSize={pageSize}
-                onPageChange={setPage}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <VoucherDetailEmptyState
-          onReset={() => {
-            setFilters(defaultVoucherDetailFilters)
-            setPage(1)
-          }}
-        />
-      )}
-
-      <VoucherDetailDialog
-        voucher={detailVoucher}
-        open={detailVoucher !== null}
-        onOpenChange={(open) => {
-          if (!open) setDetailVoucher(null)
-        }}
-      />
-      {formOpen && (
-        <VoucherFormDialog
-          open
-          mode={formMode}
-          initialValues={formInitialValues}
-          onOpenChange={setFormOpen}
-          onSubmit={handleFormSubmit}
-        />
-      )}
-      <VoucherDeleteDialog
-        voucher={deleteVoucher}
-        open={deleteVoucher !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeleteVoucher(null)
-        }}
-        onConfirm={handleDelete}
-      />
-      <Toaster position="top-right" />
-    </div>
-  )
+  if (!partnerId || state === "not-found") return <div className="p-6"><Card className="mx-auto max-w-lg"><CardContent className="p-8 text-center"><p className="font-medium">Partner tidak ditemukan</p><Button className="mt-4" render={<Link to="/voucher" />}><ArrowLeft /> Kembali</Button></CardContent></Card></div>
+  return <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8"><header className="space-y-4"><Button variant="ghost" render={<Link to="/voucher" />}><ArrowLeft /> Daftar Partner</Button><div className="flex flex-wrap items-end justify-between gap-4"><div><h1 className="text-3xl font-semibold tracking-tight">Voucher {partnerName}</h1><p className="mt-1 text-sm text-muted-foreground">Kelola package dan voucher berdasarkan data backend.</p></div><div className="flex gap-2"><Button variant="outline" disabled={state !== "success"} onClick={() => { setEditingPackage(null); setPackageDialog(true) }}><Package /> Tambah Package</Button><Button disabled={state !== "success" || packages.every((item) => !item.is_active)} onClick={() => setIssueOpen(true)}><Plus /> Terbitkan Voucher</Button></div></div></header>
+    {state === "loading" && <div className="space-y-4"><Skeleton className="h-48" /><Skeleton className="h-96" /></div>}
+    {state === "error" && <Card><CardContent className="grid min-h-64 place-items-center p-6 text-center"><div><p className="font-medium">Data Voucher gagal dimuat</p><p className="mt-1 text-sm text-muted-foreground">{error}</p><Button variant="outline" className="mt-4" onClick={() => setRetry((value) => value + 1)}><RefreshCw /> Coba lagi</Button></div></CardContent></Card>}
+      {state === "success" && <><Card><CardHeader><CardTitle>Voucher Package</CardTitle><CardDescription>Package global tersedia bagi seluruh Partner; hanya Super Admin yang dapat mengubahnya.</CardDescription></CardHeader><CardContent>{packages.length === 0 ? <div className="py-10 text-center text-sm text-muted-foreground">Belum ada Voucher Package.</div> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{packages.map((item) => { const mutable = item.partner_id === partnerId || (superAdmin && item.partner_id === null); return <Card key={item.id} className="shadow-none"><CardHeader className="pb-3"><div className="flex items-start justify-between gap-2"><div><CardTitle className="text-base">{item.name}</CardTitle><CardDescription>{item.partner_id === null ? "Package Global" : "Package Partner"}</CardDescription></div><Badge variant={item.is_active ? "default" : "secondary"}>{item.is_active ? "Aktif" : "Nonaktif"}</Badge></div></CardHeader><CardContent className="space-y-3"><p className="text-xl font-semibold">{formatCurrency(item.price)}</p><div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground"><span>{item.persons} orang</span><span>{item.captures} capture</span><span>{item.print_count} cetak</span><span>{item.validity_days} hari</span></div>{mutable && <div className="flex gap-2 pt-2"><Button size="sm" variant="outline" className="flex-1" onClick={() => { setEditingPackage(item); setPackageDialog(true) }}><Pencil /> Edit</Button><Button size="sm" variant="destructive" disabled={(item.vouchers_count ?? 0) > 0} onClick={() => setDeletingPackage(item)}><Trash2 /></Button></div>}</CardContent></Card> })}</div>}</CardContent></Card>
+      <Card><CardHeader className="gap-4 border-b"><div><CardTitle>Daftar Voucher</CardTitle><CardDescription>Filter dan pencarian diproses oleh backend.</CardDescription></div><div className="grid gap-3 lg:grid-cols-[1fr_14rem_14rem_auto]"><form key={search} className="flex gap-2" onSubmit={submitSearch}><Input name="search" defaultValue={search} placeholder="Cari kode voucher" /><Button type="submit" variant="outline" size="icon"><Search /></Button></form><Select value={status ?? "all"} onValueChange={(value) => value && updateParams({ status: value === "all" ? null : value, page: null })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Semua status</SelectItem>{VOUCHER_STATUSES.map((item) => <SelectItem key={item} value={item}>{statusLabels[item]}</SelectItem>)}</SelectContent></Select><Select value={packageFilter ? String(packageFilter) : "all"} onValueChange={(value) => value && updateParams({ package_id: value === "all" ? null : value, page: null })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Semua package</SelectItem>{packages.map((item) => <SelectItem key={item.id} value={String(item.id)}>{item.name}</SelectItem>)}</SelectContent></Select><Button variant="ghost" disabled={!search && !status && !packageFilter} onClick={() => setParams(new URLSearchParams(), { replace: true })}>Reset</Button></div></CardHeader><CardContent className="px-0">{!vouchers || vouchers.data.length === 0 ? <div className="py-16 text-center text-sm text-muted-foreground">Voucher tidak ditemukan.</div> : <><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Kode</TableHead><TableHead>Package</TableHead><TableHead>Status</TableHead><TableHead>Kedaluwarsa</TableHead><TableHead>Dibuat</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{vouchers.data.map((voucher) => <TableRow key={voucher.id}><TableCell className="font-mono font-medium">{voucher.code}</TableCell><TableCell><div>{voucher.package.name}</div><div className="text-xs text-muted-foreground">{formatCurrency(voucher.package.price)}</div></TableCell><TableCell><Badge variant={voucher.status === "unused" ? "default" : voucher.status === "expired" || voucher.status === "void" ? "destructive" : "secondary"}>{statusLabels[voucher.status]}</Badge></TableCell><TableCell>{formatDate(voucher.expired_at)}</TableCell><TableCell>{formatDate(voucher.created_at)}</TableCell><TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Aksi ${voucher.code}`} />}><Ellipsis /></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem disabled={voucher.status !== "unused"} onClick={() => setVoidingVoucher(voucher)}><Ban /> Batalkan Voucher</DropdownMenuItem></DropdownMenuContent></DropdownMenu></TableCell></TableRow>)}</TableBody></Table></div><div className="flex items-center justify-between gap-3 border-t px-6 pt-4"><p className="text-sm text-muted-foreground">{vouchers.meta.from ?? 0}–{vouchers.meta.to ?? 0} dari {vouchers.meta.total}</p><div className="flex gap-2"><Button variant="outline" size="sm" disabled={page <= 1} onClick={() => updateParams({ page: page - 1 === 1 ? null : String(page - 1) })}><ChevronLeft /> Sebelumnya</Button><Button variant="outline" size="sm" disabled={page >= vouchers.meta.last_page} onClick={() => updateParams({ page: String(page + 1) })}>Berikutnya <ChevronRight /></Button></div></div></>}</CardContent></Card></>}
+    {packageDialog && <VoucherPackageFormDialog partnerId={partnerId} item={editingPackage} open onOpenChange={setPackageDialog} onSaved={(saved) => { setPackages((current) => current.some((item) => item.id === saved.id) ? current.map((item) => item.id === saved.id ? saved : item) : [saved, ...current]); toast.success(`Package ${saved.name} disimpan.`) }} onUnauthorized={() => void unauthorized()} onForbidden={forbidden} />}
+    {issueOpen && <VoucherIssueDialog partnerId={partnerId} packages={packages} open onOpenChange={setIssueOpen} onIssued={(issued) => { toast.success(`${issued.length} voucher berhasil diterbitkan.`); setRetry((value) => value + 1) }} onUnauthorized={() => void unauthorized()} onForbidden={forbidden} />}
+    <AlertDialog open={deletingPackage !== null} onOpenChange={(open) => !open && !actionPending && setDeletingPackage(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hapus Voucher Package?</AlertDialogTitle><AlertDialogDescription>Package {deletingPackage?.name} akan dihapus. Package yang sudah memiliki voucher akan ditolak backend.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={actionPending}>Batal</AlertDialogCancel><AlertDialogAction variant="destructive" disabled={actionPending} onClick={() => void confirmDelete()}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    <AlertDialog open={voidingVoucher !== null} onOpenChange={(open) => !open && !actionPending && setVoidingVoucher(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Batalkan Voucher?</AlertDialogTitle><AlertDialogDescription>Voucher {voidingVoucher?.code} akan berstatus void dan tidak dapat digunakan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={actionPending}>Batal</AlertDialogCancel><AlertDialogAction variant="destructive" disabled={actionPending} onClick={() => void confirmVoid()}>Batalkan Voucher</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog><Toaster position="top-right" /></div>
 }
