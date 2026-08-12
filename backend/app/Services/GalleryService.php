@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 class GalleryService
 {
-    public function __construct(protected MediaStorage $storage) {}
+    public function __construct(protected MediaStorage $storage, protected AuditService $auditService) {}
 
     public function gallery(string $token, Request $request): DownloadToken
     {
@@ -36,7 +36,7 @@ class GalleryService
             abort(404, 'Media not found in this gallery.');
         }
 
-        $stream = $this->storage->readStream($media->object_key);
+        $stream = $this->storage->readStream($media->object_key, $media->bucket);
 
         if ($stream === false) {
             abort(404, 'Media file is unavailable.');
@@ -50,6 +50,15 @@ class GalleryService
                     'last_download_at' => now(),
                 ]);
         });
+
+        $this->auditService->record(
+            'download',
+            null,
+            $media,
+            'Gallery media downloaded.',
+            ['photo_session_id' => $downloadToken->photo_session_id],
+            $downloadToken->photoSession?->partner_id
+        );
 
         return [$downloadToken->fresh(), $media, $stream];
     }

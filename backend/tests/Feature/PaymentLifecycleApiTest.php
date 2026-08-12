@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\Booth;
 use App\Models\Device;
 use App\Models\Payment;
@@ -80,6 +81,13 @@ class PaymentLifecycleApiTest extends ApiTestCase
         ])->assertOk()
             ->assertJsonPath('data.status', 'paid')
             ->assertJsonPath('data.gateway_response.transaction_id', 'midtrans-001');
+        $auditMetadata = AuditLog::query()
+            ->where('action', 'payment')
+            ->latest('id')
+            ->firstOrFail()
+            ->metadata;
+        $this->assertSame('pending', $auditMetadata['from']);
+        $this->assertSame('paid', $auditMetadata['to']);
 
         $this->postJson("/api/v1/payments/{$payment['id']}/transition", [
             'status' => 'paid',

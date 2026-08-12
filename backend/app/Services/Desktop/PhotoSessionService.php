@@ -11,13 +11,19 @@ use App\Models\Media;
 use App\Models\Payment;
 use App\Models\PhotoSession;
 use App\Models\User;
+use App\Services\AuditService;
+use App\Services\PrintJobService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class PhotoSessionService
 {
-    public function __construct(protected MediaStorage $storage) {}
+    public function __construct(
+        protected MediaStorage $storage,
+        protected AuditService $auditService,
+        protected PrintJobService $printJobService
+    ) {}
 
     public function create(
         User $user,
@@ -90,7 +96,7 @@ class PhotoSessionService
         }
 
         try {
-            return $photoSession->media()->create([
+            $media = $photoSession->media()->create([
                 'type' => $data['type'],
                 'bucket' => $this->storage->bucketName(),
                 'object_key' => $objectKey,
@@ -103,8 +109,15 @@ class PhotoSessionService
                 'duration_seconds' => $data['duration_seconds'] ?? null,
                 'visibility' => 'private',
             ]);
+            $this->auditService->record('upload', $user, $media, 'Session media uploaded.', [
+                'photo_session_id' => $photoSession->id,
+                'type' => $media->type,
+                'size_bytes' => $media->size_bytes,
+            ], $photoSession->partner_id);
+
+            return $media;
         } catch (\Throwable $exception) {
-            $this->storage->delete($objectKey);
+            $this->storage->delete($objectKey, $this->storage->bucketName());
             throw $exception;
         }
     }
@@ -118,6 +131,7 @@ class PhotoSessionService
 
         if ($photoSession->status === 'completed') {
             $this->ensureDownloadToken($photoSession);
+            $this->printJobService->queueForCompletedSession($photoSession, $user);
 
             return $photoSession->load(['media', 'downloadAccess']);
         }
@@ -134,6 +148,7 @@ class PhotoSessionService
         ]);
 
         $this->ensureDownloadToken($photoSession);
+        $this->printJobService->queueForCompletedSession($photoSession, $user);
 
         return $photoSession->fresh()->load(['media', 'downloadAccess']);
     }

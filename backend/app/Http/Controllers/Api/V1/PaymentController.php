@@ -7,11 +7,12 @@ use App\Http\Requests\Payment\PaymentIndexRequest;
 use App\Http\Requests\Payment\TransitionPaymentRequest;
 use App\Http\Resources\PaymentResource;
 use App\Models\Payment;
+use App\Services\AuditService;
 use App\Services\PaymentService;
 
 class PaymentController extends Controller
 {
-    public function __construct(protected PaymentService $service) {}
+    public function __construct(protected PaymentService $service, protected AuditService $auditService) {}
 
     public function index(PaymentIndexRequest $request)
     {
@@ -33,12 +34,16 @@ class PaymentController extends Controller
     {
         $this->authorize('update', $payment);
 
-        return new PaymentResource(
-            $this->service->transition(
-                $payment,
-                $request->validated('status'),
-                $request->validated('gateway_response')
-            )
+        $previousStatus = $payment->status;
+        $updated = $this->service->transition(
+            $payment,
+            $request->validated('status'),
+            $request->validated('gateway_response')
         );
+        $this->auditService->record('payment', $request->user(), $updated, 'Payment status transitioned.', [
+            'from' => $previousStatus, 'to' => $updated->status,
+        ]);
+
+        return new PaymentResource($updated);
     }
 }

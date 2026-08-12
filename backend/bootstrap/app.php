@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Middleware\PermissionMiddleware;
+use App\Jobs\AggregateAdminDailyStats;
+use App\Jobs\AggregatePartnerDailyStats;
+use App\Jobs\AggregatePartnerMonthlyReports;
 use App\Support\ApiResponse;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -22,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('subscriptions:expire')->hourly();
         $schedule->command('vouchers:expire')->hourly();
         $schedule->command('payments:expire')->everyMinute();
+        $schedule->job(new AggregatePartnerDailyStats(now()->subDay()->toDateString()))->dailyAt('01:00');
+        $schedule->job(new AggregateAdminDailyStats(now()->subDay()->toDateString()))->dailyAt('01:15');
+        $schedule->job(new AggregatePartnerMonthlyReports(now()->subMonth()->year, now()->subMonth()->month))->monthlyOn(1, '02:00');
     })
     ->withMiddleware(function ($middleware) {
         $middleware->alias([

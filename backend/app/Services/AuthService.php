@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Device;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AuthService
 {
@@ -68,7 +69,16 @@ class AuthService
         }
 
         $now = now();
-        $token = $user->createToken('API Token')->plainTextToken;
+        $tokenName = empty($data['device_uuid'])
+            ? 'web'
+            : 'desktop:'.Str::lower($data['device_uuid']);
+        $user->tokens()->where('name', $tokenName)->delete();
+        $expirationMinutes = max(1, (int) config('sanctum.expiration', 1440));
+        $token = $user->createToken(
+            $tokenName,
+            ['*'],
+            now()->addMinutes($expirationMinutes)
+        )->plainTextToken;
 
         $user->update([
             'last_login_at' => $now,

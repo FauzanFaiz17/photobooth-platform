@@ -4,15 +4,20 @@ namespace App\Services\Payments;
 
 use App\Contracts\PaymentGateway;
 use App\Models\Payment;
+use App\Services\PlatformCredentialService;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class MidtransGateway implements PaymentGateway
 {
+    public function __construct(protected PlatformCredentialService $credentials) {}
+
     public function isConfigured(): bool
     {
-        return filled(config('services.midtrans.server_key'));
+        $config = $this->credentials->midtrans();
+
+        return filled($config['server_key']) && $config['qris_enabled'];
     }
 
     public function createQrisTransaction(Payment $payment): array
@@ -22,11 +27,12 @@ class MidtransGateway implements PaymentGateway
         }
 
         try {
-            $response = Http::withBasicAuth(config('services.midtrans.server_key'), '')
+            $config = $this->credentials->midtrans();
+            $response = Http::withBasicAuth($config['server_key'], '')
                 ->acceptJson()
                 ->asJson()
-                ->timeout(config('services.midtrans.timeout', 15))
-                ->post(config('services.midtrans.api_url').'/v2/charge', [
+                ->timeout($config['timeout'])
+                ->post($config['api_url'].'/v2/charge', [
                     'payment_type' => 'qris',
                     'transaction_details' => [
                         'order_id' => $payment->reference,
@@ -84,7 +90,7 @@ class MidtransGateway implements PaymentGateway
             $payload['order_id']
                 .$payload['status_code']
                 .$payload['gross_amount']
-                .config('services.midtrans.server_key')
+                .$this->credentials->midtrans()['server_key']
         );
 
         return hash_equals($expected, $payload['signature_key']);

@@ -1637,6 +1637,81 @@ php artisan media:storage-check
 
 Command hanya memeriksa konfigurasi dan melakukan operasi `exists` terhadap key health-check yang tidak dibuat. Kredensial tidak ditampilkan pada output.
 
+## Reporting dan Audit
+
+Endpoint report berada di bawah autentikasi Sanctum:
+
+- `GET /reports/daily` dan `GET /reports/monthly` membatasi partner user ke tenant sendiri; Super Admin dapat memakai `partner_id`.
+- `GET /reports/admin/daily` hanya untuk Super Admin.
+- `GET /audit-logs` hanya untuk Super Admin dan mendukung filter `partner_id` serta `action`.
+
+Agregasi dijalankan scheduler dan dapat dipicu manual:
+
+```powershell
+php artisan reports:aggregate-daily 2026-08-12
+php artisan reports:aggregate-monthly 2026 8
+```
+
+Login/logout, pembayaran, redeem voucher, upload media, dan download gallery menghasilkan audit log. Metadata sensitif seperti password, token, activation code, signature, dan raw gateway response tidak disimpan.
+
+## Security Hardening
+
+- Login dan aktivasi device memakai rate limiter terpisah yang dapat dikonfigurasi melalui `LOGIN_RATE_LIMIT_PER_MINUTE` dan `ACTIVATION_RATE_LIMIT_PER_MINUTE`.
+- Token Sanctum memiliki expiry eksplisit melalui `SANCTUM_TOKEN_EXPIRATION_MINUTES` (default 1440 menit).
+- Login ulang mencabut token sebelumnya untuk client yang sama (`web` atau UUID desktop yang sama).
+- Suite test memakai database MySQL khusus `photobooth_testing`; jangan arahkan konfigurasi test ke database development/production.
+
+## Platform Credential Settings
+
+Seluruh endpoint berikut membutuhkan Sanctum dan role Super Admin. Endpoint perubahan/test dibatasi 10 request per menit.
+
+### Midtrans
+
+- `GET /platform-settings/midtrans`
+- `PUT /platform-settings/midtrans`
+- `POST /platform-settings/midtrans/test`
+- `DELETE /platform-settings/midtrans` menghapus override database dan kembali ke `.env`
+
+Payload update:
+
+```json
+{
+  "merchant_id": "G812345678",
+  "client_key": "SB-Mid-client-...",
+  "server_key": "SB-Mid-server-...",
+  "production": false,
+  "qris_enabled": true,
+  "timeout": 15
+}
+```
+
+`client_key` dan `server_key` boleh tidak dikirim ketika hanya mengubah environment/toggle; nilai terenkripsi sebelumnya dipertahankan. Response tidak pernah mengembalikan key asli, hanya nilai masked, flag `configured`, `source=database|environment`, dan `notification_url` yang harus didaftarkan pada dashboard Midtrans. Tombol Test Connection memakai credential yang sudah tersimpan.
+
+### Cloudflare R2
+
+- `GET /platform-settings/r2`
+- `PUT /platform-settings/r2`
+- `POST /platform-settings/r2/test`
+- `DELETE /platform-settings/r2` menghapus override database dan kembali ke `.env`
+
+Payload update:
+
+```json
+{
+  "access_key_id": "...",
+  "secret_access_key": "...",
+  "bucket": "photobooth-media",
+  "endpoint": "https://ACCOUNT_ID.r2.cloudflarestorage.com",
+  "region": "auto",
+  "use_path_style_endpoint": true,
+  "enabled": true
+}
+```
+
+Access key dan secret bersifat write-only dan terenkripsi menggunakan `APP_KEY`. Test koneksi melakukan operasi `exists` pada health-check key yang tidak dibuat. Mengaktifkan R2 mengarahkan upload baru ke bucket tersebut; media lama tetap dibaca berdasarkan bucket yang tersimpan pada record media sehingga perpindahan tidak memutus gallery atau printing lama.
+
+Jangan simpan secret pada state persisten browser, `localStorage`, source frontend, analytics, atau log. Setelah update berhasil, frontend harus mengganti field secret dengan nilai kosong dan hanya menampilkan status/masked value dari response API.
+
 ## Route Belum Aktif
 
 ## Printing
@@ -1655,13 +1730,17 @@ Print jobs require the `print_jobs.*` permissions. A completed photo session can
 
 The desktop queue is device-bound:
 
-- `GET /desktop/print-jobs` with `X-Device-UUID`
+- `GET /desktop/print-jobs` with `X-Device-UUID` atomically claims queued jobs and returns them as `printing` (default one job per poll)
 - `POST /desktop/print-jobs/{printJob}/status` with `status=printing|success|failed`
 - `GET /desktop/print-jobs/{printJob}/media` streams the private final template media
 
-Print status transitions are monotonic: `queued -> printing -> success|failed`, `queued -> cancelled`, and `failed -> queued` for retry. A failed transition requires `error_log`. Desktop polling only claims jobs whose printer is explicitly assigned to that device.
+Print status transitions are monotonic: `queued -> printing -> success|failed`, `queued -> cancelled`, and `failed -> queued` for retry. A failed transition requires `error_log`. Desktop polling only claims jobs whose printer is explicitly assigned to that device. Repeating `status=printing` renews the desktop lease; a lease older than `PRINT_JOB_LEASE_SECONDS` is returned to the queue and may be claimed again.
 
-Route dashboard untuk pengelolaan gallery/media, report, role, dan permission belum aktif. Public gallery/download berbasis token sudah aktif, tetapi belum ada halaman customer atau dashboard yang mengonsumsinya. Dashboard payment menyediakan list/detail dan transisi Super Admin, sedangkan pembuatan cash/QRIS dilakukan dari desktop dan status Midtrans diperbarui melalui callback tersignature. Frontend tidak boleh menganggap endpoint lain tersedia sampai didokumentasikan di file ini dan muncul pada `php artisan route:list --path=api`.
+When a session with final `template`/`edited` media is completed, the backend automatically creates one idempotent print job if its immutable printer snapshot has `auto_print=true` and an active printer is assigned to the session device. `copies` comes from the immutable printer snapshot. Retrying session completion does not create another job.
+
+The current pricing contract remains event-based: regular payments use `events.price` or an explicit backend-validated amount. Customer package tiers are not yet first-class database records. This does not affect automatic print copies, which are controlled by the event printer snapshot.
+
+Route dashboard untuk pengelolaan gallery/media, role, permission, dan notification belum aktif. Public gallery/download berbasis token sudah aktif, tetapi belum ada halaman customer atau dashboard yang mengonsumsinya. Dashboard payment menyediakan list/detail dan transisi Super Admin, sedangkan pembuatan cash/QRIS dilakukan dari desktop dan status Midtrans diperbarui melalui callback tersignature. Frontend tidak boleh menganggap endpoint lain tersedia sampai didokumentasikan di file ini dan muncul pada `php artisan route:list --path=api`.
 
 ## Verifikasi Backend
 
@@ -1677,9 +1756,12 @@ Suite API berada di:
 - `backend/tests/Feature/PaymentLifecycleApiTest.php`
 - `backend/tests/Feature/MidtransPaymentTest.php`
 - `backend/tests/Feature/GalleryApiTest.php`
+- `backend/tests/Feature/PrintingApiTest.php`
+- `backend/tests/Feature/ReportingAuditTest.php`
+- `backend/tests/Feature/SecurityHardeningTest.php`
 
-Pada instalasi PHP yang belum mengaktifkan `pdo_sqlite`, suite dapat dijalankan tanpa mengubah `php.ini` menggunakan:
+Suite memakai database MySQL khusus yang dikonfigurasi di `backend/phpunit.xml`:
 
 ```powershell
-php -d extension=pdo_sqlite vendor\bin\phpunit
+php artisan test
 ```

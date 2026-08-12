@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BoothController;
 use App\Http\Controllers\Api\V1\CameraProfileController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Api\V1\Desktop\EventConfigurationController;
 use App\Http\Controllers\Api\V1\Desktop\HeartbeatController;
 use App\Http\Controllers\Api\V1\Desktop\PaymentController as DesktopPaymentController;
 use App\Http\Controllers\Api\V1\Desktop\PhotoSessionController;
+use App\Http\Controllers\Api\V1\Desktop\PrintJobController as DesktopPrintJobController;
 use App\Http\Controllers\Api\V1\Desktop\VoucherController as DesktopVoucherController;
 use App\Http\Controllers\Api\V1\DeviceController as ManagementDeviceController;
 use App\Http\Controllers\Api\V1\EventController;
@@ -20,11 +22,12 @@ use App\Http\Controllers\Api\V1\MidtransNotificationController;
 use App\Http\Controllers\Api\V1\PartnerController;
 use App\Http\Controllers\Api\V1\PartnerSubscriptionController;
 use App\Http\Controllers\Api\V1\PaymentController;
+use App\Http\Controllers\Api\V1\PlatformCredentialController;
 use App\Http\Controllers\Api\V1\PrinterController;
-use App\Http\Controllers\Api\V1\PrintJobController;
-use App\Http\Controllers\Api\V1\Desktop\PrintJobController as DesktopPrintJobController;
-// khusus desktop
 use App\Http\Controllers\Api\V1\PrinterProfileController;
+use App\Http\Controllers\Api\V1\PrintJobController;
+// khusus desktop
+use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\SubscriptionPlanController;
 use App\Http\Controllers\Api\V1\TemplateController;
 use App\Http\Controllers\Api\V1\UserController;
@@ -39,7 +42,7 @@ Route::prefix('v1')->group(function () {
     | Authentication
     |--------------------------------------------------------------------------
     */
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('/payments/midtrans/notification', [MidtransNotificationController::class, 'store']);
     Route::get('/gallery/{token}', [GalleryController::class, 'show'])
         ->where('token', '[A-Za-z0-9]{64}')
@@ -76,7 +79,8 @@ Route::prefix('v1')->group(function () {
     Route::prefix('desktop')->group(function () {
 
         Route::post('/devices/verify', [DeviceController::class, 'verify']);
-        Route::post('/devices/activate', [DeviceController::class, 'activate']);
+        Route::post('/devices/activate', [DeviceController::class, 'activate'])
+            ->middleware('throttle:device-activation');
 
     });
 
@@ -202,6 +206,24 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:payments.view');
             Route::post('/{payment}/transition', [PaymentController::class, 'transition'])
                 ->middleware('permission:payments.update');
+        });
+
+        Route::prefix('reports')->group(function () {
+            Route::get('/daily', [ReportController::class, 'daily']);
+            Route::get('/monthly', [ReportController::class, 'monthly']);
+            Route::get('/admin/daily', [ReportController::class, 'adminDaily']);
+        });
+        Route::get('/audit-logs', [AuditLogController::class, 'index']);
+
+        Route::prefix('platform-settings')->group(function () {
+            Route::get('/midtrans', [PlatformCredentialController::class, 'midtrans']);
+            Route::put('/midtrans', [PlatformCredentialController::class, 'updateMidtrans'])->middleware('throttle:10,1');
+            Route::post('/midtrans/test', [PlatformCredentialController::class, 'testMidtrans'])->middleware('throttle:10,1');
+            Route::delete('/midtrans', [PlatformCredentialController::class, 'clearMidtrans'])->middleware('throttle:10,1');
+            Route::get('/r2', [PlatformCredentialController::class, 'r2']);
+            Route::put('/r2', [PlatformCredentialController::class, 'updateR2'])->middleware('throttle:10,1');
+            Route::post('/r2/test', [PlatformCredentialController::class, 'testR2'])->middleware('throttle:10,1');
+            Route::delete('/r2', [PlatformCredentialController::class, 'clearR2'])->middleware('throttle:10,1');
         });
 
         Route::apiResource('printers', PrinterController::class)

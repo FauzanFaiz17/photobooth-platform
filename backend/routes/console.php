@@ -1,5 +1,8 @@
 <?php
 
+use App\Jobs\AggregateAdminDailyStats;
+use App\Jobs\AggregatePartnerDailyStats;
+use App\Jobs\AggregatePartnerMonthlyReports;
 use App\Models\Booth;
 use App\Models\Device;
 use App\Models\Partner;
@@ -126,3 +129,16 @@ Artisan::command('media:storage-check', function () {
 
     return 0;
 })->purpose('Validate the configured private media storage disk');
+
+Artisan::command('reports:aggregate-daily {date?}', function (?string $date = null) {
+    $date ??= now()->subDay()->toDateString();
+    AggregatePartnerDailyStats::dispatchSync($date);
+    AggregateAdminDailyStats::dispatchSync($date);
+    $this->info("Daily reports aggregated for {$date}.");
+})->purpose('Aggregate partner and admin daily statistics');
+
+Artisan::command('reports:aggregate-monthly {year?} {month?}', function (?int $year = null, ?int $month = null) {
+    $period = now()->subMonth();
+    AggregatePartnerMonthlyReports::dispatchSync($year ?? $period->year, $month ?? $period->month);
+    $this->info(sprintf('Monthly reports aggregated for %04d-%02d.', $year ?? $period->year, $month ?? $period->month));
+})->purpose('Aggregate partner monthly reports');

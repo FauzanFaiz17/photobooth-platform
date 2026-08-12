@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Resources\UserResource;
+use App\Services\AuditService;
 use App\Services\AuthService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
@@ -13,7 +14,7 @@ class AuthController extends Controller
 {
     protected $authService;
 
-    public function __construct(AuthService $authService)
+    public function __construct(AuthService $authService, protected AuditService $auditService)
     {
         $this->authService = $authService;
     }
@@ -30,6 +31,10 @@ class AuthController extends Controller
             return ApiResponse::error($result['message'], null, 401);
 
         }
+
+        $this->auditService->record('login', $result['user'], $result['user'], 'User logged in.', [
+            'client' => $request->filled('device_uuid') ? 'desktop' : 'web',
+        ]);
 
         return ApiResponse::success([
             'token' => $result['token'],
@@ -54,7 +59,9 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
 
-        $request->user()
+        $user = $request->user();
+        $this->auditService->record('logout', $user, $user, 'User logged out.');
+        $user
             ->currentAccessToken()
             ->delete();
 
