@@ -88,7 +88,7 @@ function validate(
 
   const roleId = Number(form.role_id)
   if (!Number.isInteger(roleId) || roleId <= 0) {
-    errors.role_id = "Role ID wajib berupa angka positif."
+    errors.role_id = "Role wajib dipilih."
   }
 
   return errors
@@ -104,6 +104,7 @@ function mapValidationErrors(error: ApiError): UserFormErrors {
 
   return errors
 }
+
 
 interface UserCreateDialogProps {
   readonly user?: UserRecord
@@ -247,6 +248,7 @@ export function UserCreateDialog({
     }
   }
 
+
   return (
     <Dialog
       open={open}
@@ -360,21 +362,25 @@ export function UserCreateDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="user-role-id">Role ID</Label>
-            <Input
-              id="user-role-id"
-              type="number"
-              min={1}
-              step={1}
+            <Label htmlFor="user-role">Role</Label>
+            <Select
               value={form.role_id}
-              inputMode="numeric"
-              aria-invalid={Boolean(errors.role_id)}
-              onChange={(event) => updateField("role_id", event.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Backend belum menyediakan endpoint daftar role; gunakan ID dari
-              tabel roles.
-            </p>
+              onValueChange={(value) => {
+                if (value !== null) updateField("role_id", value)
+              }}
+            >
+              <SelectTrigger
+                id="user-role"
+                className="w-full"
+                aria-invalid={Boolean(errors.role_id)}
+              >
+                <SelectValue placeholder="Pilih role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Super Admin</SelectItem>
+                <SelectItem value="2">Admin</SelectItem>
+              </SelectContent>
+            </Select>
             {errors.role_id && (
               <p className="text-xs text-destructive">{errors.role_id}</p>
             )}

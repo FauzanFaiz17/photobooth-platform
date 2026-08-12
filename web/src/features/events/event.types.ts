@@ -1,8 +1,6 @@
 import {
   isPaginationLinks,
-  isPaginationMeta,
   type PaginationLinks,
-  type PaginationMeta,
   type SortDirection,
 } from "@/lib/pagination"
 
@@ -20,20 +18,20 @@ export type EventSortField = "event_date" | "event_name" | "created_at" | "statu
 export interface EventPartner {
   id: number
   company_name: string
-  brand_name: string | null
+  brand_name?: string | null
 }
 
 export interface EventBooth {
   id: number
   name: string
-  location: string | null
-  status: "active" | "maintenance" | "inactive"
+  location?: string | null
+  status?: "active" | "maintenance" | "inactive"
 }
 
 export interface EventCreator {
   id: number
   name: string
-  email: string
+  email?: string | null
 }
 
 export interface EventTemplateSnapshot {
@@ -72,6 +70,13 @@ export interface EventPrinterSnapshot {
   version: number
 }
 
+export interface EventConfiguration {
+  template: EventTemplateSnapshot
+  filter: EventFilterSnapshot
+  camera: EventCameraSnapshot
+  printer: EventPrinterSnapshot
+}
+
 export interface EventRecord {
   id: number
   event_name: string
@@ -84,11 +89,8 @@ export interface EventRecord {
   status: EventStatus
   partner: EventPartner
   booth: EventBooth
-  creator: EventCreator
-  template_snapshot: EventTemplateSnapshot
-  filter_snapshot: EventFilterSnapshot
-  camera_snapshot: EventCameraSnapshot
-  printer_snapshot: EventPrinterSnapshot
+  created_by: EventCreator
+  configuration: EventConfiguration
   created_at: string
   updated_at: string
 }
@@ -133,8 +135,19 @@ export interface UpdateEventInput {
 
 export interface EventListResponse {
   data: ReadonlyArray<EventRecord>
-  links: PaginationLinks
-  meta: PaginationMeta
+  links?: PaginationLinks
+  meta: EventPaginationMeta
+}
+
+export interface EventPaginationMeta {
+  current_page: number
+  last_page: number
+  per_page: number
+  total: number
+  from?: number | null
+  to?: number | null
+  links?: ReadonlyArray<unknown>
+  path?: string
 }
 
 export interface EventConfigurationOption {
@@ -175,15 +188,15 @@ export function isEventStatus(value: unknown): value is EventStatus {
 }
 
 function isPartner(value: unknown): value is EventPartner {
-  return isRecord(value) && isNumber(value.id) && typeof value.company_name === "string" && isNullableString(value.brand_name)
+  return isRecord(value) && isNumber(value.id) && typeof value.company_name === "string" && (value.brand_name === undefined || isNullableString(value.brand_name))
 }
 
 function isBooth(value: unknown): value is EventBooth {
-  return isRecord(value) && isNumber(value.id) && typeof value.name === "string" && isNullableString(value.location) && (value.status === "active" || value.status === "maintenance" || value.status === "inactive")
+  return isRecord(value) && isNumber(value.id) && typeof value.name === "string" && (value.location === undefined || isNullableString(value.location)) && (value.status === undefined || value.status === "active" || value.status === "maintenance" || value.status === "inactive")
 }
 
 function isCreator(value: unknown): value is EventCreator {
-  return isRecord(value) && isNumber(value.id) && typeof value.name === "string" && typeof value.email === "string"
+  return isRecord(value) && isNumber(value.id) && typeof value.name === "string" && (value.email === undefined || isNullableString(value.email))
 }
 
 function isTemplateSnapshot(value: unknown): value is EventTemplateSnapshot {
@@ -216,18 +229,43 @@ export function isEventRecord(value: unknown): value is EventRecord {
     isEventStatus(value.status) &&
     isPartner(value.partner) &&
     isBooth(value.booth) &&
-    isCreator(value.creator) &&
-    isTemplateSnapshot(value.template_snapshot) &&
-    isFilterSnapshot(value.filter_snapshot) &&
-    isCameraSnapshot(value.camera_snapshot) &&
-    isPrinterSnapshot(value.printer_snapshot) &&
+    isCreator(value.created_by) &&
+    isConfiguration(value.configuration) &&
     typeof value.created_at === "string" &&
     typeof value.updated_at === "string"
   )
 }
 
+function isConfiguration(value: unknown): value is EventConfiguration {
+  return (
+    isRecord(value) &&
+    isTemplateSnapshot(value.template) &&
+    isFilterSnapshot(value.filter) &&
+    isCameraSnapshot(value.camera) &&
+    isPrinterSnapshot(value.printer)
+  )
+}
+
 export function isEventListResponse(value: unknown): value is EventListResponse {
-  return isRecord(value) && Array.isArray(value.data) && value.data.every(isEventRecord) && isPaginationLinks(value.links) && isPaginationMeta(value.meta)
+  return (
+    isRecord(value) &&
+    Array.isArray(value.data) &&
+    value.data.every(isEventRecord) &&
+    isEventPaginationMeta(value.meta) &&
+    (value.links === undefined || isPaginationLinks(value.links))
+  )
+}
+
+function isEventPaginationMeta(value: unknown): value is EventPaginationMeta {
+  return (
+    isRecord(value) &&
+    isNumber(value.current_page) &&
+    isNumber(value.last_page) &&
+    isNumber(value.per_page) &&
+    isNumber(value.total) &&
+    (value.from === undefined || value.from === null || isNumber(value.from)) &&
+    (value.to === undefined || value.to === null || isNumber(value.to))
+  )
 }
 
 export function isEventResponse(value: unknown): value is EventResponse {

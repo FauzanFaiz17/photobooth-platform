@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 
 import { CameraProfileTab } from "@/components/kiosk/camera/camera-profile-tab"
+import { DeviceManagementTab } from "@/components/kiosk/devices/device-management-tab"
 import { FilterTab } from "@/components/kiosk/filter/filter-tab"
 import { PrinterProfileTab } from "@/components/kiosk/printer/printer-profile-tab"
 import { Badge } from "@/components/ui/badge"
@@ -204,6 +205,7 @@ export function BoothDetailPage() {
             <div className="overflow-x-auto pb-1">
               <TabsList className="min-w-max" aria-label="Detail Booth">
                 <TabsTrigger value="info">Info</TabsTrigger>
+                <TabsTrigger value="device">Device</TabsTrigger>
                 <TabsTrigger value="camera">Kamera</TabsTrigger>
                 <TabsTrigger value="filter">Filter</TabsTrigger>
                 <TabsTrigger value="printer">Printer</TabsTrigger>
@@ -212,6 +214,9 @@ export function BoothDetailPage() {
 
             <TabsContent value="info" className="pt-4">
               <BoothInfo booth={booth} />
+            </TabsContent>
+            <TabsContent value="device" className="pt-4">
+              <DeviceManagementTab booth={booth} onUnauthorized={() => void handleUnauthorized()} onForbidden={handleForbidden} />
             </TabsContent>
             <TabsContent value="camera" className="pt-4">
               <CameraProfileTab

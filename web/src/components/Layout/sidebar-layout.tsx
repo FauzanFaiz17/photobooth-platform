@@ -34,6 +34,7 @@ const pageLabels: Record<string, string> = {
   "frame-gift": "Frame Gift",
   forbidden: "Akses Ditolak",
   profile: "Profile",
+  subscriptions: "Subscriptions",
 }
 
 function formatPathSegment(segment: string): string {

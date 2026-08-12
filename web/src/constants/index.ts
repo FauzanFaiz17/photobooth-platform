@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Monitor,
   ReceiptText,
+  ScrollText,
   TicketPercent,
   UsersRound,
   type LucideIcon,
@@ -49,6 +50,11 @@ export const adminNavItems: AdminNavItem[] = [
     title: "Transactions",
     url: "/transactions",
     icon: ReceiptText,
+  },
+  {
+    title: "Subscriptions",
+    url: "/admin/subscriptions",
+    icon: ScrollText,
   },
   {
     title: "Frame Photo",
