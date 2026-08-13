@@ -18,13 +18,11 @@ const KioskBoothDetailPage = lazy(
 const BoothDetailPage = lazy(() => import("./pages/BoothDetailPage"))
 const EventPage = lazy(() => import("./pages/EventPage"))
 const EventDetailPage = lazy(() => import("./pages/EventDetailPage"))
-const KioskDetailPage = lazy(() => import("./pages/KioskDetailPage"))
 const GalleryPage = lazy(() => import("./pages/GalleryPage"))
-const GalleryDetailPage = lazy(() => import("./pages/GalleryDetailPage"))
 const StatisticsPage = lazy(() => import("./pages/StatisticsPage"))
 const TransactionsPage = lazy(() => import("./pages/TransactionsPage"))
+const PrintJobsPage = lazy(() => import("./pages/PrintJobsPage"))
 const FramePhotoPage = lazy(() => import("./pages/FramePhotoPage"))
-const FrameEditorPage = lazy(() => import("./pages/FrameEditorPage"))
 const VoucherPage = lazy(() => import("./pages/VoucherPage"))
 const VoucherDetailPage = lazy(() => import("./pages/VoucherDetailPage"))
 const PaymentKeyPage = lazy(() => import("./pages/PaymentKeyPage"))
@@ -35,6 +33,9 @@ const UserDetailPage = lazy(() => import("./pages/UserDetailPage"))
 const PartnerDetailPage = lazy(() => import("./pages/PartnerDetailPage"))
 const ProfilePage = lazy(() => import("./pages/ProfilePage"))
 const SubscriptionManagementPage = lazy(() => import("./pages/SubscriptionManagementPage"))
+const AuditLogPage = lazy(() => import("./pages/AuditLogPage"))
+const CustomersPage = lazy(() => import("./pages/CustomersPage"))
+const PublicGalleryPage = lazy(() => import("./pages/PublicGalleryPage"))
 
 function OverviewPageFallback() {
   return (
@@ -56,6 +57,14 @@ function App() {
       <Route element={<AnonymousOnly />}>
         <Route path="/login" element={<LoginPage />} />
       </Route>
+      <Route
+        path="/gallery/:token"
+        element={
+          <Suspense fallback={<OverviewPageFallback />}>
+            <PublicGalleryPage />
+          </Suspense>
+        }
+      />
 
       <Route element={<RequireAuth />}>
         <Route path="/admin" element={<SidebarLayout />}>
@@ -116,14 +125,6 @@ function App() {
             }
           />
           <Route
-            path="payment-key"
-            element={
-              <Suspense fallback={<OverviewPageFallback />}>
-                <PaymentKeyPage />
-              </Suspense>
-            }
-          />
-          <Route
             path="forbidden"
             element={
               <Suspense fallback={<OverviewPageFallback />}>
@@ -148,6 +149,15 @@ function App() {
             }
           />
           <Route element={<RequireSuperAdmin />}>
+            <Route path="audit-logs" element={<Suspense fallback={<OverviewPageFallback />}><AuditLogPage /></Suspense>} />
+            <Route
+              path="payment-key"
+              element={
+                <Suspense fallback={<OverviewPageFallback />}>
+                  <PaymentKeyPage />
+                </Suspense>
+              }
+            />
             <Route
               path="settings/users"
               element={
@@ -187,26 +197,6 @@ function App() {
             }
           />
         </Route>
-        <Route path="/kiosk" element={<SidebarLayout />}>
-          <Route
-            path=":slug"
-            element={
-              <Suspense fallback={<OverviewPageFallback />}>
-                <KioskDetailPage />
-              </Suspense>
-            }
-          />
-        </Route>
-        <Route path="/gallery" element={<SidebarLayout />}>
-          <Route
-            path=":kioskId"
-            element={
-              <Suspense fallback={<OverviewPageFallback />}>
-                <GalleryDetailPage />
-              </Suspense>
-            }
-          />
-        </Route>
         <Route path="/statistics" element={<SidebarLayout />}>
           <Route
             index
@@ -227,6 +217,12 @@ function App() {
             }
           />
         </Route>
+        <Route path="/print-jobs" element={<SidebarLayout />}>
+          <Route index element={<Suspense fallback={<OverviewPageFallback />}><PrintJobsPage /></Suspense>} />
+        </Route>
+        <Route path="/customers" element={<SidebarLayout />}>
+          <Route index element={<Suspense fallback={<OverviewPageFallback />}><CustomersPage /></Suspense>} />
+        </Route>
         <Route path="/frame-photo" element={<SidebarLayout />}>
           <Route
             index
@@ -243,22 +239,6 @@ function App() {
             element={
               <Suspense fallback={<OverviewPageFallback />}>
                 <FramePhotoPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="new"
-            element={
-              <Suspense fallback={<OverviewPageFallback />}>
-                <FrameEditorPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path=":frameId/edit"
-            element={
-              <Suspense fallback={<OverviewPageFallback />}>
-                <FrameEditorPage />
               </Suspense>
             }
           />

@@ -379,6 +379,7 @@ export function UserCreateDialog({
               <SelectContent>
                 <SelectItem value="1">Super Admin</SelectItem>
                 <SelectItem value="2">Admin</SelectItem>
+                <SelectItem value="5">Operator</SelectItem>
               </SelectContent>
             </Select>
             {errors.role_id && (

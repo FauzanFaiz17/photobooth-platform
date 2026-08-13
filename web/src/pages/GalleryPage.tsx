@@ -1,7 +1,7 @@
 import type { ReactElement } from "react"
 
-import { GalleryListPage } from "@/components/gallery/catalog/gallery-list-page"
+import { GalleryAccessPage } from "@/components/gallery-access/gallery-access-page"
 
 export default function GalleryPage(): ReactElement {
-  return <GalleryListPage />
+  return <GalleryAccessPage />
 }

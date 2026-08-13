@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Monitor,
   ReceiptText,
+  Printer,
   ScrollText,
   TicketPercent,
   UsersRound,
@@ -52,6 +53,16 @@ export const adminNavItems: AdminNavItem[] = [
     icon: ReceiptText,
   },
   {
+    title: "Print Jobs",
+    url: "/print-jobs",
+    icon: Printer,
+  },
+  {
+    title: "Customers",
+    url: "/customers",
+    icon: UsersRound,
+  },
+  {
     title: "Subscriptions",
     url: "/admin/subscriptions",
     icon: ScrollText,
@@ -71,14 +82,19 @@ export const adminNavItems: AdminNavItem[] = [
     url: "/voucher",
     icon: TicketPercent,
   },
-  {
-    title: "Payment key",
-    url: "/admin/payment-key",
-    icon: KeyRound,
-  },
 ]
 
 export const superAdminSettingsNavItems: AdminNavItem[] = [
+  {
+    title: "Audit Log",
+    url: "/admin/audit-logs",
+    icon: ScrollText,
+  },
+  {
+    title: "Platform Credentials",
+    url: "/admin/payment-key",
+    icon: KeyRound,
+  },
   {
     title: "Users",
     url: "/admin/settings/users",

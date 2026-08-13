@@ -234,7 +234,7 @@ export function BoothDetailPage() {
             </TabsContent>
             <TabsContent value="printer" className="pt-4">
               <PrinterProfileTab
-                partnerId={booth.partner.id}
+                booth={booth}
                 onUnauthorized={() => void handleUnauthorized()}
                 onForbidden={handleForbidden}
               />

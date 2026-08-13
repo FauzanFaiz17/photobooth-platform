@@ -1,9 +1,9 @@
-import { Fragment, type CSSProperties } from "react"
-import { Link, Outlet, useLocation } from "react-router-dom"
+import { Fragment, type CSSProperties } from "react";
+import { Link, Outlet, useLocation } from "react-router-dom";
 
-import { Notification } from "../shared/notification"
-import { AdminSidebar } from "../shared/sidebar-nav"
-import { ModeToggle } from "../theme/mode-toggle"
+import { Notification } from "../shared/notification";
+import { AdminSidebar } from "../shared/sidebar-nav";
+import { ModeToggle } from "../theme/mode-toggle";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -11,14 +11,14 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "../ui/breadcrumb"
-import { Separator } from "../ui/separator"
-import { SidebarProvider, SidebarTrigger } from "../ui/sidebar"
-import { TooltipProvider } from "../ui/tooltip"
+} from "../ui/breadcrumb";
+import { Separator } from "../ui/separator";
+import { SidebarProvider, SidebarTrigger } from "../ui/sidebar";
+import { TooltipProvider } from "../ui/tooltip";
 
 interface LayoutBreadcrumbItem {
-  readonly label: string
-  readonly href?: string
+  readonly label: string;
+  readonly href?: string;
 }
 
 const pageLabels: Record<string, string> = {
@@ -27,60 +27,75 @@ const pageLabels: Record<string, string> = {
   gallery: "Gallery",
   statistics: "Statistics",
   transactions: "Transactions",
+  "print-jobs": "Print Jobs",
+  customers: "Customers",
   "frame-photo": "Frame Photo",
   frame: "Daftar Frame",
   voucher: "Voucher",
-  "payment-key": "Payment Key",
+  "payment-key": "Platform Credentials",
   "frame-gift": "Frame Gift",
   forbidden: "Akses Ditolak",
   profile: "Profile",
   subscriptions: "Subscriptions",
-}
+  "audit-logs": "Audit Log",
+};
 
 function formatPathSegment(segment: string): string {
   return decodeURIComponent(segment)
     .replaceAll("-", " ")
-    .replace(/\b\w/g, (character) => character.toUpperCase())
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function createBreadcrumbItems(pathname: string): ReadonlyArray<LayoutBreadcrumbItem> {
+function createBreadcrumbItems(
+  pathname: string,
+): ReadonlyArray<LayoutBreadcrumbItem> {
   if (pathname === "/admin" || pathname === "/admin/") {
-    return [{ label: "Overview" }]
+    return [{ label: "Overview" }];
   }
 
-  const segments = pathname.split("/").filter(Boolean)
-  const routeSegments = segments[0] === "admin" ? segments.slice(1) : segments
-  const section = routeSegments[0]
-  const detail = routeSegments[1]
-  const action = routeSegments[2]
-  const root: LayoutBreadcrumbItem = { label: "Overview", href: "/admin" }
+  const segments = pathname.split("/").filter(Boolean);
+  const routeSegments = segments[0] === "admin" ? segments.slice(1) : segments;
+  const section = routeSegments[0];
+  const detail = routeSegments[1];
+  const action = routeSegments[2];
+  const root: LayoutBreadcrumbItem = { label: "Overview", href: "/admin" };
 
-  if (!section) return [{ label: "Overview" }]
+  if (!section) return [{ label: "Overview" }];
 
   if (section === "frame") {
-    if (detail === "new") {
-      return [root, { label: "Daftar Frame", href: "/frame" }, { label: "Frame Baru" }]
-    }
-    if (detail && action === "edit") {
-      return [root, { label: "Daftar Frame", href: "/frame" }, { label: `Ubah ${formatPathSegment(detail)}` }]
-    }
-    return [root, { label: "Daftar Frame" }]
+    return [root, { label: "Daftar Frame" }];
   }
 
   if (section === "kiosk" && detail) {
-    return [root, { label: "Kiosk", href: "/admin/kiosk" }, { label: formatPathSegment(detail) }]
+    return [
+      root,
+      { label: "Kiosk", href: "/admin/kiosk" },
+      { label: formatPathSegment(detail) },
+    ];
   }
 
   if (section === "events" && detail) {
-    return [root, { label: "Events", href: "/admin/events" }, { label: "Detail Event" }]
+    return [
+      root,
+      { label: "Events", href: "/admin/events" },
+      { label: "Detail Event" },
+    ];
   }
 
   if (section === "gallery" && detail) {
-    return [root, { label: "Gallery", href: "/admin/gallery" }, { label: formatPathSegment(detail) }]
+    return [
+      root,
+      { label: "Gallery", href: "/admin/gallery" },
+      { label: formatPathSegment(detail) },
+    ];
   }
 
   if (section === "voucher" && detail) {
-    return [root, { label: "Voucher", href: "/voucher" }, { label: formatPathSegment(detail) }]
+    return [
+      root,
+      { label: "Voucher", href: "/voucher" },
+      { label: formatPathSegment(detail) },
+    ];
   }
 
   if (section === "settings" && detail === "users") {
@@ -90,22 +105,18 @@ function createBreadcrumbItems(pathname: string): ReadonlyArray<LayoutBreadcrumb
         { label: "Settings" },
         { label: "Users", href: "/admin/settings/users" },
         { label: "Detail User" },
-      ]
+      ];
     }
 
-    return [
-      root,
-      { label: "Settings" },
-      { label: "Users" },
-    ]
+    return [root, { label: "Settings" }, { label: "Users" }];
   }
 
-  return [root, { label: pageLabels[section] ?? formatPathSegment(section) }]
+  return [root, { label: pageLabels[section] ?? formatPathSegment(section) }];
 }
 
 export function SidebarLayout() {
-  const { pathname } = useLocation()
-  const breadcrumbItems = createBreadcrumbItems(pathname)
+  const { pathname } = useLocation();
+  const breadcrumbItems = createBreadcrumbItems(pathname);
 
   return (
     <SidebarProvider style={{ "--sidebar-width": "14rem" } as CSSProperties}>
@@ -119,7 +130,7 @@ export function SidebarLayout() {
               <Breadcrumb className="min-w-0">
                 <BreadcrumbList className="flex-nowrap">
                   {breadcrumbItems.map((item, index) => {
-                    const current = index === breadcrumbItems.length - 1
+                    const current = index === breadcrumbItems.length - 1;
                     return (
                       <Fragment key={`${item.label}-${index}`}>
                         {index > 0 && <BreadcrumbSeparator />}
@@ -135,7 +146,7 @@ export function SidebarLayout() {
                           )}
                         </BreadcrumbItem>
                       </Fragment>
-                    )
+                    );
                   })}
                 </BreadcrumbList>
               </Breadcrumb>
@@ -154,5 +165,5 @@ export function SidebarLayout() {
         </div>
       </main>
     </SidebarProvider>
-  )
+  );
 }

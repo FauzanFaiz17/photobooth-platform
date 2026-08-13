@@ -21,12 +21,14 @@ import {
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/features/auth/auth-context"
+import type { BoothRecord } from "@/features/booths/booth.types"
 import { getPrinterProfiles } from "@/features/printer-profiles/printer-profile-service"
 import type { PrinterProfileRecord } from "@/features/printer-profiles/printer-profile.types"
 import { ApiError } from "@/lib/api-client"
 
 import { PrinterProfileDeleteDialog } from "./printer-profile-delete-dialog"
 import { PrinterProfileFormDialog } from "./printer-profile-form-dialog"
+import { PhysicalPrinterSection } from "./physical-printer-section"
 
 type LoadState = "loading" | "success" | "error"
 
@@ -89,11 +91,11 @@ function PrinterProfileCard({
 }
 
 export function PrinterProfileTab({
-  partnerId,
+  booth,
   onUnauthorized,
   onForbidden,
 }: {
-  readonly partnerId: number
+  readonly booth: BoothRecord
   readonly onUnauthorized: () => void
   readonly onForbidden: () => void
 }) {
@@ -120,7 +122,7 @@ export function PrinterProfileTab({
         const [partnerProfiles, globalProfiles] = await Promise.all([
           getPrinterProfiles(
             accessToken,
-            { scope: "partner", partner_id: partnerId, per_page: 100 },
+            { scope: "partner", partner_id: booth.partner.id, per_page: 100 },
             controller.signal
           ),
           getPrinterProfiles(
@@ -155,11 +157,14 @@ export function PrinterProfileTab({
 
     void loadProfiles()
     return () => controller.abort()
-  }, [onForbidden, onUnauthorized, partnerId, retryKey, token])
+  }, [booth.partner.id, onForbidden, onUnauthorized, retryKey, token])
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <PhysicalPrinterSection booth={booth} onUnauthorized={onUnauthorized} onForbidden={onForbidden} />
+
+      <div className="border-t pt-6">
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
         <div>
           <h2 className="text-xl font-semibold">Printer profiles</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -208,7 +213,7 @@ export function PrinterProfileTab({
       {formState && (
         <PrinterProfileFormDialog
           key={formState.profile?.id ?? "new-printer-profile"}
-          partnerId={partnerId}
+          partnerId={booth.partner.id}
           profile={formState.profile}
           open
           onOpenChange={(open) => !open && setFormState(null)}
@@ -236,6 +241,7 @@ export function PrinterProfileTab({
           onForbidden={onForbidden}
         />
       )}
+      </div>
     </div>
   )
 }
