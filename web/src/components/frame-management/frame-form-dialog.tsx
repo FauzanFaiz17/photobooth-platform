@@ -33,6 +33,11 @@ const pathFields = [
   ["psd_path", "PSD path", "frames/frame.psd"],
 ] as const
 
+const defaultLayout: TemplateLayout = {
+  canvas: { width: 1200, height: 1800 },
+  frames: [{ x: 100, y: 100, width: 1000, height: 1600 }],
+}
+
 function initialForm(frame: TemplateRecord | null, partnerId: number | null): FrameFormState {
   return {
     partner_id: String(frame?.partner?.id ?? partnerId ?? ""),
@@ -42,14 +47,18 @@ function initialForm(frame: TemplateRecord | null, partnerId: number | null): Fr
     thumbnail_path: frame?.thumbnail_path ?? "",
     png_path: frame?.png_path ?? "",
     psd_path: frame?.psd_path ?? "",
-    json_layout: JSON.stringify(frame?.json_layout ?? [], null, 2),
+    json_layout: JSON.stringify(frame?.json_layout ?? defaultLayout, null, 2),
   }
 }
 
 function parseLayout(value: string): TemplateLayout | null {
   try {
     const parsed: unknown = JSON.parse(value)
-    return typeof parsed === "object" && parsed !== null ? parsed as TemplateLayout : null
+    if (Array.isArray(parsed)) return parsed.length > 0 ? parsed : null
+    if (typeof parsed === "object" && parsed !== null) {
+      return Object.keys(parsed).length > 0 ? parsed as TemplateLayout : null
+    }
+    return null
   } catch {
     return null
   }
@@ -61,7 +70,7 @@ function validate(form: FrameFormState): FrameFormErrors {
   if (!form.name.trim()) errors.name = "Nama Frame wajib diisi."
   else if (form.name.trim().length > 150) errors.name = "Maksimal 150 karakter."
   for (const [field] of pathFields) if (form[field].trim().length > 255) errors[field] = "Maksimal 255 karakter."
-  if (!parseLayout(form.json_layout)) errors.json_layout = "JSON layout harus berupa object atau array JSON yang valid."
+  if (!parseLayout(form.json_layout)) errors.json_layout = "JSON layout wajib berupa object atau array yang valid dan tidak kosong."
   return errors
 }
 
