@@ -66,6 +66,22 @@ function createBreadcrumbItems(
     return [root, { label: "Daftar Frame" }];
   }
 
+  if (section === "frame-photo" && detail === "create") {
+    return [
+      root,
+      { label: "Frame Photo", href: "/frame-photo" },
+      { label: "Frame Baru" },
+    ];
+  }
+
+  if (section === "frame-photo" && action === "edit") {
+    return [
+      root,
+      { label: "Frame Photo", href: "/frame-photo" },
+      { label: "Edit Frame" },
+    ];
+  }
+
   if (section === "kiosk" && detail) {
     return [
       root,

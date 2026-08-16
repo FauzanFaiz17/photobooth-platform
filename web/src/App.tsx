@@ -23,6 +23,7 @@ const StatisticsPage = lazy(() => import("./pages/StatisticsPage"))
 const TransactionsPage = lazy(() => import("./pages/TransactionsPage"))
 const PrintJobsPage = lazy(() => import("./pages/PrintJobsPage"))
 const FramePhotoPage = lazy(() => import("./pages/FramePhotoPage"))
+const FrameCreatePage = lazy(() => import("./pages/FrameCreatePage"))
 const VoucherPage = lazy(() => import("./pages/VoucherPage"))
 const VoucherDetailPage = lazy(() => import("./pages/VoucherDetailPage"))
 const PaymentKeyPage = lazy(() => import("./pages/PaymentKeyPage"))
@@ -229,6 +230,22 @@ function App() {
             element={
               <Suspense fallback={<OverviewPageFallback />}>
                 <FramePhotoPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="create"
+            element={
+              <Suspense fallback={<OverviewPageFallback />}>
+                <FrameCreatePage />
+              </Suspense>
+            }
+          />
+          <Route
+            path=":frameId/edit"
+            element={
+              <Suspense fallback={<OverviewPageFallback />}>
+                <FrameCreatePage />
               </Suspense>
             }
           />
