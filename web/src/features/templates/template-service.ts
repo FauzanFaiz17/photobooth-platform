@@ -34,6 +34,10 @@ export async function getTemplates(token: string, filters: TemplateListFilters =
   return payload
 }
 
+export async function getTemplate(token: string, templateId: number, signal?: AbortSignal): Promise<TemplateRecord> {
+  return parseTemplate(await apiRequest(`/v1/templates/${templateId}`, { signal }, token))
+}
+
 export async function createTemplate(token: string, input: TemplateInput): Promise<TemplateRecord> {
   return parseTemplate(await apiRequest("/v1/templates", { method: "POST", body: JSON.stringify(input) }, token))
 }
