@@ -18,18 +18,20 @@ export default function FinishPage(): JSX.Element {
   const syncError = useSessionStore((state) => state.syncError)
   const localDirectory = useSessionStore((state) => state.localDirectory)
   const composedImage = useSessionStore((state) => state.composedImage)
-  const reset = useSessionStore((state) => state.reset)
+  const animatedGif = useSessionStore((state) => state.animatedGif)
+  const resetTransaction = useSessionStore((state) => state.resetTransaction)
   const setLocalDirectory = useSessionStore((state) => state.setLocalDirectory)
   const setRemoteSession = useSessionStore((state) => state.setRemoteSession)
   const setSyncStatus = useSessionStore((state) => state.setSyncStatus)
   const setUploadedShotCount = useSessionStore((state) => state.setUploadedShotCount)
   const setComposedImageUploaded = useSessionStore((state) => state.setComposedImageUploaded)
+  const setAnimatedGifUploaded = useSessionStore((state) => state.setAnimatedGifUploaded)
   const [secondsLeft, setSecondsLeft] = useState(AUTO_REDIRECT_SECONDS)
   const [processing, setProcessing] = useState(true)
   const startedRef = useRef(false)
 
   const finalizeSession = useCallback(async (): Promise<void> => {
-    if (!eventConfiguration || shots.length === 0 || !composedImage) {
+    if (!eventConfiguration || shots.length === 0 || !composedImage || !animatedGif) {
       setSyncStatus('failed', 'Data sesi foto tidak lengkap.')
       setProcessing(false)
       return
@@ -45,7 +47,8 @@ export default function FinishPage(): JSX.Element {
       try {
         const saved = await window.session.saveWebcamShots(
           shots.map((shot) => shot.dataUrl),
-          composedImage.dataUrl
+          composedImage.dataUrl,
+          animatedGif.dataUrl
         )
         currentDirectory = saved.directory
         setLocalDirectory(saved.directory)
@@ -95,6 +98,19 @@ export default function FinishPage(): JSX.Element {
         setComposedImageUploaded(true)
       }
 
+      if (!useSessionStore.getState().animatedGifUploaded) {
+        await uploadSessionMedia(sessionId, {
+          type: 'gif',
+          filename: 'session-animation.gif',
+          mime_type: 'image/gif',
+          data_url: animatedGif.dataUrl,
+          width: animatedGif.width,
+          height: animatedGif.height,
+          duration_seconds: animatedGif.durationSeconds
+        })
+        setAnimatedGifUploaded(true)
+      }
+
       await completePhotoSession(sessionId)
       setSyncStatus('synced', localSaveError)
     } catch (error) {
@@ -111,11 +127,13 @@ export default function FinishPage(): JSX.Element {
   }, [
     eventConfiguration,
     composedImage,
+    animatedGif,
     setLocalDirectory,
     setRemoteSession,
     setSyncStatus,
     setUploadedShotCount,
     setComposedImageUploaded,
+    setAnimatedGifUploaded,
     shots
   ])
 
@@ -132,8 +150,8 @@ export default function FinishPage(): JSX.Element {
       setSecondsLeft((previous) => {
         if (previous <= 1) {
           window.clearInterval(interval)
-          reset()
-          navigate('/dashboard', { replace: true })
+          resetTransaction()
+          navigate('/welcome', { replace: true })
           return 0
         }
 
@@ -142,11 +160,11 @@ export default function FinishPage(): JSX.Element {
     }, 1000)
 
     return () => window.clearInterval(interval)
-  }, [navigate, processing, reset])
+  }, [navigate, processing, resetTransaction])
 
   function returnToDashboard(): void {
-    reset()
-    navigate('/dashboard', { replace: true })
+    resetTransaction()
+    navigate('/welcome', { replace: true })
   }
 
   return (

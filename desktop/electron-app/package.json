@@ -28,6 +28,7 @@
     "axios": "^1.19.0",
     "clsx": "^2.1.1",
     "electron-store": "^8.2.0",
+    "gifenc": "^1.0.3",
     "node-machine-id": "^1.1.12",
     "react-hook-form": "^7.84.0",
     "react-router-dom": "^7.18.2",

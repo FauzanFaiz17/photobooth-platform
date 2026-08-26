@@ -44,6 +44,10 @@ export async function profile() {
     return data;
 }
 
+export async function verifyPassword(password: string): Promise<void> {
+    await api.post('/v1/verify-password', { password });
+}
+
 export async function logout() {
     const { data } = await api.post("/v1/logout");
 

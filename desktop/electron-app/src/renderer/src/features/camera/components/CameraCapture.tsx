@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
 
 import Button from '@/components/ui/Button'
@@ -6,11 +6,13 @@ import Button from '@/components/ui/Button'
 import { useWebcam } from '../hooks/useWebcam'
 import { useCaptureSequence } from '../hooks/useCaptureSequence'
 import type { CapturedShot } from '@/store/sessionStore'
+import { loadTemplateOverlayDataUrl } from '@/features/template/services/composeTemplate'
 
 interface CameraCaptureProps {
   totalShots: number
   countdownSeconds: number
   cssFilter: string
+  templateOverlayPath: string | null
   onShotCaptured: (shot: CapturedShot) => void
   onAllShotsDone: () => void
 }
@@ -19,6 +21,7 @@ export default function CameraCapture({
   totalShots,
   countdownSeconds,
   cssFilter,
+  templateOverlayPath,
   onShotCaptured,
   onAllShotsDone
 }: CameraCaptureProps): JSX.Element {
@@ -27,6 +30,33 @@ export default function CameraCapture({
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const [lastCaptured, setLastCaptured] = useState<CapturedShot | null>(null)
+  const [templateOverlay, setTemplateOverlay] = useState<{
+    path: string
+    dataUrl: string
+  } | null>(null)
+
+  useEffect(() => {
+    let active = true
+
+    if (!templateOverlayPath) {
+      return undefined
+    }
+
+    void loadTemplateOverlayDataUrl(templateOverlayPath)
+      .then((dataUrl) => {
+        if (active) setTemplateOverlay({ path: templateOverlayPath, dataUrl })
+      })
+      .catch(() => {
+        // Countdown tetap dapat berjalan tanpa overlay jika asset gagal dimuat.
+      })
+
+    return (): void => {
+      active = false
+    }
+  }, [templateOverlayPath])
+
+  const activeTemplateOverlay =
+    templateOverlay?.path === templateOverlayPath ? templateOverlay.dataUrl : null
 
   const captureFrame = useCallback((): string | null => {
     const video = videoRef.current
@@ -127,7 +157,16 @@ export default function CameraCapture({
 
         {stage === 'countdown' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-            <span className="text-8xl font-bold text-white drop-shadow-lg">{countdown}</span>
+            {activeTemplateOverlay && (
+              <img
+                src={activeTemplateOverlay}
+                alt=""
+                className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+              />
+            )}
+            <span className="relative text-8xl font-bold text-white drop-shadow-lg">
+              {countdown}
+            </span>
           </div>
         )}
 

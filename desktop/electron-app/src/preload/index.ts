@@ -19,7 +19,12 @@ const electron = {
   ...electronAPI,
   device: {
     getFingerprint: (): Promise<DeviceFingerprint> => ipcRenderer.invoke('device:fingerprint')
-  }
+  },
+  window: {
+    minimize: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
+    close: (): Promise<void> => ipcRenderer.invoke('window:close')
+  },
+  home: { pickImage: (): Promise<string | null> => ipcRenderer.invoke('home:pick-image') }
 }
 
 declare global {
@@ -28,6 +33,8 @@ declare global {
       device: {
         getFingerprint(): Promise<DeviceFingerprint>
       }
+      window: { minimize(): Promise<void>; close(): Promise<void> }
+      home: { pickImage(): Promise<string | null> }
     }
   }
 }
@@ -56,8 +63,12 @@ if (process.contextIsolated) {
 }
 
 contextBridge.exposeInMainWorld('session', {
-  saveWebcamShots: (shots: string[], finalImage?: string): Promise<{ directory: string }> =>
-    ipcRenderer.invoke('session:save-webcam-shots', shots, finalImage)
+  saveWebcamShots: (
+    shots: string[],
+    finalImage?: string,
+    gifImage?: string
+  ): Promise<{ directory: string }> =>
+    ipcRenderer.invoke('session:save-webcam-shots', shots, finalImage, gifImage)
 })
 contextBridge.exposeInMainWorld('asset', {
   loadImage: (url: string): Promise<string> => ipcRenderer.invoke('asset:load-image', url)

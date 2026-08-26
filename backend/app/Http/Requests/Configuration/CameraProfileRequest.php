@@ -22,7 +22,7 @@ class CameraProfileRequest extends FormRequest
             'white_balance' => ['nullable', 'string', 'max:20'],
             'exposure' => ['nullable', 'string', 'max:20'],
             'focus_mode' => ['nullable', 'string', 'max:30'],
-            'countdown_seconds' => ['required', 'integer', 'between:0,60'],
+            'countdown_seconds' => ['required', 'integer', 'in:2,3,5'],
             'burst_count' => ['required', 'integer', 'between:1,20'],
             'image_quality' => ['nullable', 'string', 'max:20'],
             'live_view' => ['required', 'boolean'],

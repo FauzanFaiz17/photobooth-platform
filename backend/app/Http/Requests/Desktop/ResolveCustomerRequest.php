@@ -15,9 +15,9 @@ class ResolveCustomerRequest extends FormRequest
     {
         return [
             'device_uuid' => ['required', 'uuid'],
-            'name' => ['nullable', 'string', 'max:150'],
-            'phone' => ['nullable', 'string', 'max:30', 'required_without:email'],
-            'email' => ['nullable', 'email', 'max:150', 'required_without:phone'],
+            'name' => ['nullable', 'string', 'max:150', 'required_without_all:phone,email'],
+            'phone' => ['nullable', 'string', 'max:30', 'required_without_all:name,email'],
+            'email' => ['nullable', 'email', 'max:150', 'required_without_all:name,phone'],
         ];
     }
 

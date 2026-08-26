@@ -37,6 +37,12 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
 
+    Route::get('/health', fn () => response()->json([
+        'success' => true,
+        'message' => 'API is healthy.',
+        'data' => ['status' => 'ok'],
+    ]));
+
     /*
     |--------------------------------------------------------------------------
     | Authentication
@@ -65,6 +71,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/customers/resolve', [DesktopCustomerController::class, 'resolve']);
             Route::post('/vouchers/redeem', [DesktopVoucherController::class, 'redeem']);
             Route::post('/payments', [DesktopPaymentController::class, 'store']);
+            Route::get('/payments/{payment}', [DesktopPaymentController::class, 'show']);
             Route::get('/print-jobs', [DesktopPrintJobController::class, 'index']);
             Route::post('/print-jobs/{printJob}/status', [DesktopPrintJobController::class, 'update']);
             Route::get('/print-jobs/{printJob}/media', [DesktopPrintJobController::class, 'media'])
@@ -87,6 +94,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/profile', [AuthController::class, 'profile']);
+        Route::post('/verify-password', [AuthController::class, 'verifyPassword'])->middleware('throttle:10,1');
         Route::post('/logout', [AuthController::class, 'logout']);
 
         Route::apiResources([

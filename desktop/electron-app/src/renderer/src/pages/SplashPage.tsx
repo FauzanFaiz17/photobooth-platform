@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { initialize } from '@/bootstrap/initialize'
 import { getApiErrorMessage } from '@/api/axios'
+import { checkInternetConnection } from '@/api/health'
 
 export default function SplashPage(): JSX.Element {
   const navigate = useNavigate()
@@ -18,6 +19,8 @@ export default function SplashPage(): JSX.Element {
     async function run(): Promise<void> {
       try {
         setError(null)
+
+        await checkInternetConnection()
 
         const result = await initialize()
 
@@ -46,13 +49,17 @@ export default function SplashPage(): JSX.Element {
           return
         }
 
-        navigate('/dashboard', { replace: true })
+        navigate('/welcome', { replace: true })
       } catch (caughtError) {
         if (cancelled) {
           return
         }
 
-        const message = getApiErrorMessage(caughtError, 'Terjadi kesalahan saat memuat aplikasi.')
+        const message = !navigator.onLine
+          ? 'Tidak ada koneksi internet. Periksa jaringan lalu coba lagi.'
+          : caughtError instanceof Error && caughtError.message === 'Internet tidak terhubung.'
+            ? 'Tidak ada koneksi internet. Periksa jaringan lalu coba lagi.'
+            : getApiErrorMessage(caughtError, 'Server tidak dapat dijangkau. Periksa koneksi internet lalu coba lagi.')
 
         setError(message)
       }

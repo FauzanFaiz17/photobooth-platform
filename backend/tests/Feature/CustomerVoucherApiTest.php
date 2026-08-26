@@ -53,6 +53,19 @@ class CustomerVoucherApiTest extends ApiTestCase
         $this->assertDatabaseCount('customers', 1);
     }
 
+    public function test_desktop_customer_can_be_resolved_with_name_only(): void
+    {
+        [$operator, $device] = $this->desktopContext('name-only');
+        Sanctum::actingAs($operator);
+
+        $this->withHeader('X-Device-UUID', $device->device_uuid)
+            ->postJson('/api/v1/desktop/customers/resolve', ['name' => 'Nama Saja'])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Nama Saja')
+            ->assertJsonPath('data.phone', null)
+            ->assertJsonPath('data.email', null);
+    }
+
     public function test_customer_list_is_limited_to_the_authenticated_partner(): void
     {
         foreach (['customers.view'] as $slug) {

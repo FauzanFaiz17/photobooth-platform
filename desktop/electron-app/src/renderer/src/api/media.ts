@@ -19,9 +19,15 @@ export interface UploadedMedia {
   size_bytes: number
 }
 
-export async function createPhotoSession(eventId: number): Promise<RemotePhotoSession> {
+export async function createPhotoSession(
+  eventId: number,
+  paymentId?: number,
+  customerId?: number
+): Promise<RemotePhotoSession> {
   const response = await api.post<ApiEnvelope<RemotePhotoSession>>('/v1/desktop/photo-sessions', {
-    event_id: eventId
+    event_id: eventId,
+    payment_id: paymentId,
+    customer_id: customerId
   })
 
   return response.data.data
@@ -30,12 +36,13 @@ export async function createPhotoSession(eventId: number): Promise<RemotePhotoSe
 export async function uploadSessionMedia(
   sessionId: number,
   payload: {
-    type: 'original' | 'edited' | 'template' | 'thumbnail'
+    type: 'original' | 'edited' | 'template' | 'gif' | 'thumbnail'
     filename: string
-    mime_type: 'image/png' | 'image/jpeg'
+    mime_type: 'image/png' | 'image/jpeg' | 'image/gif'
     data_url: string
     width?: number
     height?: number
+    duration_seconds?: number
   }
 ): Promise<UploadedMedia> {
   const response = await api.post<ApiEnvelope<UploadedMedia>>(

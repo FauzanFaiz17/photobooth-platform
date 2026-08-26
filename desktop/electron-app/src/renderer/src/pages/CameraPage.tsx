@@ -44,6 +44,7 @@ export default function CameraPage(): JSX.Element | null {
         totalShots={requiredShots}
         countdownSeconds={configuration.camera.countdown_seconds}
         cssFilter={filter?.cssFilter ?? 'none'}
+        templateOverlayPath={template.overlayPath}
         onShotCaptured={addShot}
         onAllShotsDone={() => navigate('/preview')}
       />

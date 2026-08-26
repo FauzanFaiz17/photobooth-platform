@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Contracts\PaymentGateway;
 use App\Models\Device;
 use App\Models\Event;
+use App\Models\EventPrintOption;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -188,6 +189,42 @@ class PaymentService
         });
     }
 
+    public function refreshGatewayStatus(Payment $payment): Payment
+    {
+        if ($payment->gateway !== 'midtrans_qris' || $payment->status !== 'pending') {
+            return $payment->fresh();
+        }
+
+        return Cache::lock("payment-status-refresh:{$payment->id}", 10)->block(5, function () use ($payment) {
+            $payment->refresh();
+            if ($payment->status !== 'pending') {
+                return $payment;
+            }
+
+            $payload = $this->midtrans->getTransactionStatus($payment);
+            if (($payload['order_id'] ?? null) !== $payment->reference
+                || number_format((float) ($payload['gross_amount'] ?? 0), 2, '.', '') !== number_format((float) $payment->amount, 2, '.', '')) {
+                abort(422, 'Midtrans payment status does not match this transaction.');
+            }
+
+            $targetStatus = $this->midtrans->notificationStatus($payload);
+            $gatewayResponse = ['status_check' => [
+                'transaction_id' => $payload['transaction_id'] ?? null,
+                'transaction_status' => $payload['transaction_status'] ?? null,
+                'fraud_status' => $payload['fraud_status'] ?? null,
+                'checked_at' => now()->toISOString(),
+            ]];
+
+            if ($targetStatus && $targetStatus !== 'pending') {
+                return $this->transition($payment, $targetStatus, $gatewayResponse);
+            }
+
+            $payment->update(['gateway_response' => array_merge($payment->gateway_response ?? [], $gatewayResponse)]);
+
+            return $payment->fresh();
+        });
+    }
+
     public function expireDue(): int
     {
         return Payment::query()
@@ -277,10 +314,36 @@ class PaymentService
                 ]);
             }
 
+            if (! empty($data['print_option_id'])) {
+                $option = EventPrintOption::query()
+                    ->whereKey($data['print_option_id'])
+                    ->where('event_id', $event->id)
+                    ->where('is_active', true)
+                    ->first();
+
+                if (! $option) {
+                    throw ValidationException::withMessages(['print_option_id' => 'The print option is not available for this event.']);
+                }
+
+                if (! empty($data['paper_size']) && $data['paper_size'] !== $option->paper_size) {
+                    throw ValidationException::withMessages(['paper_size' => 'The paper size does not match the print option.']);
+                }
+
+                $quantity = (int) ($data['quantity'] ?? $option->unit_quantity);
+                if ($quantity < $option->unit_quantity || $quantity % $option->quantity_step !== 0) {
+                    throw ValidationException::withMessages(['quantity' => 'Quantity must follow the selected print option increment.']);
+                }
+
+                $amount = (float) $option->price * ($quantity / $option->unit_quantity);
+                if (isset($data['amount']) && (float) $data['amount'] !== $amount) {
+                    throw ValidationException::withMessages(['amount' => 'The amount does not match the selected print option.']);
+                }
+
+                return $amount;
+            }
+
             if (isset($data['amount']) && (float) $data['amount'] !== (float) $event->price) {
-                throw ValidationException::withMessages([
-                    'amount' => 'The amount must match the event price.',
-                ]);
+                throw ValidationException::withMessages(['amount' => 'The amount must match the event price.']);
             }
 
             return (float) $event->price;

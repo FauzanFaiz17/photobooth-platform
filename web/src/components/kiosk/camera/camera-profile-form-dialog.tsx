@@ -12,6 +12,13 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/features/auth/auth-context"
 import {
@@ -68,8 +75,8 @@ function validate(form: CameraFormState): CameraFormErrors {
     }
   }
 
-  if (!Number.isInteger(countdown) || countdown < 0 || countdown > 60) {
-    errors.countdown_seconds = "Countdown harus antara 0–60 detik."
+  if (![2, 3, 5].includes(countdown)) {
+    errors.countdown_seconds = "Pilih countdown 2, 3, atau 5 detik."
   }
   if (!Number.isInteger(burst) || burst < 1 || burst > 20) {
     errors.burst_count = "Burst harus antara 1–20 foto."
@@ -267,17 +274,27 @@ export function CameraProfileFormDialog({
 
             <div className="grid gap-2">
               <Label htmlFor="camera-countdown">Countdown (detik)</Label>
-              <Input
-                id="camera-countdown"
-                type="number"
-                min={0}
-                max={60}
+              <Select<string>
                 value={form.countdown_seconds}
-                aria-invalid={Boolean(errors.countdown_seconds)}
-                onChange={(event) =>
-                  updateField("countdown_seconds", event.target.value)
+                onValueChange={(value) =>
+                  value !== null && updateField("countdown_seconds", value)
                 }
-              />
+              >
+                <SelectTrigger
+                  id="camera-countdown"
+                  className="w-full"
+                  aria-invalid={Boolean(errors.countdown_seconds)}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[2, 3, 5].map((seconds) => (
+                    <SelectItem key={seconds} value={String(seconds)}>
+                      {seconds} detik
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {errors.countdown_seconds && (
                 <p className="text-xs text-destructive">
                   {errors.countdown_seconds}

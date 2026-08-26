@@ -62,6 +62,7 @@ class MidtransGateway implements PaymentGateway
         $payload = $response->json();
 
         return [
+            'environment' => $config['production'] ? 'production' : 'sandbox',
             'transaction_id' => $payload['transaction_id'] ?? null,
             'order_id' => $payload['order_id'] ?? $payment->reference,
             'transaction_status' => $payload['transaction_status'] ?? 'pending',
@@ -71,6 +72,27 @@ class MidtransGateway implements PaymentGateway
             'deeplink_url' => $this->actionUrl($payload['actions'] ?? [], 'deeplink-redirect'),
             'expires_at' => $payment->expired_at?->toISOString(),
         ];
+    }
+
+    public function getTransactionStatus(Payment $payment): array
+    {
+        $config = $this->credentials->midtrans();
+
+        try {
+            $response = Http::withBasicAuth($config['server_key'], '')
+                ->acceptJson()
+                ->timeout($config['timeout'])
+                ->get($config['api_url'].'/v2/'.$payment->reference.'/status');
+        } catch (ConnectionException $exception) {
+            Log::warning('Midtrans status check failed.', ['payment_id' => $payment->id, 'exception' => $exception->getMessage()]);
+            abort(502, 'Payment gateway is unavailable.');
+        }
+
+        if ($response->failed()) {
+            abort(502, 'Payment gateway status could not be retrieved.');
+        }
+
+        return $response->json();
     }
 
     public function verifyNotification(array $payload): bool

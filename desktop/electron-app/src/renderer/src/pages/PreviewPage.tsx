@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 
 import Button from '@/components/ui/Button'
 import Alert from '@/components/ui/Alert'
+import { createSessionGif } from '@/features/gif/services/createSessionGif'
 import { composeTemplateImage } from '@/features/template/services/composeTemplate'
 
 import { useSessionStore } from '@/store/sessionStore'
@@ -20,6 +21,8 @@ export default function PreviewPage(): JSX.Element | null {
   const resetShots = useSessionStore((state) => state.resetShots)
   const composedImage = useSessionStore((state) => state.composedImage)
   const setComposedImage = useSessionStore((state) => state.setComposedImage)
+  const animatedGif = useSessionStore((state) => state.animatedGif)
+  const setAnimatedGif = useSessionStore((state) => state.setAnimatedGif)
   const [composing, setComposing] = useState(false)
   const [compositionError, setCompositionError] = useState<string | null>(null)
 
@@ -30,22 +33,27 @@ export default function PreviewPage(): JSX.Element | null {
     setCompositionError(null)
 
     try {
-      const result = await composeTemplateImage({
-        shots,
-        jsonLayout: template.jsonLayout,
-        layout: template.layout,
-        overlayPath: template.overlayPath
-      })
-      setComposedImage(result)
+      const [composedResult, gifResult] = await Promise.all([
+        composeTemplateImage({
+          shots,
+          jsonLayout: template.jsonLayout,
+          layout: template.layout,
+          overlayPath: template.overlayPath
+        }),
+        createSessionGif(shots)
+      ])
+      setComposedImage(composedResult)
+      setAnimatedGif(gifResult)
     } catch (error) {
       setComposedImage(null)
+      setAnimatedGif(null)
       setCompositionError(
         error instanceof Error ? error.message : 'Hasil final tidak dapat dibuat.'
       )
     } finally {
       setComposing(false)
     }
-  }, [setComposedImage, shots, template])
+  }, [setAnimatedGif, setComposedImage, shots, template])
 
   useEffect(() => {
     if (!configuration || !template || shots.length === 0) {
@@ -54,13 +62,13 @@ export default function PreviewPage(): JSX.Element | null {
   }, [configuration, template, shots.length, navigate])
 
   useEffect(() => {
-    if (!composedImage && template && shots.length > 0) {
+    if ((!composedImage || !animatedGif) && template && shots.length > 0) {
       const timeout = window.setTimeout(() => void compose(), 0)
       return () => window.clearTimeout(timeout)
     }
 
     return undefined
-  }, [compose, composedImage, shots.length, template])
+  }, [animatedGif, compose, composedImage, shots.length, template])
 
   function handleRetake(): void {
     resetShots()
@@ -105,12 +113,25 @@ export default function PreviewPage(): JSX.Element | null {
           </div>
         )}
 
-        {!composing && composedImage && (
-          <img
-            src={composedImage.dataUrl}
-            alt="Hasil akhir dengan template"
-            className="max-h-full max-w-full border border-slate-200 bg-white object-contain shadow-lg"
-          />
+        {!composing && composedImage && animatedGif && (
+          <div className="grid h-full w-full grid-cols-2 gap-6 overflow-hidden">
+            <div className="flex min-w-0 flex-col items-center gap-2 overflow-hidden">
+              <p className="text-sm font-medium text-slate-600">Hasil Template</p>
+              <img
+                src={composedImage.dataUrl}
+                alt="Hasil akhir dengan template"
+                className="min-h-0 max-h-full max-w-full border border-slate-200 bg-white object-contain shadow-lg"
+              />
+            </div>
+            <div className="flex min-w-0 flex-col items-center gap-2 overflow-hidden">
+              <p className="text-sm font-medium text-slate-600">GIF</p>
+              <img
+                src={animatedGif.dataUrl}
+                alt="Animasi seluruh hasil foto"
+                className="min-h-0 max-h-full max-w-full border border-slate-200 bg-white object-contain shadow-lg"
+              />
+            </div>
+          </div>
         )}
       </div>
 
@@ -119,7 +140,7 @@ export default function PreviewPage(): JSX.Element | null {
           Ambil Ulang
         </Button>
 
-        <Button onClick={handleConfirm} disabled={!composedImage || composing}>
+        <Button onClick={handleConfirm} disabled={!composedImage || !animatedGif || composing}>
           Gunakan Hasil Ini
         </Button>
       </div>

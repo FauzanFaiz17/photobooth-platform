@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom'
 
 import { getApiErrorMessage, isNetworkError } from '@/api/axios'
 import { getEventConfiguration } from '@/api/event'
-import { createPhotoSession } from '@/api/media'
 import Alert from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
@@ -21,10 +20,7 @@ export default function DashboardPage(): JSX.Element {
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
   const device = useDeviceStore((state) => state.device)
-  const reset = useSessionStore((state) => state.reset)
   const beginEvent = useSessionStore((state) => state.beginEvent)
-  const setRemoteSession = useSessionStore((state) => state.setRemoteSession)
-  const setSyncStatus = useSessionStore((state) => state.setSyncStatus)
   const [eventCode, setEventCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -39,8 +35,6 @@ export default function DashboardPage(): JSX.Element {
 
     setLoading(true)
     setError(null)
-    reset()
-
     try {
       let configuration
 
@@ -56,19 +50,8 @@ export default function DashboardPage(): JSX.Element {
 
       beginEvent(configuration)
 
-      try {
-        const remoteSession = await createPhotoSession(configuration.event.id)
-        setRemoteSession(remoteSession.id)
-        setSyncStatus('ready')
-      } catch (sessionError) {
-        if (!isNetworkError(sessionError)) throw sessionError
-
-        setSyncStatus('local-only', 'Sesi cloud belum dibuat. Foto tetap akan disimpan lokal.')
-      }
-
       navigate('/template')
     } catch (requestError) {
-      reset()
       setError(
         getApiErrorMessage(
           requestError,

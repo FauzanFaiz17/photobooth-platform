@@ -10,6 +10,7 @@ export interface EventSummary {
   start_time: string
   end_time: string
   price: number
+  print_options?: EventPrintOption[]
   print_count_limit: number
   partner: {
     id: number
@@ -25,6 +26,7 @@ export interface TemplateSnapshot {
   id: number
   template_id: number
   name: string
+  paper_size: '2r' | '4r'
   preview_path: string | null
   thumbnail_path: string | null
   json_layout: Record<string, unknown>
@@ -80,9 +82,21 @@ export interface PrinterSnapshot {
 export interface EventConfiguration {
   event: EventSummary
   template: TemplateSnapshot
+  templates?: TemplateSnapshot[]
   filter: FilterSnapshot
+  filters?: FilterSnapshot[]
+  print_options?: EventPrintOption[]
   camera: CameraSnapshot
   printer: PrinterSnapshot
+}
+
+export interface EventPrintOption {
+  id: number
+  paper_size: '2r' | '4r'
+  unit_quantity: number
+  quantity_step: number
+  price: number | string
+  is_active: boolean
 }
 
 function recordValue(value: Record<string, unknown>, key: string): unknown {

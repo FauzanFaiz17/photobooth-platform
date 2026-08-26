@@ -4,12 +4,16 @@ import { useNavigate } from 'react-router-dom'
 
 import Button from '@/components/ui/Button'
 import { useSessionStore } from '@/store/sessionStore'
+import { mapFilterSnapshot } from '@/features/event/types'
+import { useWebcam } from '@/features/camera/hooks/useWebcam'
 
 export default function FilterPage(): JSX.Element | null {
   const navigate = useNavigate()
   const configuration = useSessionStore((state) => state.eventConfiguration)
   const template = useSessionStore((state) => state.template)
   const filter = useSessionStore((state) => state.filter)
+  const setFilter = useSessionStore((state) => state.setFilter)
+  const webcam = useWebcam()
 
   useEffect(() => {
     if (!configuration || !template || !filter) {
@@ -26,22 +30,19 @@ export default function FilterPage(): JSX.Element | null {
         <p className="text-slate-500">Template: {template.name}</p>
       </div>
 
-      <div className="mx-auto flex w-full max-w-lg flex-1 items-center">
-        <div className="grid w-full grid-cols-[1fr_180px] gap-5 border border-slate-200 bg-white p-5 shadow-sm">
-          <div
-            className="min-h-64 bg-[linear-gradient(135deg,#d6d3d1,#64748b,#f1f5f9)]"
-            style={{ filter: filter.cssFilter }}
-          />
-          <div className="flex flex-col justify-between">
-            <div>
-              <p className="text-lg font-semibold text-slate-800">{filter.name}</p>
-              <p className="mt-1 text-sm text-slate-500">Versi {filter.version}</p>
-            </div>
-            <Button onClick={() => navigate('/camera')}>Mulai Foto</Button>
-          </div>
-        </div>
+      <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
+        {(configuration.filters ?? [configuration.filter]).map((item) => { const mapped = mapFilterSnapshot(item); return <button type="button" key={item.id} onClick={() => setFilter(mapped)} className={`border bg-white p-3 text-left shadow-sm ${filter.id === mapped.id ? 'border-blue-500 ring-2 ring-blue-200' : 'border-slate-200'}`}><div className="relative aspect-video overflow-hidden bg-slate-800"><video ref={(element) => { if (element && webcam.stream) element.srcObject = webcam.stream }} autoPlay muted playsInline className="h-full w-full object-cover" style={{ filter: mapped.cssFilter }} /><div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/60 to-transparent p-3 text-white"><span className="font-semibold">{mapped.name}</span></div></div><p className="mt-2 text-sm text-slate-500">Versi {mapped.version}</p></button> })}
       </div>
 
+      <div className="flex flex-wrap justify-center gap-3">
+        {(configuration.filters ?? [configuration.filter]).map((item) => (
+          <Button key={item.id} onClick={() => setFilter(mapFilterSnapshot(item))} className="border border-slate-200 bg-white !text-slate-800 hover:bg-slate-50">
+            {item.name}
+          </Button>
+        ))}
+      </div>
+
+      <Button onClick={() => navigate('/payment')} className="ml-auto">Pilih Jumlah</Button>
       <Button
         onClick={() => navigate('/template')}
         className="mr-auto bg-slate-500 hover:bg-slate-600"

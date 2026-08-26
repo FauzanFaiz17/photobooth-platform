@@ -29,6 +29,11 @@ export const eventStorage = {
     return value.event.event_code.toUpperCase() === eventCode.toUpperCase() ? value : null
   },
 
+  async getSaved(): Promise<EventConfiguration | null> {
+    const value = await window.storage.get(EVENT_CONFIGURATION_KEY)
+    return isEventConfiguration(value) ? value : null
+  },
+
   async clear(): Promise<void> {
     await window.storage.delete(EVENT_CONFIGURATION_KEY)
   }

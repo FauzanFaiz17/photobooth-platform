@@ -18,6 +18,9 @@ import FilterPage from '../pages/FilterPage'
 import CameraPage from '../pages/CameraPage'
 import PreviewPage from '../pages/PreviewPage'
 import FinishPage from '../pages/FinishPage'
+import CustomerPage from '../pages/CustomerPage'
+import WelcomePage from '../pages/WelcomePage'
+import SettingsPage from '../pages/SettingsPage'
 
 export default function AppRouter(): JSX.Element {
   return (
@@ -40,9 +43,12 @@ export default function AppRouter(): JSX.Element {
         <Route element={<RegisteredDeviceRoute />}>
           <Route element={<ProtectedRoute />}>
             <Route element={<BoothLayout />}>
+              <Route path="/welcome" element={<WelcomePage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
 
               <Route path="/payment" element={<PaymentPage />} />
+              <Route path="/customer" element={<CustomerPage />} />
 
               <Route path="/template" element={<TemplatePage />} />
 

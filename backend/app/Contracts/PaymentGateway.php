@@ -10,6 +10,8 @@ interface PaymentGateway
 
     public function createQrisTransaction(Payment $payment): array;
 
+    public function getTransactionStatus(Payment $payment): array;
+
     public function verifyNotification(array $payload): bool;
 
     public function notificationStatus(array $payload): ?string;

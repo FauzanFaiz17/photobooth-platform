@@ -46,6 +46,7 @@ class MidtransPaymentTest extends ApiTestCase
         $first = $this->withHeaders($headers)
             ->postJson('/api/v1/desktop/payments', $payload)
             ->assertCreated()
+            ->assertJsonPath('data.gateway_response.environment', 'sandbox')
             ->assertJsonPath('data.gateway_response.transaction_id', 'midtrans-qris-001')
             ->assertJsonPath('data.gateway_response.qr_url', 'https://midtrans.test/qr/001');
         $this->withHeaders($headers)
@@ -114,6 +115,37 @@ class MidtransPaymentTest extends ApiTestCase
         $this->postJson('/api/v1/payments/midtrans/notification', $amountMismatch)
             ->assertUnprocessable();
         $this->assertSame('pending', $payment->fresh()->status);
+    }
+
+    public function test_desktop_status_check_refreshes_a_sandbox_payment_without_webhook(): void
+    {
+        [$operator] = $this->desktopContext('status-refresh');
+        $payment = Payment::create([
+            'partner_id' => $operator->partner_id,
+            'reference' => 'PAY-SANDBOX-STATUS-001',
+            'idempotency_key' => 'sandbox-status-001',
+            'gateway' => 'midtrans_qris',
+            'amount' => 80000,
+            'fee' => 0,
+            'net_amount' => 80000,
+            'status' => 'pending',
+            'expired_at' => now()->addMinutes(15),
+        ]);
+        Http::fake([
+            'https://api.sandbox.midtrans.com/v2/PAY-SANDBOX-STATUS-001/status' => Http::response([
+                'order_id' => $payment->reference,
+                'transaction_id' => 'sandbox-status-transaction',
+                'transaction_status' => 'settlement',
+                'status_code' => '200',
+                'gross_amount' => '80000.00',
+            ]),
+        ]);
+        Sanctum::actingAs($operator);
+
+        $this->getJson('/api/v1/desktop/payments/'.$payment->id)
+            ->assertOk()
+            ->assertJsonPath('data.status', 'paid')
+            ->assertJsonPath('data.gateway_response.status_check.transaction_status', 'settlement');
     }
 
     private function pendingPayment(): Payment

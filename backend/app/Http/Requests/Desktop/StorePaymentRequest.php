@@ -16,6 +16,9 @@ class StorePaymentRequest extends FormRequest
         return [
             'device_uuid' => ['required', 'uuid'],
             'event_id' => ['nullable', 'integer', 'exists:events,id'],
+            'print_option_id' => ['nullable', 'integer', 'exists:event_print_options,id'],
+            'quantity' => ['nullable', 'integer', 'min:1'],
+            'paper_size' => ['nullable', 'in:2r,4r'],
             'amount' => ['nullable', 'numeric', 'min:0'],
             'gateway' => ['required', 'in:midtrans_qris,cash,other'],
             'idempotency_key' => ['required', 'string', 'max:100'],

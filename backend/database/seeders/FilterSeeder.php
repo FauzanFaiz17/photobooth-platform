@@ -65,7 +65,7 @@ class FilterSeeder extends Seeder
         ];
 
         foreach ($filters as $filter) {
-            Filter::create($filter);
+            Filter::query()->updateOrCreate(['partner_id' => $filter['partner_id'], 'name' => $filter['name']], $filter);
         }
     }
 }

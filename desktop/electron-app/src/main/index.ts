@@ -1,9 +1,9 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, dirname } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { spawn, ChildProcess } from 'node:child_process'
 import http from 'node:http'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile, readFile } from 'node:fs/promises'
 import Store from 'electron-store'
 import icon from '../../resources/icon.png?asset'
 import { registerDeviceIpc } from './ipc/device'
@@ -101,6 +101,9 @@ function createWindow(): void {
     width: 900,
     height: 670,
     show: false,
+    frame: false,
+    fullscreen: true,
+    kiosk: true,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -139,6 +142,27 @@ app.whenReady().then(() => {
 
   // IPC Handlers
   ipcMain.on('ping', () => console.log('pong'))
+  ipcMain.handle('window:minimize', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window) return
+    window.setKiosk(false)
+    window.minimize()
+    window.once('restore', () => window.setKiosk(true))
+  })
+  ipcMain.handle('window:close', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.close()
+  })
+  ipcMain.handle('home:pick-image', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
+    })
+    if (result.canceled || !result.filePaths[0]) return null
+    const source = result.filePaths[0]
+    const extension = source.split('.').pop()?.toLowerCase() ?? 'png'
+    const bytes = await readFile(source)
+    return `data:image/${extension === 'jpg' ? 'jpeg' : extension};base64,${bytes.toString('base64')}`
+  })
 
   ipcMain.handle('store:get', (_, key) => {
     return store.get(key)
@@ -152,29 +176,37 @@ app.whenReady().then(() => {
     store.delete(key)
   })
 
-  ipcMain.handle('session:save-webcam-shots', async (_, shots: string[], finalImage?: string) => {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const directory = join(app.getPath('pictures'), 'Photobooth', timestamp)
+  ipcMain.handle(
+    'session:save-webcam-shots',
+    async (_, shots: string[], finalImage?: string, gifImage?: string) => {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const directory = join(app.getPath('pictures'), 'Photobooth', timestamp)
 
-    await mkdir(directory, { recursive: true })
+      await mkdir(directory, { recursive: true })
 
-    await Promise.all(
-      shots.map((dataUrl, index) => {
-        const base64 = dataUrl.replace(/^data:image\/(png|jpeg);base64,/, '')
-        return writeFile(
-          join(directory, `capture-${String(index + 1).padStart(2, '0')}.png`),
-          Buffer.from(base64, 'base64')
-        )
-      })
-    )
+      await Promise.all(
+        shots.map((dataUrl, index) => {
+          const base64 = dataUrl.replace(/^data:image\/(png|jpeg);base64,/, '')
+          return writeFile(
+            join(directory, `capture-${String(index + 1).padStart(2, '0')}.png`),
+            Buffer.from(base64, 'base64')
+          )
+        })
+      )
 
-    if (finalImage) {
-      const base64 = finalImage.replace(/^data:image\/(png|jpeg);base64,/, '')
-      await writeFile(join(directory, 'final-composite.png'), Buffer.from(base64, 'base64'))
+      if (finalImage) {
+        const base64 = finalImage.replace(/^data:image\/(png|jpeg);base64,/, '')
+        await writeFile(join(directory, 'final-composite.png'), Buffer.from(base64, 'base64'))
+      }
+
+      if (gifImage) {
+        const base64 = gifImage.replace(/^data:image\/gif;base64,/, '')
+        await writeFile(join(directory, 'session-animation.gif'), Buffer.from(base64, 'base64'))
+      }
+
+      return { directory }
     }
-
-    return { directory }
-  })
+  )
 
   ipcMain.handle('asset:load-image', async (_, source: string) => {
     const url = new URL(source)

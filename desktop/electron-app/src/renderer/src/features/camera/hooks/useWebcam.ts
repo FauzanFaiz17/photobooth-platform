@@ -21,6 +21,7 @@ interface UseWebcamResult {
     activeDeviceId: string | null;
     selectDevice: (deviceId: string) => void;
     retry: () => void;
+    stream: MediaStream | null;
 }
 
 /**
@@ -38,6 +39,7 @@ export function useWebcam(): UseWebcamResult {
     const [devices, setDevices] = useState<WebcamDevice[]>([]);
     const [activeDeviceId, setActiveDeviceId] = useState<string | null>(null);
     const [retryToken, setRetryToken] = useState(0);
+    const [stream, setStream] = useState<MediaStream | null>(null);
 
     const stopStream = useCallback(() => {
 
@@ -46,6 +48,7 @@ export function useWebcam(): UseWebcamResult {
             streamRef.current.getTracks().forEach((track) => track.stop());
 
             streamRef.current = null;
+            setStream(null);
 
         }
 
@@ -69,6 +72,7 @@ export function useWebcam(): UseWebcamResult {
             });
 
             streamRef.current = stream;
+            setStream(stream);
 
             if (videoRef.current) {
 
@@ -178,6 +182,7 @@ export function useWebcam(): UseWebcamResult {
         activeDeviceId,
         selectDevice,
         retry,
+        stream,
     };
 
 }

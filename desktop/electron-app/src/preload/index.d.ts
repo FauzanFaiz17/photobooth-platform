@@ -12,6 +12,11 @@ declare global {
           appVersion: string
         }>
       }
+      window: {
+        minimize(): Promise<void>
+        close(): Promise<void>
+      }
+      home: { pickImage(): Promise<string | null> }
     }
     api: unknown
   }
@@ -39,7 +44,11 @@ declare global {
 declare global {
   interface Window {
     session: {
-      saveWebcamShots(shots: string[], finalImage?: string): Promise<{ directory: string }>
+      saveWebcamShots(
+        shots: string[],
+        finalImage?: string,
+        gifImage?: string
+      ): Promise<{ directory: string }>
     }
   }
 }

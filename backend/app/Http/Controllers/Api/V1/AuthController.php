@@ -9,6 +9,7 @@ use App\Services\AuditService;
 use App\Services\AuthService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
@@ -54,6 +55,17 @@ class AuthController extends Controller
             'Profile loaded.'
         );
 
+    }
+
+    public function verifyPassword(Request $request)
+    {
+        $validated = $request->validate(['password' => ['required', 'string']]);
+
+        if (! Hash::check($validated['password'], $request->user()->password)) {
+            return ApiResponse::error('Password operator tidak sesuai.', null, 422);
+        }
+
+        return ApiResponse::success(null, 'Password operator terverifikasi.');
     }
 
     public function logout(Request $request)

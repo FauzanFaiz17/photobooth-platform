@@ -112,14 +112,18 @@ function resolveOverlayUrl(path: string): string {
   return new URL(`/storage/${normalizedPath}`, baseUrl.origin).toString()
 }
 
-async function loadOverlay(path: string): Promise<HTMLImageElement> {
+export async function loadTemplateOverlayDataUrl(path: string): Promise<string> {
   const source = resolveOverlayUrl(path)
 
   if (source.startsWith('data:') || source.startsWith('blob:')) {
-    return loadImage(source, 'Overlay template')
+    return source
   }
 
-  const dataUrl = await window.asset.loadImage(source)
+  return window.asset.loadImage(source)
+}
+
+async function loadOverlay(path: string): Promise<HTMLImageElement> {
+  const dataUrl = await loadTemplateOverlayDataUrl(path)
   return loadImage(dataUrl, 'Overlay template')
 }
 
