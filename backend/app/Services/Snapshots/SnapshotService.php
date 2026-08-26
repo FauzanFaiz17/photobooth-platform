@@ -38,4 +38,14 @@ class SnapshotService
             'printer_snapshot_id'  => $printerSnapshot->id,
         ];
     }
+
+    public function createTemplate(Template $template): int
+    {
+        return $this->templateSnapshotService->create($template)->id;
+    }
+
+    public function createFilter(Filter $filter): int
+    {
+        return $this->filterSnapshotService->create($filter)->id;
+    }
 }

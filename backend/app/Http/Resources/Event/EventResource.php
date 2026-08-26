@@ -60,9 +60,12 @@ class EventResource extends JsonResource
                     'template' => new TemplateSnapshotResource(
                         $this->templateSnapshot
                     ),
+                    'templates' => TemplateSnapshotResource::collection($this->whenLoaded('templateSnapshots')),
                     'filter' => new FilterSnapshotResource(
                         $this->filterSnapshot
                     ),
+                    'filters' => FilterSnapshotResource::collection($this->whenLoaded('filterSnapshots')),
+                    'print_options' => $this->whenLoaded('printOptions'),
                     'camera' => new CameraSnapshotResource(
                         $this->cameraSnapshot
                     ),

@@ -18,6 +18,7 @@ class TemplateSnapshotResource extends JsonResource
             'template_id' => $this->template_id,
 
             'name' => $this->name,
+            'paper_size' => $this->paper_size,
 
             'preview_path' => $this->preview_path,
 

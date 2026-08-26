@@ -12,6 +12,7 @@ class TemplateSnapshotService
         return TemplateSnapshot::create([
             'template_id'    => $template->id,
             'name'           => $template->name,
+            'paper_size'     => $template->paper_size,
             'preview_path'   => $template->preview_path,
             'thumbnail_path' => $template->thumbnail_path,
             'json_layout'    => $template->json_layout,

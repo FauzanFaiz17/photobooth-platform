@@ -16,6 +16,7 @@ class TemplateRequest extends FormRequest
         return [
             'partner_id' => ['nullable', 'integer', 'exists:partners,id'],
             'name' => ['required', 'string', 'max:150'],
+            'paper_size' => ['sometimes', 'nullable', 'in:2r,4r'],
             'preview_path' => ['nullable', 'string', 'max:255'],
             'thumbnail_path' => ['nullable', 'string', 'max:255'],
             'json_layout' => ['required', 'array'],

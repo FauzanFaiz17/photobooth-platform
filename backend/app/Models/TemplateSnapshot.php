@@ -16,6 +16,7 @@ class TemplateSnapshot extends Model
     protected $fillable = [
         'template_id',
         'name',
+        'paper_size',
         'preview_path',
         'thumbnail_path',
         'json_layout',

@@ -31,6 +31,7 @@ class EventConfigurationResource extends JsonResource
                 'end_time' => $this->end_time,
 
                 'price' => (float) $this->price,
+                'print_options' => $this->whenLoaded('printOptions'),
 
                 'print_count_limit' => $this->print_count_limit,
 
@@ -49,10 +50,12 @@ class EventConfigurationResource extends JsonResource
             'template' => new TemplateSnapshotResource(
                 $this->whenLoaded('templateSnapshot')
             ),
+            'templates' => TemplateSnapshotResource::collection($this->whenLoaded('templateSnapshots')),
 
             'filter' => new FilterSnapshotResource(
                 $this->whenLoaded('filterSnapshot')
             ),
+            'filters' => FilterSnapshotResource::collection($this->whenLoaded('filterSnapshots')),
 
             'camera' => new CameraSnapshotResource(
                 $this->whenLoaded('cameraSnapshot')

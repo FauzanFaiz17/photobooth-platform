@@ -15,6 +15,7 @@ class Template extends Model
     protected $fillable = [
         'partner_id',
         'name',
+        'paper_size',
         'preview_path',
         'thumbnail_path',
         'json_layout',

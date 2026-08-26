@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Event extends Model
@@ -99,5 +100,22 @@ class Event extends Model
     public function photoSessions(): HasMany
     {
         return $this->hasMany(PhotoSession::class);
+    }
+
+    public function templateSnapshots(): BelongsToMany
+    {
+        return $this->belongsToMany(TemplateSnapshot::class, 'event_templates')
+            ->withPivot(['sort_order', 'is_default'])->withTimestamps()->orderBy('sort_order');
+    }
+
+    public function filterSnapshots(): BelongsToMany
+    {
+        return $this->belongsToMany(FilterSnapshot::class, 'event_filters')
+            ->withPivot(['sort_order', 'is_default'])->withTimestamps()->orderBy('sort_order');
+    }
+
+    public function printOptions(): HasMany
+    {
+        return $this->hasMany(EventPrintOption::class);
     }
 }

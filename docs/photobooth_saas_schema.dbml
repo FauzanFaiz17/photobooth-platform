@@ -190,6 +190,7 @@ Table users {
   partner_id bigint [null]
   role_id bigint [not null]
   name varchar(150) [not null]
+  paper_size varchar(10) [not null, default: '2r']
   email varchar(150) [not null, unique]
   email_verified_at timestamp
   password varchar(255) [not null]
@@ -216,6 +217,7 @@ Table personal_access_tokens {
   tokenable_type varchar(150) [not null]
   tokenable_id bigint [not null]
   name varchar(150) [not null]
+  paper_size varchar(10) [not null, default: '2r']
   token varchar(64) [not null, unique]
   abilities text
   last_used_at timestamp
@@ -581,6 +583,41 @@ Table events {
   }
 
   Note: 'Operator only enters event_code; Desktop auto-downloads full snapshot configuration via API'
+}
+
+Table event_templates {
+  id bigint [pk, increment]
+  event_id bigint [not null]
+  template_snapshot_id bigint [not null]
+  sort_order int [not null, default: 0]
+  is_default boolean [not null, default: false]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp
+  Indexes { (event_id, template_snapshot_id) [unique] (event_id, sort_order) }
+}
+
+Table event_filters {
+  id bigint [pk, increment]
+  event_id bigint [not null]
+  filter_snapshot_id bigint [not null]
+  sort_order int [not null, default: 0]
+  is_default boolean [not null, default: false]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp
+  Indexes { (event_id, filter_snapshot_id) [unique] (event_id, sort_order) }
+}
+
+Table event_print_options {
+  id bigint [pk, increment]
+  event_id bigint [not null]
+  paper_size varchar(10) [not null]
+  unit_quantity int [not null, default: 1]
+  quantity_step int [not null, default: 1]
+  price decimal(15,2) [not null]
+  is_active boolean [not null, default: true]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp
+  Indexes { (event_id, paper_size, unit_quantity) [unique] }
 }
 
 // =====================================================================

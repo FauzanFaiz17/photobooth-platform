@@ -88,6 +88,8 @@ class EventService
                 $partner,
                 fn (Builder $query) => $query->where('status', 'published')
             );
+            $templateIds = array_values(array_unique($data['template_ids'] ?? [$data['template_id']]));
+            $filterIds = array_values(array_unique($data['filter_ids'] ?? [$data['filter_id']]));
             $filter = $this->availableConfiguration(
                 Filter::query(),
                 $data['filter_id'],
@@ -114,7 +116,7 @@ class EventService
                 $printer
             );
 
-            return Event::create([
+            $event = Event::create([
                 'partner_id' => $partner->id,
                 'booth_id' => $booth->id,
                 'created_by' => $user->id,
@@ -127,7 +129,23 @@ class EventService
                 'price' => $data['price'] ?? 0,
                 'print_count_limit' => $data['print_count_limit'] ?? 0,
                 'status' => $data['status'] ?? 'draft',
-            ])->load($this->relations());
+            ]);
+
+            foreach ($templateIds as $order => $templateId) {
+                $item = $this->availableConfiguration(Template::query(), $templateId, $partner, fn (Builder $q) => $q->where('status', 'published'));
+                $snapshotId = $order === 0 ? $snapshots['template_snapshot_id'] : $this->snapshotService->createTemplate($item);
+                $event->templateSnapshots()->attach($snapshotId, ['sort_order' => $order, 'is_default' => $order === 0]);
+            }
+            foreach ($filterIds as $order => $filterId) {
+                $item = $this->availableConfiguration(Filter::query(), $filterId, $partner, fn (Builder $q) => $q->where('is_active', true));
+                $snapshotId = $order === 0 ? $snapshots['filter_snapshot_id'] : $this->snapshotService->createFilter($item);
+                $event->filterSnapshots()->attach($snapshotId, ['sort_order' => $order, 'is_default' => $order === 0]);
+            }
+            foreach ($data['print_options'] ?? [] as $option) {
+                $event->printOptions()->create($option);
+            }
+
+            return $event->load($this->relations());
         });
     }
 
@@ -182,6 +200,9 @@ class EventService
             'filterSnapshot',
             'cameraSnapshot',
             'printerSnapshot',
+            'templateSnapshots',
+            'filterSnapshots',
+            'printOptions',
         ];
     }
 }

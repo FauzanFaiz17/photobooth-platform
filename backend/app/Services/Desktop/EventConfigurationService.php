@@ -41,6 +41,9 @@ class EventConfigurationService
                 'filterSnapshot',
                 'cameraSnapshot',
                 'printerSnapshot',
+                'templateSnapshots',
+                'filterSnapshots',
+                'printOptions',
             ])
             ->where('event_code', strtoupper($eventCode))
             ->where('partner_id', $device->partner_id)
