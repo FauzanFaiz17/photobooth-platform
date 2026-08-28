@@ -1,7 +1,8 @@
-import { LoaderCircle } from "lucide-react"
+import { LoaderCircle, Plus, Trash2 } from "lucide-react"
 import { useEffect, useState, type FormEvent } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -37,8 +38,8 @@ import { ApiError } from "@/lib/api-client"
 interface EventFormState {
   booth_id: string
   event_name: string
-  template_id: string
-  filter_id: string
+  template_ids: ReadonlyArray<string>
+  filter_ids: ReadonlyArray<string>
   camera_profile_id: string
   printer_profile_id: string
   event_date: string
@@ -46,7 +47,25 @@ interface EventFormState {
   end_time: string
   price: string
   print_count_limit: string
+  print_options: ReadonlyArray<PrintOptionForm>
   status: EventStatus
+}
+
+interface PrintOptionForm {
+  id: number
+  paper_size: "2r" | "4r"
+  unit_quantity: string
+  quantity_step: string
+  price: string
+}
+
+type PrintOptionField = Exclude<keyof PrintOptionForm, "id">
+type PrintOptionErrors = Partial<Record<number, Partial<Record<PrintOptionField, string>>>>
+
+let nextPrintOptionId = 1
+
+function newPrintOption(): PrintOptionForm {
+  return { id: nextPrintOptionId++, paper_size: "2r", unit_quantity: "1", quantity_step: "1", price: "0" }
 }
 
 type EventFormErrors = Partial<Record<keyof EventFormState, string>>
@@ -55,8 +74,8 @@ function initialForm(event: EventRecord | null): EventFormState {
   return {
     booth_id: event ? String(event.booth.id) : "",
     event_name: event?.event_name ?? "",
-    template_id: event ? String(event.configuration.template.template_id) : "",
-    filter_id: event ? String(event.configuration.filter.filter_id) : "",
+    template_ids: event ? (event.configuration.templates ?? [event.configuration.template]).map((template) => String(template.template_id)) : [],
+    filter_ids: event ? (event.configuration.filters ?? [event.configuration.filter]).map((filter) => String(filter.filter_id)) : [],
     camera_profile_id: event ? String(event.configuration.camera.camera_profile_id) : "",
     printer_profile_id: event ? String(event.configuration.printer.printer_profile_id) : "",
     event_date: event?.event_date ?? "",
@@ -64,6 +83,7 @@ function initialForm(event: EventRecord | null): EventFormState {
     end_time: event?.end_time.slice(0, 5) ?? "",
     price: event ? String(event.price) : "0",
     print_count_limit: event ? String(event.print_count_limit) : "0",
+    print_options: [],
     status: event?.status ?? "draft",
   }
 }
@@ -72,13 +92,15 @@ function validate(form: EventFormState, editing: boolean): EventFormErrors {
   const errors: EventFormErrors = {}
   const requiredIds: ReadonlyArray<keyof EventFormState> = editing
     ? []
-    : ["booth_id", "template_id", "filter_id", "camera_profile_id", "printer_profile_id"]
+    : ["booth_id", "camera_profile_id", "printer_profile_id"]
 
   for (const field of requiredIds) {
     if (!Number.isInteger(Number(form[field])) || Number(form[field]) <= 0) {
       errors[field] = "Pilihan ini wajib diisi."
     }
   }
+  if (!editing && form.template_ids.length === 0) errors.template_ids = "Pilih minimal satu Frame."
+  if (!editing && form.filter_ids.length === 0) errors.filter_ids = "Pilih minimal satu Filter."
   if (!form.event_name.trim()) errors.event_name = "Nama Event wajib diisi."
   else if (form.event_name.trim().length > 150) errors.event_name = "Maksimal 150 karakter."
   if (!form.event_date) errors.event_date = "Tanggal Event wajib diisi."
@@ -101,6 +123,24 @@ function mapValidationErrors(error: ApiError): EventFormErrors {
     const [message] = messages
     if (message && field in fields) errors[field as keyof EventFormState] = message
   }
+  return errors
+}
+
+function validatePrintOptions(options: ReadonlyArray<PrintOptionForm>): PrintOptionErrors {
+  const errors: PrintOptionErrors = {}
+
+  for (const option of options) {
+    const row: Partial<Record<PrintOptionField, string>> = {}
+    const quantity = Number(option.unit_quantity)
+    const step = Number(option.quantity_step)
+    const price = Number(option.price)
+
+    if (!Number.isInteger(quantity) || quantity < 1) row.unit_quantity = "Minimal 1."
+    if (!Number.isInteger(step) || step < 1) row.quantity_step = "Minimal 1."
+    if (!Number.isFinite(price) || price < 0) row.price = "Minimal Rp0."
+    if (Object.keys(row).length > 0) errors[option.id] = row
+  }
+
   return errors
 }
 
@@ -133,6 +173,56 @@ function ConfigurationSelect({
   )
 }
 
+function ConfigurationChecklist({
+  label,
+  options,
+  values,
+  error,
+  onChange,
+}: {
+  readonly label: string
+  readonly options: ReadonlyArray<EventConfigurationOption>
+  readonly values: ReadonlyArray<string>
+  readonly error?: string
+  readonly onChange: (values: ReadonlyArray<string>) => void
+}) {
+  function toggle(value: string, checked: boolean) {
+    onChange(checked ? [...values, value] : values.filter((item) => item !== value))
+  }
+
+  const allSelected = options.length > 0 && values.length === options.length
+  const partiallySelected = values.length > 0 && !allSelected
+
+  return (
+    <fieldset className="grid gap-2">
+      <legend className="text-sm font-medium">{label}</legend>
+      <div className="grid max-h-44 gap-1 overflow-y-auto rounded-md border p-2" aria-invalid={Boolean(error)}>
+        <label className="flex cursor-pointer items-center gap-3 border-b px-2 py-2 text-sm font-medium">
+          <Checkbox
+            checked={allSelected}
+            indeterminate={partiallySelected}
+            onCheckedChange={(checked) => onChange(checked ? options.map((option) => String(option.id)) : [])}
+          />
+          <span>Pilih semua</span>
+        </label>
+        {options.map((option) => {
+          const value = String(option.id)
+          const selectedIndex = values.indexOf(value)
+          return (
+            <label key={option.id} className="flex cursor-pointer items-center gap-3 rounded-sm px-2 py-2 text-sm hover:bg-muted">
+              <Checkbox checked={selectedIndex >= 0} onCheckedChange={(checked) => toggle(value, checked)} />
+              <span className="min-w-0 flex-1 truncate">{option.name}{option.is_global ? " (Global)" : ""}</span>
+              {selectedIndex === 0 && <span className="text-xs font-medium text-primary">Default</span>}
+            </label>
+          )
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground">Pilihan pertama digunakan sebagai default.</p>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </fieldset>
+  )
+}
+
 export function EventFormDialog({
   event,
   booths,
@@ -153,6 +243,7 @@ export function EventFormDialog({
   const { token } = useAuth()
   const [form, setForm] = useState<EventFormState>(() => initialForm(event))
   const [errors, setErrors] = useState<EventFormErrors>({})
+  const [printOptionErrors, setPrintOptionErrors] = useState<PrintOptionErrors>({})
   const [formError, setFormError] = useState("")
   const [pending, setPending] = useState(false)
   const [configurationState, setConfigurationState] = useState<"idle" | "loading" | "success" | "error">(event ? "success" : "idle")
@@ -199,9 +290,27 @@ export function EventFormDialog({
   }
 
   function changeBooth(value: string) {
-    setForm((current) => ({ ...current, booth_id: value, template_id: "", filter_id: "", camera_profile_id: "", printer_profile_id: "" }))
+    setForm((current) => ({ ...current, booth_id: value, template_ids: [], filter_ids: [], camera_profile_id: "", printer_profile_id: "" }))
     setOptions({ templates: [], filters: [], cameras: [], printers: [] })
     setErrors({})
+  }
+
+  function addPrintOption() {
+    updateField("print_options", [...form.print_options, newPrintOption()])
+  }
+
+  function updatePrintOption(id: number, field: PrintOptionField, value: string) {
+    updateField("print_options", form.print_options.map((option) => option.id === id ? { ...option, [field]: value } : option))
+    setPrintOptionErrors((current) => ({ ...current, [id]: { ...current[id], [field]: undefined } }))
+  }
+
+  function removePrintOption(id: number) {
+    updateField("print_options", form.print_options.filter((option) => option.id !== id))
+    setPrintOptionErrors((current) => {
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
   }
 
   async function handleSubmit(submitEvent: FormEvent<HTMLFormElement>) {
@@ -209,13 +318,16 @@ export function EventFormDialog({
     if (!token || pending) return
 
     const validationErrors = validate(form, event !== null)
-    if (Object.keys(validationErrors).length > 0) {
+    const optionErrors = event ? {} : validatePrintOptions(form.print_options)
+    if (Object.keys(validationErrors).length > 0 || Object.keys(optionErrors).length > 0) {
       setErrors(validationErrors)
+      setPrintOptionErrors(optionErrors)
       return
     }
 
     setPending(true)
     setErrors({})
+    setPrintOptionErrors({})
     setFormError("")
 
     const common = {
@@ -233,8 +345,16 @@ export function EventFormDialog({
         : await createEvent(token, {
             ...common,
             booth_id: Number(form.booth_id),
-            template_id: Number(form.template_id),
-            filter_id: Number(form.filter_id),
+            template_id: Number(form.template_ids[0]),
+            template_ids: form.template_ids.map(Number),
+            filter_id: Number(form.filter_ids[0]),
+            filter_ids: form.filter_ids.map(Number),
+            print_options: form.print_options.map((option) => ({
+              paper_size: option.paper_size,
+              unit_quantity: Number(option.unit_quantity),
+              quantity_step: Number(option.quantity_step),
+              price: Number(option.price),
+            })),
             camera_profile_id: Number(form.camera_profile_id),
             printer_profile_id: Number(form.printer_profile_id),
             status: form.status === "scheduled" ? "scheduled" : "draft",
@@ -289,14 +409,47 @@ export function EventFormDialog({
 
           {!event && configurationState === "success" && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <ConfigurationSelect id="event-template" label="Template" value={form.template_id} options={options.templates} error={errors.template_id} onChange={(value) => updateField("template_id", value)} />
-              <ConfigurationSelect id="event-filter" label="Filter" value={form.filter_id} options={options.filters} error={errors.filter_id} onChange={(value) => updateField("filter_id", value)} />
+              <ConfigurationChecklist label="Frame" values={form.template_ids} options={options.templates} error={errors.template_ids} onChange={(values) => updateField("template_ids", values)} />
+              <ConfigurationChecklist label="Filter" values={form.filter_ids} options={options.filters} error={errors.filter_ids} onChange={(values) => updateField("filter_ids", values)} />
               <ConfigurationSelect id="event-camera" label="Camera Profile" value={form.camera_profile_id} options={options.cameras} error={errors.camera_profile_id} onChange={(value) => updateField("camera_profile_id", value)} />
               <ConfigurationSelect id="event-printer" label="Printer Profile" value={form.printer_profile_id} options={options.printers} error={errors.printer_profile_id} onChange={(value) => updateField("printer_profile_id", value)} />
             </div>
           )}
 
           {configurationMissing && <p className="text-sm text-destructive">Event belum dapat dibuat karena salah satu konfigurasi aktif/published belum tersedia.</p>}
+
+          {!event && (
+            <section className="grid gap-3 border-t pt-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-medium">Paket cetak</h3>
+                  <p className="text-xs text-muted-foreground">Atur pilihan jumlah dan harga cetak untuk pelanggan.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addPrintOption}><Plus aria-hidden="true" /> Tambah paket</Button>
+              </div>
+
+              {form.print_options.length === 0 && <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">Belum ada paket cetak.</p>}
+
+              {form.print_options.map((option, index) => {
+                const rowErrors = printOptionErrors[option.id]
+                return (
+                  <div key={option.id} className="grid gap-3 rounded-md border p-3 sm:grid-cols-[0.8fr_1fr_1fr_1.25fr_auto] sm:items-start">
+                    <div className="grid gap-2">
+                      <Label htmlFor={`print-paper-${option.id}`}>Ukuran</Label>
+                      <Select<"2r" | "4r"> value={option.paper_size} onValueChange={(value) => value !== null && updatePrintOption(option.id, "paper_size", value)}>
+                        <SelectTrigger id={`print-paper-${option.id}`} className="w-full"><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="2r">2R</SelectItem><SelectItem value="4r">4R</SelectItem></SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2"><Label htmlFor={`print-quantity-${option.id}`}>Jumlah dasar</Label><Input id={`print-quantity-${option.id}`} type="number" min={1} step={1} value={option.unit_quantity} aria-invalid={Boolean(rowErrors?.unit_quantity)} onChange={(inputEvent) => updatePrintOption(option.id, "unit_quantity", inputEvent.target.value)} />{rowErrors?.unit_quantity && <p className="text-xs text-destructive">{rowErrors.unit_quantity}</p>}</div>
+                    <div className="grid gap-2"><Label htmlFor={`print-step-${option.id}`}>Kelipatan</Label><Input id={`print-step-${option.id}`} type="number" min={1} step={1} value={option.quantity_step} aria-invalid={Boolean(rowErrors?.quantity_step)} onChange={(inputEvent) => updatePrintOption(option.id, "quantity_step", inputEvent.target.value)} />{rowErrors?.quantity_step && <p className="text-xs text-destructive">{rowErrors.quantity_step}</p>}</div>
+                    <div className="grid gap-2"><Label htmlFor={`print-price-${option.id}`}>Harga</Label><Input id={`print-price-${option.id}`} type="number" min={0} step="0.01" value={option.price} aria-invalid={Boolean(rowErrors?.price)} onChange={(inputEvent) => updatePrintOption(option.id, "price", inputEvent.target.value)} />{rowErrors?.price && <p className="text-xs text-destructive">{rowErrors.price}</p>}</div>
+                    <Button type="button" variant="ghost" size="icon" className="sm:mt-6" aria-label={`Hapus paket cetak ${index + 1}`} title="Hapus paket" onClick={() => removePrintOption(option.id)}><Trash2 aria-hidden="true" /></Button>
+                  </div>
+                )
+              })}
+            </section>
+          )}
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="grid gap-2"><Label htmlFor="event-date">Tanggal</Label><Input id="event-date" type="date" value={form.event_date} aria-invalid={Boolean(errors.event_date)} onChange={(inputEvent) => updateField("event_date", inputEvent.target.value)} />{errors.event_date && <p className="text-xs text-destructive">{errors.event_date}</p>}</div>

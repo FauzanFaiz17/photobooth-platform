@@ -34,6 +34,19 @@ function DetailItem({ label, children }: { readonly label: string; readonly chil
   return <div><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 font-medium">{children}</dd></div>
 }
 
+function ConfigurationItems({ items }: { readonly items: ReadonlyArray<{ name: string; detail: string }> }) {
+  return (
+    <div className="grid gap-2">
+      {items.map((item, index) => (
+        <div key={`${item.name}-${index}`} className="flex items-start justify-between gap-3 rounded-md border p-3">
+          <div><p className="font-medium">{item.name}</p><p className="text-xs text-muted-foreground">{item.detail}</p></div>
+          {index === 0 && <Badge variant="secondary">Default</Badge>}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function EventDetailPage() {
   const eventId = parseId(useParams<{ eventId: string }>().eventId)
   const location = useLocation()
@@ -103,7 +116,9 @@ export function EventDetailPage() {
             <Card><CardHeader><CardTitle>Booth dan Partner</CardTitle><CardDescription>Lokasi Event serta pembuatnya.</CardDescription></CardHeader><CardContent><dl className="grid gap-5 sm:grid-cols-2"><DetailItem label="Booth">{event.booth.name}</DetailItem><DetailItem label="Lokasi">{event.booth.location || "—"}</DetailItem><DetailItem label="Partner">{event.partner.brand_name || event.partner.company_name}</DetailItem><DetailItem label="Dibuat oleh">{event.created_by.name}</DetailItem></dl></CardContent></Card>
           </div>
 
-          <Card><CardHeader><CardTitle>Snapshot konfigurasi</CardTitle><CardDescription>Konfigurasi disalin ketika Event dibuat sehingga perubahan profile tidak mengubah Event ini.</CardDescription></CardHeader><CardContent><dl className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4"><DetailItem label="Template">{event.configuration.template.name} · v{event.configuration.template.version}</DetailItem><DetailItem label="Filter">{event.configuration.filter.name} · {event.configuration.filter.intensity}%</DetailItem><DetailItem label="Camera">Profile #{event.configuration.camera.camera_profile_id} · ISO {event.configuration.camera.iso || "—"} · {event.configuration.camera.burst_count} foto</DetailItem><DetailItem label="Printer">{event.configuration.printer.printer_name} · {event.configuration.printer.copies} salinan · {event.configuration.printer.paper_size}</DetailItem></dl></CardContent></Card>
+          <Card><CardHeader><CardTitle>Snapshot konfigurasi</CardTitle><CardDescription>Konfigurasi disalin ketika Event dibuat sehingga perubahan profile tidak mengubah Event ini.</CardDescription></CardHeader><CardContent className="grid gap-6 lg:grid-cols-2"><div><h3 className="mb-3 text-sm font-medium">Frame tersedia</h3><ConfigurationItems items={(event.configuration.templates ?? [event.configuration.template]).map((template) => ({ name: template.name, detail: `Versi ${template.version}` }))} /></div><div><h3 className="mb-3 text-sm font-medium">Filter tersedia</h3><ConfigurationItems items={(event.configuration.filters ?? [event.configuration.filter]).map((filter) => ({ name: filter.name, detail: `Intensitas ${filter.intensity}% · Versi ${filter.version}` }))} /></div><dl className="grid gap-5 sm:grid-cols-2 lg:col-span-2"><DetailItem label="Camera">Profile #{event.configuration.camera.camera_profile_id} · ISO {event.configuration.camera.iso || "—"} · {event.configuration.camera.burst_count} foto</DetailItem><DetailItem label="Printer">{event.configuration.printer.printer_name} · {event.configuration.printer.copies} salinan · {event.configuration.printer.paper_size}</DetailItem></dl></CardContent></Card>
+
+          <Card><CardHeader><CardTitle>Paket cetak</CardTitle><CardDescription>Pilihan jumlah dan harga cetak yang tersedia untuk Event ini.</CardDescription></CardHeader><CardContent>{(event.configuration.print_options ?? []).length === 0 ? <p className="text-sm text-muted-foreground">Event ini belum memiliki paket cetak.</p> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{(event.configuration.print_options ?? []).map((option) => <div key={option.id} className="rounded-md border p-4"><div className="flex items-center justify-between gap-3"><p className="font-semibold">{option.paper_size.toUpperCase()}</p><Badge variant={option.is_active ? "default" : "secondary"}>{option.is_active ? "Aktif" : "Nonaktif"}</Badge></div><p className="mt-3 text-lg font-semibold">{formatPrice(option.price)}</p><p className="mt-1 text-sm text-muted-foreground">{option.unit_quantity} cetak dasar · tambah per {option.quantity_step}</p></div>)}</div>}</CardContent></Card>
 
           {editOpen && <EventFormDialog event={event} booths={[]} open onOpenChange={setEditOpen} onSaved={(saved) => { setEvent(saved); toast.success(`Event ${saved.event_name} diperbarui.`) }} onUnauthorized={() => void handleUnauthorized()} onForbidden={handleForbidden} />}
           {deleteOpen && <EventDeleteDialog event={event} open onOpenChange={setDeleteOpen} onDeleted={() => { toast.success(`Event ${event.event_name} dihapus.`); navigate("/admin/events", { replace: true }) }} onUnauthorized={() => void handleUnauthorized()} onForbidden={handleForbidden} />}

@@ -72,9 +72,21 @@ export interface EventPrinterSnapshot {
 
 export interface EventConfiguration {
   template: EventTemplateSnapshot
+  templates?: ReadonlyArray<EventTemplateSnapshot>
   filter: EventFilterSnapshot
+  filters?: ReadonlyArray<EventFilterSnapshot>
+  print_options?: ReadonlyArray<EventPrintOptionRecord>
   camera: EventCameraSnapshot
   printer: EventPrinterSnapshot
+}
+
+export interface EventPrintOptionRecord {
+  id: number
+  paper_size: "2r" | "4r"
+  unit_quantity: number
+  quantity_step: number
+  price: string | number
+  is_active: boolean
 }
 
 export interface EventRecord {
@@ -112,7 +124,10 @@ export interface CreateEventInput {
   booth_id: number
   event_name: string
   template_id: number
+  template_ids: ReadonlyArray<number>
   filter_id: number
+  filter_ids: ReadonlyArray<number>
+  print_options: ReadonlyArray<EventPrintOptionInput>
   camera_profile_id: number
   printer_profile_id: number
   event_date: string
@@ -121,6 +136,13 @@ export interface CreateEventInput {
   price?: number | null
   print_count_limit?: number | null
   status?: "draft" | "scheduled"
+}
+
+export interface EventPrintOptionInput {
+  paper_size: "2r" | "4r"
+  unit_quantity: number
+  quantity_step: number
+  price: number
 }
 
 export interface UpdateEventInput {
@@ -215,6 +237,18 @@ function isPrinterSnapshot(value: unknown): value is EventPrinterSnapshot {
   return isRecord(value) && isNumber(value.id) && isNumber(value.printer_profile_id) && typeof value.printer_name === "string" && isNumber(value.copies) && typeof value.paper_size === "string" && (value.orientation === "portrait" || value.orientation === "landscape") && isNumber(value.version)
 }
 
+function isPrintOption(value: unknown): value is EventPrintOptionRecord {
+  return (
+    isRecord(value) &&
+    isNumber(value.id) &&
+    (value.paper_size === "2r" || value.paper_size === "4r") &&
+    isNumber(value.unit_quantity) &&
+    isNumber(value.quantity_step) &&
+    isNumeric(value.price) &&
+    typeof value.is_active === "boolean"
+  )
+}
+
 export function isEventRecord(value: unknown): value is EventRecord {
   return (
     isRecord(value) &&
@@ -240,7 +274,10 @@ function isConfiguration(value: unknown): value is EventConfiguration {
   return (
     isRecord(value) &&
     isTemplateSnapshot(value.template) &&
+    (value.templates === undefined || (Array.isArray(value.templates) && value.templates.every(isTemplateSnapshot))) &&
     isFilterSnapshot(value.filter) &&
+    (value.filters === undefined || (Array.isArray(value.filters) && value.filters.every(isFilterSnapshot))) &&
+    (value.print_options === undefined || (Array.isArray(value.print_options) && value.print_options.every(isPrintOption))) &&
     isCameraSnapshot(value.camera) &&
     isPrinterSnapshot(value.printer)
   )

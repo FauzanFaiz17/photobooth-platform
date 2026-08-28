@@ -8,6 +8,8 @@ import {
 
 export const TEMPLATE_STATUSES = ["draft", "published", "archived"] as const
 export type TemplateStatus = (typeof TEMPLATE_STATUSES)[number]
+export const TEMPLATE_PAPER_SIZES = ["2r", "4r"] as const
+export type TemplatePaperSize = (typeof TEMPLATE_PAPER_SIZES)[number]
 export type TemplateLayout = ReadonlyArray<unknown> | Readonly<Record<string, unknown>>
 
 export interface TemplatePartner {
@@ -20,6 +22,7 @@ export interface TemplateRecord {
   partner: TemplatePartner | null
   is_global: boolean
   name: string
+  paper_size?: TemplatePaperSize | null
   preview_path: string | null
   thumbnail_path: string | null
   json_layout: TemplateLayout
@@ -45,6 +48,7 @@ export interface TemplateListFilters {
 export interface TemplateInput {
   partner_id?: number | null
   name: string
+  paper_size: TemplatePaperSize
   preview_path?: string | null
   thumbnail_path?: string | null
   json_layout: TemplateLayout
@@ -90,6 +94,7 @@ export function isTemplateRecord(value: unknown): value is TemplateRecord {
     isPartner(value.partner) &&
     typeof value.is_global === "boolean" &&
     typeof value.name === "string" &&
+    (value.paper_size === undefined || value.paper_size === null || value.paper_size === "2r" || value.paper_size === "4r") &&
     isNullableString(value.preview_path) &&
     isNullableString(value.thumbnail_path) &&
     isLayout(value.json_layout) &&

@@ -15,15 +15,13 @@ import { useAuth } from "@/features/auth/auth-context"
 import { getPartners } from "@/features/partners/partner-service"
 import type { PartnerRecord } from "@/features/partners/partner.types"
 import { createTemplate, getTemplate, updateTemplate } from "@/features/templates/template-service"
-import type { TemplateRecord, TemplateStatus } from "@/features/templates/template.types"
+import { TEMPLATE_PAPER_SIZES, type TemplatePaperSize, type TemplateRecord, type TemplateStatus } from "@/features/templates/template.types"
 import { ApiError } from "@/lib/api-client"
 import { cn } from "@/lib/utils"
 
 const FRAME_SIZES = {
   "2R": { width: 750, height: 1050, label: "2R (750 x 1050 px)" },
   "4R": { width: 1200, height: 1800, label: "4R (1200 x 1800 px)" },
-  "6R": { width: 1800, height: 2400, label: "6R (1800 x 2400 px)" },
-  "8R": { width: 2400, height: 3000, label: "8R (2400 x 3000 px)" },
 } as const
 
 type FrameSize = keyof typeof FRAME_SIZES
@@ -58,12 +56,16 @@ function detectFrameSize(width: number, height: number): FrameSize {
   return (Object.entries(FRAME_SIZES).find(([, option]) => option.width === width && option.height === height)?.[0] as FrameSize | undefined) ?? "4R"
 }
 
+function paperSizeForFrame(size: FrameSize): TemplatePaperSize {
+  return size === "2R" ? "2r" : "4r"
+}
+
 function readFrameLayout(frame: TemplateRecord): { size: FrameSize; slots: ReadonlyArray<PhotoSlot> } {
   if (!isRecord(frame.json_layout)) return { size: "4R", slots: [] }
   const canvas = isRecord(frame.json_layout.canvas) ? frame.json_layout.canvas : null
   const width = positiveNumber(canvas?.width) ?? FRAME_SIZES["4R"].width
   const height = positiveNumber(canvas?.height) ?? FRAME_SIZES["4R"].height
-  const size = detectFrameSize(width, height)
+  const size = frame.paper_size === "2r" ? "2R" : frame.paper_size === "4r" ? "4R" : detectFrameSize(width, height)
   const frames = Array.isArray(frame.json_layout.frames) ? frame.json_layout.frames : []
   const slots = frames.flatMap((item, index): ReadonlyArray<PhotoSlot> => {
     if (!isRecord(item)) return []
@@ -224,6 +226,7 @@ export function FrameCreatePage(): ReactElement {
       const payload = {
         partner_id: Number(partnerId),
         name: name.trim(),
+        paper_size: paperSizeForFrame(size),
         status,
         preview_path: frame?.preview_path ?? null,
         thumbnail_path: frame?.thumbnail_path ?? null,
@@ -285,7 +288,7 @@ export function FrameCreatePage(): ReactElement {
         <Card>
           <CardHeader className="border-b"><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>{mode === "edit" ? "Editor Slot Foto" : "Preview Frame"}</CardTitle><CardDescription>{mode === "edit" ? "Tarik slot untuk mengatur posisi pada canvas." : "Preview menggunakan koordinat yang sama dengan hasil Electron."}</CardDescription></div><div className="flex flex-wrap gap-2"><div className="flex rounded-md border p-1"><Button type="button" size="sm" variant={mode === "edit" ? "secondary" : "ghost"} onClick={() => setMode("edit")}><Pencil aria-hidden="true" /> Edit</Button><Button type="button" size="sm" variant={mode === "preview" ? "secondary" : "ghost"} onClick={() => setMode("preview")}><Eye aria-hidden="true" /> Preview</Button></div>{mode === "edit" && <Button type="button" onClick={addSlot}><Plus aria-hidden="true" /> Tambah Foto</Button>}</div></div></CardHeader>
           <CardContent>
-            <div className="grid min-h-[34rem] place-items-center overflow-auto rounded-lg border bg-muted/40 p-4 sm:p-8">
+            <div className="grid min-h-136 place-items-center overflow-auto rounded-lg border bg-muted/40 p-4 sm:p-8">
               <div
                 ref={canvasRef}
                 className="relative touch-none overflow-hidden border bg-white shadow-sm"
@@ -309,7 +312,7 @@ export function FrameCreatePage(): ReactElement {
             <CardContent className="grid gap-4">
               {superAdmin && <div className="grid gap-2"><Label htmlFor="create-frame-partner">Partner/Kiosk</Label><Select<string> value={partnerId || null} onValueChange={(value) => { if (value !== null) { setPartnerId(value); setErrors((current) => ({ ...current, partner_id: undefined })) } }}><SelectTrigger id="create-frame-partner" className="w-full" aria-invalid={Boolean(errors.partner_id)}><SelectValue placeholder="Pilih Partner" /></SelectTrigger><SelectContent>{partners.map((partner) => <SelectItem key={partner.id} value={String(partner.id)}>{partner.brand_name || partner.company_name}</SelectItem>)}</SelectContent></Select>{errors.partner_id && <p className="text-xs text-destructive">{errors.partner_id}</p>}</div>}
               <div className="grid gap-2"><Label htmlFor="create-frame-name">Nama</Label><Input id="create-frame-name" value={name} maxLength={150} placeholder="Contoh: Frame Wedding" aria-invalid={Boolean(errors.name)} onChange={(event) => { setName(event.target.value); setErrors((current) => ({ ...current, name: undefined })) }} />{errors.name && <p className="text-xs text-destructive">{errors.name}</p>}</div>
-              <div className="grid gap-2"><Label htmlFor="create-frame-size">Ukuran</Label><Select<FrameSize> value={size} onValueChange={(value) => value !== null && setSize(value)}><SelectTrigger id="create-frame-size" className="w-full"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(FRAME_SIZES).map(([value, option]) => <SelectItem key={value} value={value}>{option.label}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">Hasil final {canvasSize.width} x {canvasSize.height} px, tampilan editor diperkecil otomatis.</p></div>
+              <div className="grid gap-2"><Label htmlFor="create-frame-size">Ukuran</Label><Select<FrameSize> value={size} onValueChange={(value) => value !== null && setSize(value)}><SelectTrigger id="create-frame-size" className="w-full"><SelectValue /></SelectTrigger><SelectContent>{TEMPLATE_PAPER_SIZES.map((paperSize) => { const frameSize = paperSize === "2r" ? "2R" : "4R"; return <SelectItem key={paperSize} value={frameSize}>{FRAME_SIZES[frameSize].label}</SelectItem> })}</SelectContent></Select><p className="text-xs text-muted-foreground">Hasil final {canvasSize.width} x {canvasSize.height} px, tampilan editor diperkecil otomatis.</p></div>
               <div className="grid gap-2"><Label htmlFor="create-frame-status">Status</Label><Select<TemplateStatus> value={status} onValueChange={(value) => value !== null && setStatus(value)}><SelectTrigger id="create-frame-status" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="published">Published</SelectItem><SelectItem value="archived">Archived</SelectItem></SelectContent></Select></div>
             </CardContent>
           </Card>

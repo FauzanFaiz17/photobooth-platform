@@ -40,7 +40,16 @@ function parseEvent(payload: unknown): EventRecord {
 }
 
 function normalizeEvent(event: EventRecord): EventRecord {
-  return { ...event, event_date: event.event_date.slice(0, 10) }
+  return {
+    ...event,
+    event_date: event.event_date.slice(0, 10),
+    configuration: {
+      ...event.configuration,
+      templates: event.configuration.templates?.length ? event.configuration.templates : [event.configuration.template],
+      filters: event.configuration.filters?.length ? event.configuration.filters : [event.configuration.filter],
+      print_options: event.configuration.print_options ?? [],
+    },
+  }
 }
 
 function parseConfigurationOptions(payload: unknown, nameField: "name" | "printer_name"): ReadonlyArray<EventConfigurationOption> {
