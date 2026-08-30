@@ -39,7 +39,16 @@ export default function CameraPage(): JSX.Element | null {
   }
 
   return (
-    <div className="-m-6 flex h-[calc(100%+3rem)] flex-col bg-slate-900">
+    <main className="-m-6 flex h-[calc(100%+3rem)] flex-col bg-[#202020] p-4 text-white md:p-6">
+      <header className="mb-4 flex items-center justify-between border-4 border-black bg-(--primary) px-4 py-3 text-(--foreground) shadow-(--shadow-neo)">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em]">04 / Capture</p>
+          <h1 className="text-2xl font-black tracking-[-0.03em]">Ambil Foto</h1>
+        </div>
+        <span className="border-2 border-black bg-(--surface) px-3 py-2 text-xs font-black uppercase">
+          {requiredShots} foto
+        </span>
+      </header>
       <CameraCapture
         totalShots={requiredShots}
         countdownSeconds={configuration.camera.countdown_seconds}
@@ -48,6 +57,6 @@ export default function CameraPage(): JSX.Element | null {
         onShotCaptured={addShot}
         onAllShotsDone={() => navigate('/preview')}
       />
-    </div>
+    </main>
   )
 }

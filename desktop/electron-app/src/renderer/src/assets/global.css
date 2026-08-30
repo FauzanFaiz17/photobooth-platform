@@ -1,0 +1,17 @@
+:root {
+  --background: #f4f0e8;
+  --foreground: #111111;
+  --surface: #fffdf7;
+  --primary: #ffdc3e;
+  --secondary: #ff8db3;
+  --accent: #b7eff0;
+  --danger: #e34b31;
+  --border: #111111;
+  --muted-foreground: rgba(17, 17, 17, 0.62);
+  --shadow-neo: 7px 7px 0 0 var(--border);
+}
+
+::selection {
+  background: var(--secondary);
+  color: var(--foreground);
+}

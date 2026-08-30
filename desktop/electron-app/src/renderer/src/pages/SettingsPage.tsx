@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getApiErrorMessage } from '@/api/axios'
+import { NeoButton } from '@/components/shared/button'
 import Alert from '@/components/ui/Alert'
-import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { verifyPassword } from '@/features/auth/api/auth'
+import { authService } from '@/features/auth/services/authService'
 import { useWebcam } from '@/features/camera/hooks/useWebcam'
 
 interface HomeSettings {
@@ -18,12 +19,17 @@ const HOME_SETTINGS_KEY = 'desktop.home-settings'
 function CameraTest({ onBack }: { onBack: () => void }): JSX.Element {
   const webcam = useWebcam()
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-full flex-col gap-5 bg-[var(--background)] p-5 text-[var(--foreground)] md:p-8">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Test Kamera</h1>
-        <p className="text-slate-500">Pastikan gambar tampil jelas sebelum booth digunakan.</p>
+        <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--danger)]">
+          02 / Device check
+        </p>
+        <h1 className="text-4xl font-black tracking-[-0.04em]">Test Kamera</h1>
+        <p className="mt-2 font-semibold text-[var(--muted-foreground)]">
+          Pastikan gambar tampil jelas sebelum booth digunakan.
+        </p>
       </div>
-      <div className="relative flex-1 overflow-hidden rounded-xl bg-slate-900">
+      <div className="relative flex-1 overflow-hidden border-4 border-[var(--border)] bg-[#202020] shadow-[var(--shadow-neo)]">
         <video
           ref={webcam.videoRef}
           autoPlay
@@ -43,7 +49,7 @@ function CameraTest({ onBack }: { onBack: () => void }): JSX.Element {
         <select
           value={webcam.activeDeviceId ?? ''}
           onChange={(event) => webcam.selectDevice(event.target.value)}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-800"
+          className="border-4 border-[var(--border)] bg-[var(--surface)] px-3 py-3 font-bold text-[var(--foreground)] shadow-[var(--shadow-neo)] outline-none"
         >
           {webcam.devices.map((device) => (
             <option key={device.deviceId} value={device.deviceId}>
@@ -53,10 +59,19 @@ function CameraTest({ onBack }: { onBack: () => void }): JSX.Element {
         </select>
       )}
       <div className="flex gap-3">
-        <Button onClick={onBack} className="bg-slate-500 hover:bg-slate-600">
+        <NeoButton
+          variant="outlined"
+          onClick={onBack}
+          className="border-[var(--border)] bg-[var(--surface)] px-5 py-3 font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--accent)]"
+        >
           Kembali
-        </Button>
-        <Button onClick={webcam.retry}>Muat Ulang Kamera</Button>
+        </NeoButton>
+        <NeoButton
+          onClick={webcam.retry}
+          className="border-[var(--border)] bg-[var(--primary)] px-5 py-3 font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[#f2cc25]"
+        >
+          Muat Ulang Kamera
+        </NeoButton>
       </div>
     </div>
   )
@@ -93,6 +108,10 @@ export default function SettingsPage(): JSX.Element {
     setSaved(true)
     window.setTimeout(() => setSaved(false), 2000)
   }
+  async function handleLogout(): Promise<void> {
+    await authService.logout()
+    navigate('/login', { replace: true })
+  }
   if (!verified)
     return (
       <form
@@ -100,10 +119,15 @@ export default function SettingsPage(): JSX.Element {
           event.preventDefault()
           void verify()
         }}
-        className="mx-auto flex h-full max-w-sm flex-col justify-center gap-4"
+        className="mx-auto flex h-full w-full max-w-sm flex-col justify-center gap-5 bg-[var(--background)] px-5 text-[var(--foreground)]"
       >
-        <h1 className="text-2xl font-bold text-slate-800">Verifikasi Pengaturan</h1>
-        <p className="text-sm text-slate-500">Masukkan password operator yang sedang login.</p>
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--danger)]">
+          Settings access
+        </p>
+        <h1 className="text-4xl font-black tracking-[-0.04em]">Verifikasi Pengaturan</h1>
+        <p className="text-sm font-semibold text-[var(--muted-foreground)]">
+          Masukkan password operator yang sedang login.
+        </p>
         <Input
           type="password"
           value={password}
@@ -112,41 +136,58 @@ export default function SettingsPage(): JSX.Element {
           autoFocus
         />
         {error && <Alert type="error">{error}</Alert>}
-        <Button type="submit">Buka Pengaturan</Button>
-        <Button
+        <NeoButton
+          type="submit"
+          className="border-[var(--border)] bg-[var(--primary)] py-3 font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[#f2cc25]"
+        >
+          Buka Pengaturan
+        </NeoButton>
+        <NeoButton
+          variant="outlined"
           type="button"
           onClick={() => navigate('/welcome')}
-          className="bg-slate-500 hover:bg-slate-600"
+          className="border-[var(--border)] bg-[var(--surface)] py-3 font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--accent)]"
         >
           Kembali
-        </Button>
+        </NeoButton>
       </form>
     )
   if (screen === 'camera') return <CameraTest onBack={() => setScreen('menu')} />
   if (screen === 'home')
     return (
-      <div className="mx-auto flex h-full w-full max-w-xl flex-col gap-4">
+      <div className="mx-auto flex h-full w-full max-w-xl flex-col gap-5 bg-[var(--background)] p-5 text-[var(--foreground)] md:p-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Edit Home</h1>
-          <p className="text-slate-500">Logo dan tulisan disimpan pada perangkat booth ini.</p>
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--danger)]">
+            01 / Home identity
+          </p>
+          <h1 className="text-4xl font-black tracking-[-0.04em]">Edit Home</h1>
+          <p className="mt-2 font-semibold text-[var(--muted-foreground)]">
+            Logo dan tulisan disimpan pada perangkat booth ini.
+          </p>
         </div>
-        <div className="flex items-center gap-4 rounded-xl border bg-white p-4">
+        <div className="flex flex-wrap items-center gap-4 border-4 border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-neo)]">
           {home.logo ? (
             <img src={home.logo} className="h-24 w-24 rounded-full object-cover" />
           ) : (
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-slate-200 text-slate-500">
+            <div className="flex h-24 w-24 items-center justify-center border-4 border-[var(--border)] bg-[var(--accent)] font-black">
               Logo
             </div>
           )}
           <div className="flex gap-2">
-            <Button onClick={() => void chooseLogo()}>Pilih Logo</Button>
+            <NeoButton
+              onClick={() => void chooseLogo()}
+              className="border-[var(--border)] bg-[var(--primary)] font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[#f2cc25]"
+            >
+              Pilih Logo
+            </NeoButton>
             {home.logo && (
-              <Button
+              <NeoButton
+                variant="secondary"
                 onClick={() => setHome((current) => ({ ...current, logo: null }))}
-                className="bg-slate-500 hover:bg-slate-600"
+                className="border-[var(--border)] bg-[var(--secondary)] font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[#ff78a4]"
               >
                 Hapus
-              </Button>
+              </NeoButton>
             )}
           </div>
         </div>
@@ -164,58 +205,85 @@ export default function SettingsPage(): JSX.Element {
         />
         {saved && <Alert type="success">Tampilan Home berhasil disimpan.</Alert>}
         <div className="mt-auto flex gap-3">
-          <Button onClick={() => setScreen('menu')} className="bg-slate-500 hover:bg-slate-600">
+          <NeoButton
+            variant="outlined"
+            onClick={() => setScreen('menu')}
+            className="border-[var(--border)] bg-[var(--surface)] font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--accent)]"
+          >
             Kembali
-          </Button>
-          <Button onClick={() => void saveHome()}>Simpan</Button>
+          </NeoButton>
+          <NeoButton
+            onClick={() => void saveHome()}
+            className="border-[var(--border)] bg-[var(--primary)] font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[#f2cc25]"
+          >
+            Simpan
+          </NeoButton>
         </div>
       </div>
     )
   return (
-    <div className="flex h-full flex-col gap-5">
+    <div className="flex h-full flex-col gap-6 bg-[var(--background)] p-5 text-[var(--foreground)] md:p-8">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">Pengaturan</h1>
-        <p className="text-slate-500">Pilih pengaturan yang ingin dibuka.</p>
+        <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--danger)]">
+          Control room
+        </p>
+        <h1 className="text-4xl font-black tracking-[-0.04em]">Pengaturan</h1>
+        <p className="mt-2 font-semibold text-[var(--muted-foreground)]">
+          Pilih pengaturan yang ingin dibuka.
+        </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <button
           type="button"
           onClick={() => setScreen('home')}
-          className="rounded-xl border border-slate-200 bg-white p-8 text-left shadow-sm transition hover:border-blue-400 hover:shadow"
+          className="border-4 border-[var(--border)] bg-[var(--surface)] p-7 text-left shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--accent)]"
         >
-          <span className="text-xl font-bold text-slate-800">Edit Home</span>
-          <p className="mt-2 text-sm text-slate-500">
+          <span className="text-xl font-black">Edit Home</span>
+          <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">
             Ubah logo, judul, dan keterangan halaman Start.
           </p>
         </button>
         <button
           type="button"
           onClick={() => setScreen('camera')}
-          className="rounded-xl border border-slate-200 bg-white p-8 text-left shadow-sm transition hover:border-blue-400 hover:shadow"
+          className="border-4 border-[var(--border)] bg-[var(--surface)] p-7 text-left shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--secondary)]"
         >
-          <span className="text-xl font-bold text-slate-800">Test Kamera</span>
-          <p className="mt-2 text-sm text-slate-500">
+          <span className="text-xl font-black">Test Kamera</span>
+          <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">
             Lihat preview dan periksa kamera yang terhubung.
           </p>
         </button>
       </div>
       <div className="mt-auto flex justify-between">
-        <Button onClick={() => navigate('/welcome')} className="bg-slate-500 hover:bg-slate-600">
+        <NeoButton
+          variant="outlined"
+          onClick={() => navigate('/welcome')}
+          className="border-[var(--border)] bg-[var(--surface)] font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--accent)]"
+        >
           Kembali
-        </Button>
+        </NeoButton>
         <div className="flex gap-3">
-          <Button
+          <NeoButton
+            variant="outlined"
             onClick={() => void window.electron.window.minimize()}
-            className="bg-slate-600 hover:bg-slate-700"
+            className="border-[var(--border)] bg-[var(--accent)] font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[#8cdbdf]"
           >
             Minimize
-          </Button>
-          <Button
+          </NeoButton>
+          <NeoButton
+            variant="secondary"
+            onClick={() => void handleLogout()}
+            className="border-[var(--border)] bg-[var(--secondary)] font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[#ff78a4]"
+          >
+            Logout
+          </NeoButton>
+          <NeoButton
+            variant="secondary"
             onClick={() => void window.electron.window.close()}
-            className="bg-red-600 hover:bg-red-700"
+            className="border-[var(--border)] bg-[var(--danger)] font-black text-white shadow-[var(--shadow-neo)] [transition:none] hover:bg-[#cf3d26]"
           >
             Exit
-          </Button>
+          </NeoButton>
         </div>
       </div>
     </div>

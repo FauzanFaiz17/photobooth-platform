@@ -1,14 +1,16 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+@import './global.css';
 
 html,
 body,
 #root {
-    width: 100%;
-    height: 100%;
-    margin: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
 }
 
 body {
-    background: #f5f5f5;
-    font-family: Inter, sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Inter, sans-serif;
 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import Button from '@/components/ui/Button'
+import { NeoButton } from '@/components/shared/button'
 import { useSessionStore } from '@/store/sessionStore'
 import { useState } from 'react'
 import { createQrisPayment, getPayment, redeemVoucher } from '@/api/payment'
@@ -53,132 +53,152 @@ export default function PaymentPage(): JSX.Element | null {
   const total = Number(option.price) * multiplier
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6">
-      <h1 className="text-2xl font-bold text-slate-800">Jumlah Cetak {paperSize.toUpperCase()}</h1>
-      <div className="flex items-center gap-5">
-        <Button
-          onClick={() =>
-            setPrintSelection(
-              option,
-              Math.max(option.unit_quantity, currentQuantity - option.quantity_step)
-            )
-          }
-        >
-          -
-        </Button>
-        <div className="min-w-32 text-center">
-          <p className="text-4xl font-bold">{currentQuantity}</p>
-          <p className="text-slate-500">lembar</p>
-        </div>
-        <Button onClick={() => setPrintSelection(option, currentQuantity + option.quantity_step)}>
-          +
-        </Button>
-      </div>
-      <p className="text-2xl font-semibold">Rp {total.toLocaleString('id-ID')}</p>
-      <div className="flex gap-3">
-        <Button
-          onClick={() => setMethod('qris')}
-          className={method === 'qris' ? '' : 'bg-slate-400'}
-        >
-          QRIS
-        </Button>
-        <Button
-          onClick={() => setMethod('voucher')}
-          className={method === 'voucher' ? '' : 'bg-slate-400'}
-        >
-          Voucher
-        </Button>
-      </div>
-      {method === 'voucher' && (
-        <Input
-          value={code}
-          onChange={(event) => setCode(event.target.value.toUpperCase())}
-          placeholder="Kode voucher"
-        />
-      )}
-      {method === 'qris' && qrisPayment && (
-        <div className="w-full max-w-lg space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-4 text-center">
-          <p className="font-semibold">
-            Status: {qrisPayment.status === 'pending' ? 'Menunggu pembayaran' : qrisPayment.status}
-          </p>
-          <p className="text-sm text-slate-600">
-            Order aplikasi: <span className="font-mono">{qrisPayment.reference}</span>
-          </p>
-          <p className="text-sm text-slate-600">
-            ID transaksi Midtrans:{' '}
-            <span className="font-mono">
-              {String(qrisPayment.gateway_response?.transaction_id ?? '-')}
-            </span>
-          </p>
-          {Boolean(qrisPayment.gateway_response?.qr_url) && (
-            <a
-              className="break-all text-sm text-blue-700 underline"
-              href={String(qrisPayment.gateway_response?.qr_url)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Buka QRIS
-            </a>
-          )}
-          <p className="break-all text-xs text-slate-500">
-            QR string: {String(qrisPayment.gateway_response?.qr_string ?? '-')}
-          </p>
-          {qrisPayment.status === 'pending' && (
-            <p className="text-xs text-slate-600">
-              Sandbox: buka QRIS melalui tautan di atas, lalu scan menggunakan Midtrans Simulator
-              QRIS. Order dan ID transaksi hanya digunakan untuk pelacakan. Status akan berubah
-              setelah notifikasi diterima.
-            </p>
-          )}
-        </div>
-      )}
-      {error && <Alert type="error">{error}</Alert>}
-      <div className="flex gap-3">
-        <Button onClick={() => navigate('/filter')} className="bg-slate-500 hover:bg-slate-600">
-          Kembali
-        </Button>
-        <Button
-          loading={loading}
-          onClick={async () => {
-            setLoading(true)
-            setError(null)
-            try {
-              let payment: Payment
-              if (method === 'voucher') payment = await redeemVoucher(code)
-              else {
-                payment = qrisPayment
-                  ? await getPayment(qrisPayment.id)
-                  : await createQrisPayment(configuration.event.id, total, {
-                      id: option.id,
-                      paper_size: option.paper_size,
-                      quantity: currentQuantity
-                    })
-                setQrisPayment(payment)
-              }
-              if (payment.status !== 'paid') {
-                setError(
-                  'Pembayaran belum terkonfirmasi. Selesaikan pembayaran di Simulator, lalu tekan Periksa Status.'
-                )
-                return
-              }
-              setPaymentId(payment.id)
-              navigate('/customer')
-            } catch (cause) {
-              const axiosError = cause as {
-                response?: { data?: { message?: string; errors?: Record<string, string[]> } }
-              }
-              const detail = axiosError.response?.data?.errors
-                ? Object.values(axiosError.response.data.errors)[0]?.[0]
-                : axiosError.response?.data?.message
-              setError(detail ?? (cause instanceof Error ? cause.message : 'Pembayaran gagal.'))
-            } finally {
-              setLoading(false)
+    <main className="flex h-full flex-col items-center justify-center gap-6 bg-[var(--background)] p-5 text-[var(--foreground)] md:p-8">
+      <div className="w-full max-w-2xl border-4 border-[var(--border)] bg-[var(--surface)] p-6 text-center shadow-[12px_12px_0_0_var(--border)] md:p-10">
+        <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--danger)]">
+          05 / Print package
+        </p>
+        <h1 className="text-4xl font-black tracking-[-0.04em]">
+          Jumlah Cetak {paperSize.toUpperCase()}
+        </h1>
+        <div className="mt-8 flex items-center justify-center gap-5">
+          <NeoButton
+            onClick={() =>
+              setPrintSelection(
+                option,
+                Math.max(option.unit_quantity, currentQuantity - option.quantity_step)
+              )
             }
-          }}
-        >
-          {qrisPayment ? 'Periksa Status' : 'Buat QRIS'}
-        </Button>
+            variant="outlined"
+            className="h-14 w-14 p-0 text-2xl [transition:none]"
+          >
+            -
+          </NeoButton>
+          <div className="min-w-32 text-center">
+            <p className="text-6xl font-black tracking-[-0.05em]">{currentQuantity}</p>
+            <p className="font-bold text-[var(--muted-foreground)]">lembar</p>
+          </div>
+          <NeoButton
+            onClick={() => setPrintSelection(option, currentQuantity + option.quantity_step)}
+            className="h-14 w-14 p-0 text-2xl [transition:none]"
+          >
+            +
+          </NeoButton>
+        </div>
+        <p className="mt-6 text-3xl font-black">Rp {total.toLocaleString('id-ID')}</p>
+        <div className="mt-6 flex justify-center gap-3">
+          <NeoButton
+            onClick={() => setMethod('qris')}
+            variant={method === 'qris' ? 'primary' : 'outlined'}
+            className="[transition:none]"
+          >
+            QRIS
+          </NeoButton>
+          <NeoButton
+            onClick={() => setMethod('voucher')}
+            variant={method === 'voucher' ? 'secondary' : 'outlined'}
+            className="[transition:none]"
+          >
+            Voucher
+          </NeoButton>
+        </div>
+        {method === 'voucher' && (
+          <Input
+            value={code}
+            onChange={(event) => setCode(event.target.value.toUpperCase())}
+            placeholder="Kode voucher"
+          />
+        )}
+        {method === 'qris' && qrisPayment && (
+          <div className="w-full max-w-lg space-y-2 border-4 border-[var(--border)] bg-[var(--accent)] p-4 text-center shadow-[var(--shadow-neo)]">
+            <p className="font-semibold">
+              Status:{' '}
+              {qrisPayment.status === 'pending' ? 'Menunggu pembayaran' : qrisPayment.status}
+            </p>
+            <p className="text-sm text-slate-600">
+              Order aplikasi: <span className="font-mono">{qrisPayment.reference}</span>
+            </p>
+            <p className="text-sm text-slate-600">
+              ID transaksi Midtrans:{' '}
+              <span className="font-mono">
+                {String(qrisPayment.gateway_response?.transaction_id ?? '-')}
+              </span>
+            </p>
+            {Boolean(qrisPayment.gateway_response?.qr_url) && (
+              <a
+                className="break-all text-sm text-blue-700 underline"
+                href={String(qrisPayment.gateway_response?.qr_url)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Buka QRIS
+              </a>
+            )}
+            <p className="break-all text-xs text-slate-500">
+              QR string: {String(qrisPayment.gateway_response?.qr_string ?? '-')}
+            </p>
+            {qrisPayment.status === 'pending' && (
+              <p className="text-xs text-slate-600">
+                Sandbox: buka QRIS melalui tautan di atas, lalu scan menggunakan Midtrans Simulator
+                QRIS. Order dan ID transaksi hanya digunakan untuk pelacakan. Status akan berubah
+                setelah notifikasi diterima.
+              </p>
+            )}
+          </div>
+        )}
+        {error && <Alert type="error">{error}</Alert>}
+        <div className="mt-8 flex w-full flex-wrap justify-between gap-3">
+          <NeoButton
+            onClick={() => navigate('/filter')}
+            variant="outlined"
+            className="[transition:none]"
+          >
+            Kembali
+          </NeoButton>
+          <NeoButton
+            disabled={loading}
+            onClick={async () => {
+              setLoading(true)
+              setError(null)
+              try {
+                let payment: Payment
+                if (method === 'voucher') payment = await redeemVoucher(code)
+                else {
+                  payment = qrisPayment
+                    ? await getPayment(qrisPayment.id)
+                    : await createQrisPayment(configuration.event.id, total, {
+                        id: option.id,
+                        paper_size: option.paper_size,
+                        quantity: currentQuantity
+                      })
+                  setQrisPayment(payment)
+                }
+                if (payment.status !== 'paid') {
+                  setError(
+                    'Pembayaran belum terkonfirmasi. Selesaikan pembayaran di Simulator, lalu tekan Periksa Status.'
+                  )
+                  return
+                }
+                setPaymentId(payment.id)
+                navigate('/customer')
+              } catch (cause) {
+                const axiosError = cause as {
+                  response?: { data?: { message?: string; errors?: Record<string, string[]> } }
+                }
+                const detail = axiosError.response?.data?.errors
+                  ? Object.values(axiosError.response.data.errors)[0]?.[0]
+                  : axiosError.response?.data?.message
+                setError(detail ?? (cause instanceof Error ? cause.message : 'Pembayaran gagal.'))
+              } finally {
+                setLoading(false)
+              }
+            }}
+            className="[transition:none]"
+          >
+            {loading ? 'Memproses...' : qrisPayment ? 'Periksa Status' : 'Buat QRIS'}
+          </NeoButton>
+        </div>
       </div>
-    </div>
+    </main>
   )
 }
