@@ -11,7 +11,7 @@ export default function WelcomePage(): JSX.Element {
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
   const device = useDeviceStore((state) => state.device)
-  const partnerName = user?.partner?.name ?? 'Toko Photobooth'
+  const partnerName = user?.partner?.company_name ?? 'Kolase Photobooth'
   const beginEvent = useSessionStore((state) => state.beginEvent)
   const [home, setHome] = useState<{ title?: string; subtitle?: string; logo?: string } | null>(
     null
@@ -42,10 +42,6 @@ export default function WelcomePage(): JSX.Element {
         />
         <div className="flex flex-col justify-between border-b-4 border-black p-7 pt-12 md:border-b-0 md:border-r-4 md:p-10 md:pt-14">
           <div>
-            <div className="mb-8 flex items-center gap-3 text-xs font-black uppercase tracking-[0.22em]">
-              <span className="inline-block h-4 w-4 border-2 border-black bg-[#ffdc3e]" />
-              Photobooth Control
-            </div>
             <div className="mb-8 flex h-28 w-28 items-center justify-center overflow-hidden border-4 border-black bg-[#b7eff0] text-5xl font-black shadow-[7px_7px_0_0_#111111]">
               {home?.logo ? (
                 <img
@@ -91,7 +87,7 @@ export default function WelcomePage(): JSX.Element {
           <div className="mt-12 grid gap-4">
             <NeoButton
               onClick={() => void start()}
-              className="w-full bg-[#e34b31] px-6 py-4 text-lg text-white shadow-[7px_7px_0_0_#111111] hover:bg-[#cf3d26] [transition:none]"
+              className="w-full bg-[#e34b31] px-6 py-4 text-lg text-black shadow-[7px_7px_0_0_#111111] hover:bg-[#cf3d26] [transition:none]"
             >
               Mulai Sesi <span aria-hidden="true">→</span>
             </NeoButton>

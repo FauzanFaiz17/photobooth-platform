@@ -53,9 +53,9 @@ export default function PaymentPage(): JSX.Element | null {
   const total = Number(option.price) * multiplier
 
   return (
-    <main className="flex h-full flex-col items-center justify-center gap-6 bg-[var(--background)] p-5 text-[var(--foreground)] md:p-8">
-      <div className="w-full max-w-2xl border-4 border-[var(--border)] bg-[var(--surface)] p-6 text-center shadow-[12px_12px_0_0_var(--border)] md:p-10">
-        <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--danger)]">
+    <main className="flex h-full flex-col items-center justify-center gap-6 bg-(--background) p-5 text-(--foreground) md:p-8">
+      <div className="w-full max-w-2xl border-4 border-(--border) bg-(--surface) p-6 text-center shadow-[12px_12px_0_0_var(--border)] md:p-10">
+        <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-(--danger)">
           05 / Print package
         </p>
         <h1 className="text-4xl font-black tracking-[-0.04em]">
@@ -70,17 +70,17 @@ export default function PaymentPage(): JSX.Element | null {
               )
             }
             variant="outlined"
-            className="h-14 w-14 p-0 text-2xl [transition:none]"
+            className="h-14 w-14 flex text-center p-0 text-2xl [transition:none]"
           >
             -
           </NeoButton>
           <div className="min-w-32 text-center">
-            <p className="text-6xl font-black tracking-[-0.05em]">{currentQuantity}</p>
-            <p className="font-bold text-[var(--muted-foreground)]">lembar</p>
+            <p className="text-6xl font-black tracking-tighter">{currentQuantity}</p>
+            <p className="font-bold text-(--muted-foreground)">lembar</p>
           </div>
           <NeoButton
             onClick={() => setPrintSelection(option, currentQuantity + option.quantity_step)}
-            className="h-14 w-14 p-0 text-2xl [transition:none]"
+            className="h-14 w-14 flex text-center p-0 text-2xl [transition:none]"
           >
             +
           </NeoButton>
@@ -110,7 +110,7 @@ export default function PaymentPage(): JSX.Element | null {
           />
         )}
         {method === 'qris' && qrisPayment && (
-          <div className="w-full max-w-lg space-y-2 border-4 border-[var(--border)] bg-[var(--accent)] p-4 text-center shadow-[var(--shadow-neo)]">
+          <div className="w-full max-w-lg space-y-2 border-4 border-(--border) bg-(--accent) p-4 text-center shadow-[var(--shadow-neo)]">
             <p className="font-semibold">
               Status:{' '}
               {qrisPayment.status === 'pending' ? 'Menunggu pembayaran' : qrisPayment.status}

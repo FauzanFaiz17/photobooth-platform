@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 export interface Role {
     id: number;
     name: string;
@@ -6,7 +7,7 @@ export interface Role {
 
 export interface Partner {
     id: number;
-    name: string;
+    company_name: string;
 }
 
 export interface AuthUser {

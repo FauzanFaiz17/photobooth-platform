@@ -27,13 +27,10 @@ export default function TemplatePage(): JSX.Element | null {
   )
 
   return (
-    <main className="flex h-full flex-col gap-6 bg-[var(--background)] p-5 text-[var(--foreground)] md:p-8">
+    <main className="flex h-full flex-col gap-6 bg-(--background) p-5 text-(--foreground) md:px-8 md:py-4">
       <div>
-        <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--danger)]">
-          Template library
-        </p>
         <h1 className="text-4xl font-black tracking-[-0.04em]">Pilih Template</h1>
-        <p className="mt-2 font-semibold text-[var(--muted-foreground)]">
+        <p className="mt-2 font-semibold text-(--muted-foreground)">
           {configuration.event.event_name}
         </p>
       </div>
@@ -58,17 +55,17 @@ export default function TemplatePage(): JSX.Element | null {
             return (
               <article
                 key={item.id}
-                className="border-4 border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-neo)]"
+                className="border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo)"
               >
-                <div className="mb-4 flex min-h-56 items-center justify-center border-4 border-[var(--border)] bg-[#202020] p-5">
+                <div className="mb-4 flex min-h-56 items-center justify-center border-4 border-(--border) bg-[#202020] p-5">
                   <div
-                    className="grid w-full max-w-[190px] gap-2 border-2 border-white/50 bg-white/5 p-2"
+                    className="grid w-full max-w-47.5 gap-2 border-2 border-white/50 bg-white/5 p-2"
                     style={{ gridTemplateColumns: mapped.layout === 'strip' ? '1fr' : '1fr 1fr' }}
                   >
                     {Array.from({ length: mapped.slots }).map((_, index) => (
                       <div
                         key={index}
-                        className="flex min-h-14 items-center justify-center border-2 border-white/40 bg-[var(--accent)] text-sm font-black text-[var(--foreground)]"
+                        className="flex min-h-14 items-center justify-center border-2 border-white/40 bg-(--accent) text-sm font-black text-(--foreground)"
                       >
                         {index + 1}
                       </div>
@@ -77,7 +74,7 @@ export default function TemplatePage(): JSX.Element | null {
                 </div>
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <p className="font-black">{mapped.name}</p>
-                  <span className="border-2 border-[var(--border)] bg-[var(--primary)] px-2 py-1 text-xs font-black uppercase">
+                  <span className="border-2 border-(--border) bg-(--primary) px-2 py-1 text-xs font-black uppercase">
                     {paperSize}
                   </span>
                 </div>
