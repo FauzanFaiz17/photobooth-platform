@@ -4,10 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import { getApiErrorMessage } from '@/api/axios'
 import { NeoButton } from '@/components/shared/button'
 import Alert from '@/components/ui/Alert'
-import Input from '@/components/ui/Input'
 import { verifyPassword } from '@/features/auth/api/auth'
 import { authService } from '@/features/auth/services/authService'
 import { useWebcam } from '@/features/camera/hooks/useWebcam'
+import { NeoInput } from '@/components/shared/input'
 import {
   COUNTDOWN_OPTIONS,
   type CountdownSeconds,
@@ -62,7 +62,7 @@ function CameraTest({ onBack }: { onBack: () => void }): JSX.Element {
         <NeoButton
           variant="outlined"
           onClick={onBack}
-          className="border-[var(--border)] bg-[var(--surface)] px-5 py-3 font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--accent)]"
+          className="border-(--border) bg-(--surface) px-5 py-3 font-black text-(--foreground) shadow-(--shadow-neo) [transition:none] hover:bg-[var(--accent)]"
         >
           Kembali
         </NeoButton>
@@ -227,7 +227,7 @@ export default function SettingsPage(): JSX.Element {
         <p className="text-sm font-semibold text-[var(--muted-foreground)]">
           Masukkan password operator yang sedang login.
         </p>
-        <Input
+        <NeoInput
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -326,13 +326,13 @@ export default function SettingsPage(): JSX.Element {
             )}
           </div>
         </div>
-        <Input
+        <NeoInput
           value={home.title}
           onChange={(event) => setHome((current) => ({ ...current, title: event.target.value }))}
           placeholder="Judul halaman Start"
           maxLength={100}
         />
-        <Input
+        <NeoInput
           value={home.subtitle}
           onChange={(event) => setHome((current) => ({ ...current, subtitle: event.target.value }))}
           placeholder="Keterangan singkat"
@@ -381,7 +381,7 @@ export default function SettingsPage(): JSX.Element {
         <button
           type="button"
           onClick={() => setScreen('home')}
-          className="border-4 border-[var(--border)] bg-[var(--surface)] p-7 text-left shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--accent)]"
+          className="border-4 border-(--border) bg-[var(--surface)] p-7 text-left shadow-(--shadow-neo) [transition:none] hover:bg-[var(--accent)]"
         >
           <span className="text-xl font-black">Edit Home</span>
           <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">

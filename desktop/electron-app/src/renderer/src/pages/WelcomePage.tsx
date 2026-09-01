@@ -12,6 +12,7 @@ export default function WelcomePage(): JSX.Element {
   const user = useAuthStore((state) => state.user)
   const device = useDeviceStore((state) => state.device)
   const partnerName = user?.partner?.company_name ?? 'Kolase Photobooth'
+  const name = user?.name ?? 'Kolase'
   const beginEvent = useSessionStore((state) => state.beginEvent)
   const [home, setHome] = useState<{ title?: string; subtitle?: string; logo?: string } | null>(
     null
@@ -32,6 +33,7 @@ export default function WelcomePage(): JSX.Element {
       navigate('/template')
     } else navigate('/dashboard')
   }
+
   const title = home?.title || `Selamat Datang di ${partnerName}`
   return (
     <main className="flex h-full w-full items-center justify-center bg-[#f4f0e8] px-5 py-8 text-[#111111]">
