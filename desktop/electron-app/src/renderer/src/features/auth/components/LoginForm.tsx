@@ -1,9 +1,6 @@
 import { useState } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Card from '@/components/ui/Card'
-import CardBody from '@/components/ui/CardBody'
-import CardFooter from '@/components/ui/CardFooter'
 import Input from '@/components/ui/Input'
 import Label from '@/components/ui/Label'
 import Alert from '@/components/ui/Alert'
@@ -39,14 +36,13 @@ export default function LoginForm({ initialMessage }: LoginFormProps): JSX.Eleme
     <form onSubmit={handleSubmit} className="flex justify-center items-center">
       {/* CARD: Border tebal, warna surface, dan shadow variabel neo */}
       <div className="rounded-none">
-
         {/* CARD BODY: Layouting form dengan jarak (gap) yang solid */}
         <div className="p-6 flex flex-col gap-6">
           <div className="flex flex-col gap-2">
             <Label className="font-bold text-[var(--foreground)] uppercase tracking-wide text-sm">
               Email
             </Label>
-            
+
             {/* INPUT: Solid shadow, efek 'ditekan' saat focus */}
             <Input
               type="email"
@@ -61,7 +57,7 @@ export default function LoginForm({ initialMessage }: LoginFormProps): JSX.Eleme
             <Label className="font-bold text-(--foreground) uppercase tracking-wide text-sm">
               Password
             </Label>
-            
+
             <Input
               type="password"
               placeholder="Masukkan password"
@@ -74,24 +70,15 @@ export default function LoginForm({ initialMessage }: LoginFormProps): JSX.Eleme
 
         {/* CARD FOOTER: Memisahkan seksi tombol dengan border atas tebal */}
         <div className="p-6 flex flex-col gap-4">
-          
           {/* ALERT: Background merah (danger), teks kontras, dan shadow hard */}
           {error && (
-            <Alert 
-              type="error" 
-              className="bg-[var(--danger)] text-white border-[3px] border-[var(--border)] shadow-[4px_4px_0_0_var(--border)] p-3 font-bold rounded-none w-full text-center"
-            >
-              {error}
-            </Alert>
+            <div className="w-full border-[3px] border-[var(--border)] bg-[var(--danger)] font-bold text-white shadow-[4px_4px_0_0_var(--border)]">
+              <Alert type="error">{error}</Alert>
+            </div>
           )}
 
           {/* BUTTON: Efek translate ekstrem (-7px) saat di-klik agar shadow-neo menghilang pas (seperti tombol arcade ditekan) */}
-          <NeoButton 
-            loading={loading} 
-            type="submit" 
-            variant='primary'
-            className='w-full'
-          >
+          <NeoButton loading={loading} type="submit" variant="primary" className="w-full">
             {loading ? 'Memproses...' : 'Masuk'}
           </NeoButton>
         </div>

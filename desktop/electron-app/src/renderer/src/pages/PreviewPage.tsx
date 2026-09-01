@@ -77,11 +77,7 @@ export default function PreviewPage(): JSX.Element | null {
   }
 
   function handleConfirm(): void {
-    // NOTE: alur pembayaran (PaymentPage) sengaja dilewati dulu sesuai
-    // urutan yang diminta (Dashboard -> Template -> Filter -> Camera ->
-    // Preview -> Finish). Tinggal sisipkan navigate("/payment") di sini
-    // kapan pun alur pembayaran siap diimplementasikan.
-    navigate('/finish')
+    navigate('/filter')
   }
 
   if (!configuration || !template || shots.length === 0) {
@@ -141,7 +137,7 @@ export default function PreviewPage(): JSX.Element | null {
         </Button>
 
         <Button onClick={handleConfirm} disabled={!composedImage || !animatedGif || composing}>
-          Gunakan Hasil Ini
+          Pilih Filter Print
         </Button>
       </div>
     </div>

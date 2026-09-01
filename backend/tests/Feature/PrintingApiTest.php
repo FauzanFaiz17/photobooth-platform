@@ -137,6 +137,40 @@ class PrintingApiTest extends ApiTestCase
         ]);
     }
 
+    public function test_locally_printed_session_does_not_queue_a_duplicate_backend_job(): void
+    {
+        Storage::fake('local');
+        [$partner, $operator, $booth, $device] = $this->context('local-print');
+        $event = $this->printableEvent($partner->id, $booth->id, $operator->id, 1);
+        Sanctum::actingAs($operator);
+        $headers = ['X-Device-UUID' => $device->device_uuid];
+
+        $sessionId = $this->withHeaders($headers)
+            ->postJson('/api/v1/desktop/photo-sessions', ['event_id' => $event->id])
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/desktop/photo-sessions/{$sessionId}/media", [
+                'type' => 'template',
+                'filename' => 'original-final.png',
+                'mime_type' => 'image/png',
+                'data_url' => 'data:image/png;base64,'.base64_encode('original-image'),
+            ])->assertCreated();
+
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/desktop/photo-sessions/{$sessionId}/complete", [
+                'printed_locally' => true,
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseMissing('print_jobs', ['photo_session_id' => $sessionId]);
+        $this->assertDatabaseHas('photo_sessions', [
+            'id' => $sessionId,
+            'status' => 'completed',
+        ]);
+    }
+
     public function test_expired_desktop_lease_is_returned_to_queue_and_reclaimed(): void
     {
         config()->set('printing.lease_seconds', 30);

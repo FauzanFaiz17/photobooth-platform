@@ -11,7 +11,6 @@ import { loadTemplateOverlayDataUrl } from '@/features/template/services/compose
 interface CameraCaptureProps {
   totalShots: number
   countdownSeconds: number
-  cssFilter: string
   templateOverlayPath: string | null
   onShotCaptured: (shot: CapturedShot) => void
   onAllShotsDone: () => void
@@ -20,7 +19,6 @@ interface CameraCaptureProps {
 export default function CameraCapture({
   totalShots,
   countdownSeconds,
-  cssFilter,
   templateOverlayPath,
   onShotCaptured,
   onAllShotsDone
@@ -78,8 +76,6 @@ export default function CameraCapture({
     }
 
     // efek mirror supaya hasil foto sama seperti yang dilihat user di preview
-    ctx.filter = cssFilter
-
     ctx.translate(canvas.width, 0)
 
     ctx.scale(-1, 1)
@@ -96,7 +92,7 @@ export default function CameraCapture({
     })
 
     return dataUrl
-  }, [cssFilter, videoRef])
+  }, [videoRef])
 
   const {
     stage,
@@ -152,7 +148,6 @@ export default function CameraCapture({
           playsInline
           muted
           className="h-[480px] w-[640px] -scale-x-100 object-cover"
-          style={{ filter: cssFilter }}
         />
 
         {stage === 'countdown' && (

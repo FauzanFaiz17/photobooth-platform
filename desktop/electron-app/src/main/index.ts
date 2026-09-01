@@ -21,6 +21,57 @@ const allowedAssetOrigins = new Set(
     .map((value) => new URL(value).origin)
 )
 
+interface PrintImageOptions {
+  dataUrl: string
+  deviceName: string
+  copies: number
+  paperSize: '2r' | '4r'
+  orientation: string
+}
+
+function paperDimensions(paperSize: '2r' | '4r'): { width: number; height: number } {
+  return paperSize === '2r' ? { width: 60000, height: 90000 } : { width: 100000, height: 150000 }
+}
+
+async function printDataUrl(options: PrintImageOptions): Promise<void> {
+  if (!options.dataUrl.startsWith('data:image/')) {
+    throw new Error('Data gambar print tidak valid.')
+  }
+
+  const printWindow = new BrowserWindow({
+    show: false,
+    webPreferences: { sandbox: true }
+  })
+  const dimensions = paperDimensions(options.paperSize)
+  const landscape = options.orientation.toLowerCase() === 'landscape'
+  const width = landscape ? dimensions.height : dimensions.width
+  const height = landscape ? dimensions.width : dimensions.height
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>@page{margin:0}html,body{margin:0;width:100%;height:100%;overflow:hidden}img{display:block;width:100%;height:100%;object-fit:contain}</style></head><body><img src="${options.dataUrl}" /></body></html>`
+
+  try {
+    await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+    await new Promise<void>((resolve, reject) => {
+      printWindow.webContents.print(
+        {
+          silent: true,
+          printBackground: true,
+          deviceName: options.deviceName,
+          copies: Math.max(1, Math.min(20, Math.trunc(options.copies))),
+          landscape,
+          margins: { marginType: 'none' },
+          pageSize: { width, height }
+        },
+        (success, failureReason) => {
+          if (success) resolve()
+          else reject(new Error(failureReason || 'Driver printer menolak job print.'))
+        }
+      )
+    })
+  } finally {
+    if (!printWindow.isDestroyed()) printWindow.destroy()
+  }
+}
+
 /**
  * Spawns the PyInstaller executable as a child process.
  */
@@ -162,6 +213,29 @@ app.whenReady().then(() => {
     const extension = source.split('.').pop()?.toLowerCase() ?? 'png'
     const bytes = await readFile(source)
     return `data:image/${extension === 'jpg' ? 'jpeg' : extension};base64,${bytes.toString('base64')}`
+  })
+  ipcMain.handle('printer:list', async (event) => {
+    const printers = await event.sender.getPrintersAsync()
+    return printers.map((printer) => ({
+      name: printer.name,
+      displayName: printer.displayName || printer.name,
+      isDefault: false
+    }))
+  })
+  ipcMain.handle('printer:print-image', async (_, options: PrintImageOptions) => {
+    await printDataUrl(options)
+  })
+  ipcMain.handle('printer:test', async (_, deviceName: string) => {
+    const testImage = `data:image/svg+xml;base64,${Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1800"><rect width="1200" height="1800" fill="white"/><rect x="36" y="36" width="1128" height="1728" fill="none" stroke="black" stroke-width="12"/><text x="600" y="780" text-anchor="middle" font-family="Arial" font-size="84" font-weight="700">PHOTOBOOTH</text><text x="600" y="900" text-anchor="middle" font-family="Arial" font-size="48">DNP RX1HS TEST PRINT</text><text x="600" y="990" text-anchor="middle" font-family="Arial" font-size="32">Printer connection OK</text></svg>'
+    ).toString('base64')}`
+    await printDataUrl({
+      dataUrl: testImage,
+      deviceName,
+      copies: 1,
+      paperSize: '4r',
+      orientation: 'portrait'
+    })
   })
 
   ipcMain.handle('store:get', (_, key) => {

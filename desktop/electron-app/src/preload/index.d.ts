@@ -17,6 +17,17 @@ declare global {
         close(): Promise<void>
       }
       home: { pickImage(): Promise<string | null> }
+      printer: {
+        list(): Promise<Array<{ name: string; displayName: string; isDefault: boolean }>>
+        printImage(options: {
+          dataUrl: string
+          deviceName: string
+          copies: number
+          paperSize: '2r' | '4r'
+          orientation: string
+        }): Promise<void>
+        test(deviceName: string): Promise<void>
+      }
     }
     api: unknown
   }

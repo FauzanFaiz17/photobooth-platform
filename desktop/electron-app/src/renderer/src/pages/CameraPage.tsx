@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import CameraCapture from '@/features/camera/components/CameraCapture'
+import { getCountdownSeconds } from '@/features/settings/deviceSettings'
 import { useSessionStore } from '@/store/sessionStore'
 
 export default function CameraPage(): JSX.Element | null {
@@ -12,13 +13,13 @@ export default function CameraPage(): JSX.Element | null {
 
   const configuration = useSessionStore((state) => state.eventConfiguration)
 
-  const filter = useSessionStore((state) => state.filter)
-
   const requiredShots = useSessionStore((state) => state.requiredShots)
 
   const addShot = useSessionStore((state) => state.addShot)
 
   const resetShots = useSessionStore((state) => state.resetShots)
+
+  const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null)
 
   useEffect(() => {
     if (!template || !configuration) {
@@ -34,7 +35,13 @@ export default function CameraPage(): JSX.Element | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  if (!template || !configuration) {
+  useEffect(() => {
+    if (!configuration) return
+
+    void getCountdownSeconds(configuration.camera.countdown_seconds).then(setCountdownSeconds)
+  }, [configuration])
+
+  if (!template || !configuration || countdownSeconds === null) {
     return null
   }
 
@@ -51,8 +58,7 @@ export default function CameraPage(): JSX.Element | null {
       </header>
       <CameraCapture
         totalShots={requiredShots}
-        countdownSeconds={configuration.camera.countdown_seconds}
-        cssFilter={filter?.cssFilter ?? 'none'}
+        countdownSeconds={countdownSeconds}
         templateOverlayPath={template.overlayPath}
         onShotCaptured={addShot}
         onAllShotsDone={() => navigate('/preview')}

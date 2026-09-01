@@ -14,6 +14,7 @@ class VoucherPackage extends Model {
         'persons',
         'captures',
         'print_count',
+        'session_count',
         'gif_included',
         'video_included',
         'template_id',

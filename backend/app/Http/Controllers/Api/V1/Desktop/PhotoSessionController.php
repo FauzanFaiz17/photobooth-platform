@@ -58,7 +58,8 @@ class PhotoSessionController extends Controller
         $photoSession = $this->photoSessionService->complete(
             $photoSession,
             $request->user(),
-            $request->deviceUuid()
+            $request->deviceUuid(),
+            $request->boolean('printed_locally')
         );
 
         return ApiResponse::success(

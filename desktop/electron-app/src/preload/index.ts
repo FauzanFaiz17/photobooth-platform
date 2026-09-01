@@ -24,7 +24,19 @@ const electron = {
     minimize: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
     close: (): Promise<void> => ipcRenderer.invoke('window:close')
   },
-  home: { pickImage: (): Promise<string | null> => ipcRenderer.invoke('home:pick-image') }
+  home: { pickImage: (): Promise<string | null> => ipcRenderer.invoke('home:pick-image') },
+  printer: {
+    list: (): Promise<Array<{ name: string; displayName: string; isDefault: boolean }>> =>
+      ipcRenderer.invoke('printer:list'),
+    printImage: (options: {
+      dataUrl: string
+      deviceName: string
+      copies: number
+      paperSize: '2r' | '4r'
+      orientation: string
+    }): Promise<void> => ipcRenderer.invoke('printer:print-image', options),
+    test: (deviceName: string): Promise<void> => ipcRenderer.invoke('printer:test', deviceName)
+  }
 }
 
 declare global {
@@ -35,6 +47,17 @@ declare global {
       }
       window: { minimize(): Promise<void>; close(): Promise<void> }
       home: { pickImage(): Promise<string | null> }
+      printer: {
+        list(): Promise<Array<{ name: string; displayName: string; isDefault: boolean }>>
+        printImage(options: {
+          dataUrl: string
+          deviceName: string
+          copies: number
+          paperSize: '2r' | '4r'
+          orientation: string
+        }): Promise<void>
+        test(deviceName: string): Promise<void>
+      }
     }
   }
 }

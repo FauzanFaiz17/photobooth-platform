@@ -149,7 +149,7 @@ export default function PaymentPage(): JSX.Element | null {
         {error && <Alert type="error">{error}</Alert>}
         <div className="mt-8 flex w-full flex-wrap justify-between gap-3">
           <NeoButton
-            onClick={() => navigate('/filter')}
+            onClick={() => navigate('/template')}
             variant="outlined"
             className="[transition:none]"
           >

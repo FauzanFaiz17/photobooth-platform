@@ -8,6 +8,14 @@ import Input from '@/components/ui/Input'
 import { verifyPassword } from '@/features/auth/api/auth'
 import { authService } from '@/features/auth/services/authService'
 import { useWebcam } from '@/features/camera/hooks/useWebcam'
+import {
+  COUNTDOWN_OPTIONS,
+  type CountdownSeconds,
+  getCountdownSeconds,
+  saveCountdownSeconds,
+  getPrinterSettings,
+  savePrinterSettings
+} from '@/features/settings/deviceSettings'
 
 interface HomeSettings {
   title: string
@@ -17,7 +25,7 @@ interface HomeSettings {
 const HOME_SETTINGS_KEY = 'desktop.home-settings'
 
 function CameraTest({ onBack }: { onBack: () => void }): JSX.Element {
-  const webcam = useWebcam()
+  const { videoRef, status, error, devices, activeDeviceId, selectDevice, retry } = useWebcam()
   return (
     <div className="flex h-full flex-col gap-5 bg-[var(--background)] p-5 text-[var(--foreground)] md:p-8">
       <div>
@@ -30,28 +38,20 @@ function CameraTest({ onBack }: { onBack: () => void }): JSX.Element {
         </p>
       </div>
       <div className="relative flex-1 overflow-hidden border-4 border-[var(--border)] bg-[#202020] shadow-[var(--shadow-neo)]">
-        <video
-          ref={webcam.videoRef}
-          autoPlay
-          muted
-          playsInline
-          className="h-full w-full object-contain"
-        />
-        {webcam.status !== 'ready' && (
+        <video ref={videoRef} autoPlay muted playsInline className="h-full w-full object-contain" />
+        {status !== 'ready' && (
           <div className="absolute inset-0 flex items-center justify-center p-4 text-center text-white">
-            {webcam.status === 'requesting'
-              ? 'Menghubungkan kamera...'
-              : webcam.error || 'Kamera belum siap.'}
+            {status === 'requesting' ? 'Menghubungkan kamera...' : error || 'Kamera belum siap.'}
           </div>
         )}
       </div>
-      {webcam.devices.length > 1 && (
+      {devices.length > 1 && (
         <select
-          value={webcam.activeDeviceId ?? ''}
-          onChange={(event) => webcam.selectDevice(event.target.value)}
+          value={activeDeviceId ?? ''}
+          onChange={(event) => selectDevice(event.target.value)}
           className="border-4 border-[var(--border)] bg-[var(--surface)] px-3 py-3 font-bold text-[var(--foreground)] shadow-[var(--shadow-neo)] outline-none"
         >
-          {webcam.devices.map((device) => (
+          {devices.map((device) => (
             <option key={device.deviceId} value={device.deviceId}>
               {device.label}
             </option>
@@ -67,10 +67,100 @@ function CameraTest({ onBack }: { onBack: () => void }): JSX.Element {
           Kembali
         </NeoButton>
         <NeoButton
-          onClick={webcam.retry}
+          onClick={retry}
           className="border-[var(--border)] bg-[var(--primary)] px-5 py-3 font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[#f2cc25]"
         >
           Muat Ulang Kamera
+        </NeoButton>
+      </div>
+    </div>
+  )
+}
+
+function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
+  const [printers, setPrinters] = useState<
+    Array<{ name: string; displayName: string; isDefault: boolean }>
+  >([])
+  const [deviceName, setDeviceName] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [testing, setTesting] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  useEffect(() => {
+    void Promise.all([window.electron.printer.list(), getPrinterSettings()])
+      .then(([available, stored]) => {
+        setPrinters(available)
+        setDeviceName(
+          stored?.deviceName ??
+            available.find((printer) => printer.isDefault)?.name ??
+            available[0]?.name ??
+            ''
+        )
+      })
+      .catch((cause) => {
+        setMessage({
+          type: 'error',
+          text: cause instanceof Error ? cause.message : 'Daftar printer tidak dapat dibaca.'
+        })
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
+  async function saveAndTest(): Promise<void> {
+    const selected = printers.find((printer) => printer.name === deviceName)
+    if (!selected) return
+
+    setTesting(true)
+    setMessage(null)
+    try {
+      await savePrinterSettings({ deviceName: selected.name, displayName: selected.displayName })
+      await window.electron.printer.test(selected.name)
+      setMessage({ type: 'success', text: 'Test print dikirim ke printer.' })
+    } catch (cause) {
+      setMessage({
+        type: 'error',
+        text: cause instanceof Error ? cause.message : 'Test print gagal.'
+      })
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  return (
+    <div className="mx-auto flex h-full w-full max-w-xl flex-col gap-6 bg-(--background) p-5 text-(--foreground) md:p-8">
+      <div>
+        <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-(--danger)">
+          Printer setup
+        </p>
+        <h1 className="text-4xl font-black">Test Printer</h1>
+        <p className="mt-2 font-semibold text-(--muted-foreground)">
+          Pilih nama driver Windows untuk DNP RX1HS.
+        </p>
+      </div>
+
+      <select
+        value={deviceName}
+        disabled={loading || printers.length === 0}
+        onChange={(event) => setDeviceName(event.target.value)}
+        className="border-4 border-(--border) bg-(--surface) px-4 py-3 font-bold shadow-(--shadow-neo)"
+      >
+        {printers.length === 0 && <option value="">Printer tidak ditemukan</option>}
+        {printers.map((printer) => (
+          <option key={printer.name} value={printer.name}>
+            {printer.displayName}
+            {printer.isDefault ? ' (Default)' : ''}
+          </option>
+        ))}
+      </select>
+
+      {message && <Alert type={message.type}>{message.text}</Alert>}
+
+      <div className="mt-auto flex justify-between gap-3">
+        <NeoButton variant="outlined" onClick={onBack}>
+          Kembali
+        </NeoButton>
+        <NeoButton disabled={!deviceName || testing} onClick={() => void saveAndTest()}>
+          {testing ? 'Mengirim...' : 'Simpan dan Test Print'}
         </NeoButton>
       </div>
     </div>
@@ -81,14 +171,18 @@ export default function SettingsPage(): JSX.Element {
   const navigate = useNavigate()
   const [password, setPassword] = useState('')
   const [verified, setVerified] = useState(false)
-  const [screen, setScreen] = useState<'menu' | 'home' | 'camera'>('menu')
+  const [screen, setScreen] = useState<'menu' | 'home' | 'camera' | 'countdown' | 'printer'>('menu')
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [home, setHome] = useState<HomeSettings>({ title: '', subtitle: '', logo: null })
+  const [countdown, setCountdown] = useState<CountdownSeconds>(3)
   useEffect(() => {
     void window.storage.get(HOME_SETTINGS_KEY).then((value) => {
       if (value && typeof value === 'object') setHome(value as HomeSettings)
     })
+  }, [])
+  useEffect(() => {
+    void getCountdownSeconds(3).then((value) => setCountdown(value as CountdownSeconds))
   }, [])
   async function verify(): Promise<void> {
     try {
@@ -105,6 +199,11 @@ export default function SettingsPage(): JSX.Element {
   }
   async function saveHome(): Promise<void> {
     await window.storage.set(HOME_SETTINGS_KEY, home)
+    setSaved(true)
+    window.setTimeout(() => setSaved(false), 2000)
+  }
+  async function saveCountdown(): Promise<void> {
+    await saveCountdownSeconds(countdown)
     setSaved(true)
     window.setTimeout(() => setSaved(false), 2000)
   }
@@ -153,6 +252,42 @@ export default function SettingsPage(): JSX.Element {
       </form>
     )
   if (screen === 'camera') return <CameraTest onBack={() => setScreen('menu')} />
+  if (screen === 'printer') return <PrinterTest onBack={() => setScreen('menu')} />
+  if (screen === 'countdown')
+    return (
+      <div className="mx-auto flex h-full w-full max-w-xl flex-col gap-6 bg-[var(--background)] p-5 text-[var(--foreground)] md:p-8">
+        <div>
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--danger)]">
+            02 / Camera timing
+          </p>
+          <h1 className="text-4xl font-black tracking-[-0.04em]">Countdown Foto</h1>
+          <p className="mt-2 font-semibold text-[var(--muted-foreground)]">
+            Waktu ini berlaku untuk pengambilan foto pada perangkat booth ini.
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {COUNTDOWN_OPTIONS.map((seconds) => (
+            <button
+              key={seconds}
+              type="button"
+              onClick={() => setCountdown(seconds)}
+              className={`min-h-24 border-4 border-[var(--border)] text-2xl font-black shadow-[var(--shadow-neo)] [transition:none] ${
+                countdown === seconds ? 'bg-[var(--primary)]' : 'bg-[var(--surface)]'
+              }`}
+            >
+              {seconds} detik
+            </button>
+          ))}
+        </div>
+        {saved && <Alert type="success">Countdown berhasil disimpan.</Alert>}
+        <div className="mt-auto flex gap-3">
+          <NeoButton variant="outlined" onClick={() => setScreen('menu')}>
+            Kembali
+          </NeoButton>
+          <NeoButton onClick={() => void saveCountdown()}>Simpan</NeoButton>
+        </div>
+      </div>
+    )
   if (screen === 'home')
     return (
       <div className="mx-auto flex h-full w-full max-w-xl flex-col gap-5 bg-[var(--background)] p-5 text-[var(--foreground)] md:p-8">
@@ -235,6 +370,16 @@ export default function SettingsPage(): JSX.Element {
       <div className="grid gap-4 md:grid-cols-2">
         <button
           type="button"
+          onClick={() => setScreen('countdown')}
+          className="border-4 border-[var(--border)] bg-[var(--surface)] p-7 text-left shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--primary)]"
+        >
+          <span className="text-xl font-black">Countdown Foto</span>
+          <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">
+            Pilih jeda 2, 3, atau 5 detik sebelum kamera mengambil foto.
+          </p>
+        </button>
+        <button
+          type="button"
           onClick={() => setScreen('home')}
           className="border-4 border-[var(--border)] bg-[var(--surface)] p-7 text-left shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--accent)]"
         >
@@ -251,6 +396,16 @@ export default function SettingsPage(): JSX.Element {
           <span className="text-xl font-black">Test Kamera</span>
           <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">
             Lihat preview dan periksa kamera yang terhubung.
+          </p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setScreen('printer')}
+          className="border-4 border-(--border) bg-(--surface) p-7 text-left shadow-(--shadow-neo) [transition:none] hover:bg-(--primary)"
+        >
+          <span className="text-xl font-black">Test Printer</span>
+          <p className="mt-2 text-sm font-semibold text-(--muted-foreground)">
+            Pilih driver DNP RX1HS dan kirim satu lembar test print 4R.
           </p>
         </button>
       </div>

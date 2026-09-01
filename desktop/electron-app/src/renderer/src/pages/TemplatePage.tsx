@@ -81,7 +81,7 @@ export default function TemplatePage(): JSX.Element | null {
                 <NeoButton
                   onClick={() => {
                     setTemplate(mapped)
-                    navigate('/filter')
+                    navigate('/payment')
                   }}
                   className="w-full [transition:none]"
                 >

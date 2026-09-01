@@ -53,9 +53,13 @@ export async function uploadSessionMedia(
   return response.data.data
 }
 
-export async function completePhotoSession(sessionId: number): Promise<RemotePhotoSession> {
+export async function completePhotoSession(
+  sessionId: number,
+  printedLocally = false
+): Promise<RemotePhotoSession> {
   const response = await api.post<ApiEnvelope<RemotePhotoSession>>(
-    `/v1/desktop/photo-sessions/${sessionId}/complete`
+    `/v1/desktop/photo-sessions/${sessionId}/complete`,
+    { printed_locally: printedLocally }
   )
 
   return response.data.data

@@ -12,6 +12,8 @@ class Voucher extends Model
         'code',
         'idempotency_key',
         'status',
+        'usage_limit',
+        'usage_count',
         'expired_at',
         'generated_by',
         'redeemed_by',
@@ -36,6 +38,11 @@ class Voucher extends Model
     public function payment()
     {
         return $this->hasOne(Payment::class);
+    }
+
+    public function redemptions()
+    {
+        return $this->hasMany(VoucherRedemption::class);
     }
 
     public function generatedBy()

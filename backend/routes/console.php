@@ -9,10 +9,10 @@ use App\Models\Partner;
 use App\Services\DeviceManagementService;
 use App\Services\PartnerSubscriptionService;
 use App\Services\PaymentService;
+use App\Services\PlatformCredentialService;
 use App\Services\VoucherService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Storage;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -86,11 +86,17 @@ Artisan::command('payments:expire', function () {
 })->purpose('Mark pending payments past their expiration date as expired');
 
 Artisan::command('media:storage-check', function () {
-    $disk = config('media.disk', 'local');
-    $filesystem = config("filesystems.disks.{$disk}", []);
-    $required = ($filesystem['driver'] ?? null) === 's3'
-        ? ['key', 'secret', 'bucket', 'endpoint']
-        : [];
+    $credentials = app(PlatformCredentialService::class);
+    $r2 = $credentials->r2();
+    $disk = $r2['enabled'] ? 'r2' : config('media.disk', 'local');
+    $filesystem = $disk === 'r2' ? [
+        'driver' => 's3',
+        'key' => $r2['access_key_id'],
+        'secret' => $r2['secret_access_key'],
+        'bucket' => $r2['bucket'],
+        'endpoint' => $r2['endpoint'],
+    ] : config("filesystems.disks.{$disk}", []);
+    $required = $disk === 'r2' ? ['key', 'secret', 'bucket', 'endpoint'] : [];
     $missing = collect($required)
         ->filter(fn (string $key) => blank($filesystem[$key] ?? null))
         ->values();
@@ -99,7 +105,8 @@ Artisan::command('media:storage-check', function () {
         'Setting',
         'Value',
     ], [
-        ['MEDIA_DISK', $disk],
+        ['Active disk', $disk],
+        ['Configuration source', $disk === 'r2' ? $r2['source'] : 'environment'],
         ['Driver', $filesystem['driver'] ?? 'unknown'],
         ['Bucket', filled($filesystem['bucket'] ?? null) ? 'configured' : 'missing'],
         ['Endpoint', filled($filesystem['endpoint'] ?? null) ? 'configured' : 'missing'],
@@ -119,10 +126,18 @@ Artisan::command('media:storage-check', function () {
     }
 
     try {
-        Storage::disk($disk)->exists('__photobooth_storage_check__');
+        $credentials->r2Disk($r2)->exists('__photobooth_storage_check__');
         $this->info("Storage disk [{$disk}] is reachable.");
     } catch (Throwable $exception) {
-        $this->error('Storage check failed: '.$exception->getMessage());
+        $messages = [];
+        for ($cause = $exception; $cause && count($messages) < 4; $cause = $cause->getPrevious()) {
+            $message = trim($cause->getMessage());
+            if ($message !== '' && ! in_array($message, $messages, true)) {
+                $messages[] = $message;
+            }
+        }
+
+        $this->error('Storage check failed: '.implode(' | Caused by: ', $messages));
 
         return 1;
     }

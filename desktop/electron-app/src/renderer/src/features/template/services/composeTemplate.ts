@@ -17,6 +17,7 @@ interface ComposeTemplateOptions {
   jsonLayout: Record<string, unknown>
   layout: 'strip' | 'grid'
   overlayPath: string | null
+  cssFilter?: string
 }
 
 export interface ComposedImage {
@@ -144,7 +145,8 @@ function loadImage(source: string, label: string): Promise<HTMLImageElement> {
 function drawCover(
   context: CanvasRenderingContext2D,
   image: HTMLImageElement,
-  frame: TemplateFrame
+  frame: TemplateFrame,
+  cssFilter: string
 ): void {
   const scale = Math.max(frame.width / image.naturalWidth, frame.height / image.naturalHeight)
   const sourceWidth = frame.width / scale
@@ -153,6 +155,7 @@ function drawCover(
   const sourceY = (image.naturalHeight - sourceHeight) / 2
 
   context.save()
+  context.filter = cssFilter
   context.beginPath()
   context.rect(frame.x, frame.y, frame.width, frame.height)
   context.clip()
@@ -174,7 +177,8 @@ export async function composeTemplateImage({
   shots,
   jsonLayout,
   layout,
-  overlayPath
+  overlayPath,
+  cssFilter = 'none'
 }: ComposeTemplateOptions): Promise<ComposedImage> {
   if (shots.length === 0) throw new Error('Tidak ada foto untuk dikomposisikan.')
 
@@ -200,7 +204,7 @@ export async function composeTemplateImage({
     shots.map((shot, index) => loadImage(shot.dataUrl, `Foto ${index + 1}`))
   )
 
-  shotImages.forEach((image, index) => drawCover(context, image, frames[index]))
+  shotImages.forEach((image, index) => drawCover(context, image, frames[index], cssFilter))
 
   if (overlayPath) {
     const overlay = await loadOverlay(overlayPath)

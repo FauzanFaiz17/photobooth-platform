@@ -15,6 +15,7 @@ class CompletePhotoSessionRequest extends FormRequest
     {
         return [
             'device_uuid' => ['required', 'uuid'],
+            'printed_locally' => ['sometimes', 'boolean'],
         ];
     }
 

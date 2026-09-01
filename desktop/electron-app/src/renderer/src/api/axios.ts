@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { authStorage } from '../features/auth/services/authStorage'
 import { useAuthStore } from '../store/authStore'
 import { useDeviceStore } from '../store/deviceStore'
 
@@ -23,6 +24,19 @@ api.interceptors.request.use((config) => {
 
   return config
 })
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error: unknown) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      await authStorage.removeToken()
+      delete api.defaults.headers.common.Authorization
+      useAuthStore.getState().logout()
+    }
+
+    return Promise.reject(error)
+  }
+)
 
 export default api
 

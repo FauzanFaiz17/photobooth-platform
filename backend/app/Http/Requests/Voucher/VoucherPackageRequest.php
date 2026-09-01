@@ -20,6 +20,7 @@ class VoucherPackageRequest extends FormRequest
             'persons' => ['required', 'integer', 'min:1', 'max:100'],
             'captures' => ['required', 'integer', 'min:1', 'max:100'],
             'print_count' => ['required', 'integer', 'min:0', 'max:100'],
+            'session_count' => ['sometimes', 'integer', 'min:1', 'max:1000'],
             'gif_included' => ['required', 'boolean'],
             'video_included' => ['required', 'boolean'],
             'template_id' => ['nullable', 'integer', 'exists:templates,id'],

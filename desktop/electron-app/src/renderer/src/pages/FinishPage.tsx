@@ -6,6 +6,7 @@ import { getApiErrorMessage } from '@/api/axios'
 import { completePhotoSession, createPhotoSession, uploadSessionMedia } from '@/api/media'
 import Alert from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
+import { getPrinterSettings } from '@/features/settings/deviceSettings'
 import { useSessionStore } from '@/store/sessionStore'
 
 const AUTO_REDIRECT_SECONDS = 10
@@ -18,6 +19,9 @@ export default function FinishPage(): JSX.Element {
   const syncError = useSessionStore((state) => state.syncError)
   const localDirectory = useSessionStore((state) => state.localDirectory)
   const composedImage = useSessionStore((state) => state.composedImage)
+  const printImage = useSessionStore((state) => state.printImage)
+  const paperSize = useSessionStore((state) => state.paperSize)
+  const quantity = useSessionStore((state) => state.quantity)
   const animatedGif = useSessionStore((state) => state.animatedGif)
   const resetTransaction = useSessionStore((state) => state.resetTransaction)
   const setLocalDirectory = useSessionStore((state) => state.setLocalDirectory)
@@ -26,12 +30,20 @@ export default function FinishPage(): JSX.Element {
   const setUploadedShotCount = useSessionStore((state) => state.setUploadedShotCount)
   const setComposedImageUploaded = useSessionStore((state) => state.setComposedImageUploaded)
   const setAnimatedGifUploaded = useSessionStore((state) => state.setAnimatedGifUploaded)
+  const setPrintedLocally = useSessionStore((state) => state.setPrintedLocally)
   const [secondsLeft, setSecondsLeft] = useState(AUTO_REDIRECT_SECONDS)
   const [processing, setProcessing] = useState(true)
   const startedRef = useRef(false)
 
   const finalizeSession = useCallback(async (): Promise<void> => {
-    if (!eventConfiguration || shots.length === 0 || !composedImage || !animatedGif) {
+    if (
+      !eventConfiguration ||
+      shots.length === 0 ||
+      !composedImage ||
+      !printImage ||
+      !paperSize ||
+      !animatedGif
+    ) {
       setSyncStatus('failed', 'Data sesi foto tidak lengkap.')
       setProcessing(false)
       return
@@ -75,7 +87,7 @@ export default function FinishPage(): JSX.Element {
         const shot = shots[index]
 
         await uploadSessionMedia(sessionId, {
-          type: 'edited',
+          type: 'original',
           filename: `capture-${String(index + 1).padStart(2, '0')}.png`,
           mime_type: 'image/png',
           data_url: shot.dataUrl,
@@ -111,7 +123,25 @@ export default function FinishPage(): JSX.Element {
         setAnimatedGifUploaded(true)
       }
 
-      await completePhotoSession(sessionId)
+      let printAccepted = useSessionStore.getState().printedLocally
+      if (!printAccepted) {
+        const printer = await getPrinterSettings()
+        if (!printer) {
+          throw new Error('Printer belum dipilih. Buka Settings lalu jalankan Test Printer.')
+        }
+
+        await window.electron.printer.printImage({
+          dataUrl: printImage.dataUrl,
+          deviceName: printer.deviceName,
+          copies: Math.max(1, quantity),
+          paperSize,
+          orientation: eventConfiguration.printer.orientation
+        })
+        printAccepted = true
+        setPrintedLocally(true)
+      }
+
+      await completePhotoSession(sessionId, printAccepted)
       setSyncStatus('synced', localSaveError)
     } catch (error) {
       const message = getApiErrorMessage(error, 'Foto belum dapat disinkronkan ke server.')
@@ -127,6 +157,9 @@ export default function FinishPage(): JSX.Element {
   }, [
     eventConfiguration,
     composedImage,
+    printImage,
+    paperSize,
+    quantity,
     animatedGif,
     setLocalDirectory,
     setRemoteSession,
@@ -134,6 +167,7 @@ export default function FinishPage(): JSX.Element {
     setUploadedShotCount,
     setComposedImageUploaded,
     setAnimatedGifUploaded,
+    setPrintedLocally,
     shots
   ])
 

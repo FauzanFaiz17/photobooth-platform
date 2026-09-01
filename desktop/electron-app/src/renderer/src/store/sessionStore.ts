@@ -35,6 +35,8 @@ interface SessionState {
   uploadedShotCount: number
   composedImage: ComposedImage | null
   composedImageUploaded: boolean
+  printImage: ComposedImage | null
+  printedLocally: boolean
   animatedGif: AnimatedGif | null
   animatedGifUploaded: boolean
   beginEvent: (configuration: EventConfiguration) => void
@@ -44,6 +46,8 @@ interface SessionState {
   setUploadedShotCount: (count: number) => void
   setComposedImage: (image: ComposedImage | null) => void
   setComposedImageUploaded: (uploaded: boolean) => void
+  setPrintImage: (image: ComposedImage | null) => void
+  setPrintedLocally: (printed: boolean) => void
   setAnimatedGif: (gif: AnimatedGif | null) => void
   setAnimatedGifUploaded: (uploaded: boolean) => void
   setTemplate: (template: PhotoTemplate) => void
@@ -78,6 +82,8 @@ export const useSessionStore = create<SessionState>((set) => ({
   uploadedShotCount: 0,
   composedImage: null,
   composedImageUploaded: false,
+  printImage: null,
+  printedLocally: false,
   animatedGif: null,
   animatedGifUploaded: false,
 
@@ -112,6 +118,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       uploadedShotCount: 0,
       composedImage: null,
       composedImageUploaded: false,
+      printImage: null,
+      printedLocally: false,
       animatedGif: null,
       animatedGifUploaded: false
     })
@@ -129,6 +137,10 @@ export const useSessionStore = create<SessionState>((set) => ({
 
   setComposedImageUploaded: (composedImageUploaded) => set({ composedImageUploaded }),
 
+  setPrintImage: (printImage) => set({ printImage }),
+
+  setPrintedLocally: (printedLocally) => set({ printedLocally }),
+
   setAnimatedGif: (animatedGif) => set({ animatedGif, animatedGifUploaded: false }),
 
   setAnimatedGifUploaded: (animatedGifUploaded) => set({ animatedGifUploaded }),
@@ -139,7 +151,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       requiredShots: template.slots ?? DEFAULT_REQUIRED_SHOTS
     }),
 
-  setFilter: (filter) => set({ filter }),
+  setFilter: (filter) => set({ filter, printImage: null, printedLocally: false }),
   setPaperSize: (paperSize) => set({ paperSize, template: null, printOption: null, quantity: 0 }),
   setPrintSelection: (printOption, quantity) => set({ printOption, quantity }),
   setPaymentId: (paymentId) => set({ paymentId }),
@@ -155,6 +167,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       shots: [],
       composedImage: null,
       composedImageUploaded: false,
+      printImage: null,
+      printedLocally: false,
       animatedGif: null,
       animatedGifUploaded: false,
       uploadedShotCount: 0
@@ -179,6 +193,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       uploadedShotCount: 0,
       composedImage: null,
       composedImageUploaded: false,
+      printImage: null,
+      printedLocally: false,
       animatedGif: null,
       animatedGifUploaded: false
     })),
@@ -202,6 +218,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       uploadedShotCount: 0,
       composedImage: null,
       composedImageUploaded: false,
+      printImage: null,
+      printedLocally: false,
       animatedGif: null,
       animatedGifUploaded: false
     })

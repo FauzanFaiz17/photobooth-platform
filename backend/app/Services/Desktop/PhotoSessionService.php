@@ -82,12 +82,10 @@ class PhotoSessionService
             return $existingMedia;
         }
 
-        $objectKey = sprintf(
-            'sessions/%d/%s-%s',
-            $photoSession->id,
-            Str::uuid(),
-            $data['filename']
-        );
+        $scope = $photoSession->event_id
+            ? sprintf('partners/%d/events/%d/sessions/%d', $photoSession->partner_id, $photoSession->event_id, $photoSession->id)
+            : sprintf('partners/%d/sessions/%d', $photoSession->partner_id, $photoSession->id);
+        $objectKey = sprintf('%s/%s-%s', $scope, Str::uuid(), $data['filename']);
 
         if (! $this->storage->put($objectKey, $binary)) {
             throw ValidationException::withMessages([
@@ -125,13 +123,16 @@ class PhotoSessionService
     public function complete(
         PhotoSession $photoSession,
         User $user,
-        string $deviceUuid
+        string $deviceUuid,
+        bool $printedLocally = false
     ): PhotoSession {
         $this->ensureSessionAccess($photoSession, $user, $deviceUuid);
 
         if ($photoSession->status === 'completed') {
             $this->ensureDownloadToken($photoSession);
-            $this->printJobService->queueForCompletedSession($photoSession, $user);
+            if (! $printedLocally) {
+                $this->printJobService->queueForCompletedSession($photoSession, $user);
+            }
 
             return $photoSession->load(['media', 'downloadAccess']);
         }
@@ -148,7 +149,9 @@ class PhotoSessionService
         ]);
 
         $this->ensureDownloadToken($photoSession);
-        $this->printJobService->queueForCompletedSession($photoSession, $user);
+        if (! $printedLocally) {
+            $this->printJobService->queueForCompletedSession($photoSession, $user);
+        }
 
         return $photoSession->fresh()->load(['media', 'downloadAccess']);
     }
