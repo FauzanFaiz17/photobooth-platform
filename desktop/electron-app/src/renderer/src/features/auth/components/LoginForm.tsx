@@ -39,7 +39,7 @@ export default function LoginForm({ initialMessage }: LoginFormProps): JSX.Eleme
         {/* CARD BODY: Layouting form dengan jarak (gap) yang solid */}
         <div className="p-2 flex flex-col gap-6">
           <div className="flex flex-col gap-2">
-            <Label className="font-bold text-[var(--foreground)] uppercase tracking-wide text-sm">
+            <Label className="font-bold text-(--foreground) uppercase tracking-wide text-sm">
               Email
             </Label>
 
@@ -49,7 +49,7 @@ export default function LoginForm({ initialMessage }: LoginFormProps): JSX.Eleme
               placeholder="Masukkan email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="bg-white border-[3px] border-[var(--border)] p-3 text-[var(--foreground)] font-semibold shadow-[4px_4px_0_0_var(--border)] focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-[2px_2px_0_0_var(--border)] transition-all rounded-none placeholder:text-[var(--muted-foreground)]"
+              className="bg-white border-[3px] border-(--border) p-3 text-(--foreground) font-semibold shadow-[4px_4px_0_0_var(--border)] focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-[2px_2px_0_0_var(--border)] transition-all rounded-none placeholder:text-[var(--muted-foreground)]"
             />
           </div>
 

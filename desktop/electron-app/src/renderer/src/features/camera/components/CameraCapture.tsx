@@ -7,6 +7,7 @@ import { useWebcam } from '../hooks/useWebcam'
 import { useCaptureSequence } from '../hooks/useCaptureSequence'
 import type { CapturedShot } from '@/store/sessionStore'
 import { loadTemplateOverlayDataUrl } from '@/features/template/services/composeTemplate'
+import { NeoButton } from '@/components/shared/button'
 
 interface CameraCaptureProps {
   totalShots: number
@@ -134,14 +135,16 @@ export default function CameraCapture({
       <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center text-white">
         <p className="max-w-md">{error}</p>
 
-        <Button onClick={retry}>Coba Lagi</Button>
+        <NeoButton onClick={retry} variant="secondary">
+          Coba Lagi
+        </NeoButton>
       </div>
     )
   }
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4">
-      <div className="relative overflow-hidden rounded-2xl bg-black shadow-xl">
+    <div className="flex flex-col items-center justify-center gap-4 overflow-y-hidden">
+      <div className="relative overflow-hidden rounded-2xl shadow-xl">
         <video
           ref={videoRef}
           autoPlay
@@ -151,7 +154,7 @@ export default function CameraCapture({
         />
 
         {stage === 'countdown' && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+          <div className="absolute inset-0 flex items-center justify-center ">
             {activeTemplateOverlay && (
               <img
                 src={activeTemplateOverlay}
@@ -167,7 +170,7 @@ export default function CameraCapture({
 
         {stage === 'flash' && <div className="absolute inset-0 animate-pulse bg-white/80" />}
 
-        <div className="absolute left-4 top-4 rounded-full bg-black/50 px-3 py-1 text-sm text-white">
+        <div className="absolute left-4 top-4 rounded-full bg-[--primary]/50 px-3 py-1 text-sm text-white">
           Foto {Math.min(currentShotIndex + 1, totalShots)} / {totalShots}
         </div>
       </div>
@@ -179,10 +182,10 @@ export default function CameraCapture({
           <img src={lastCaptured.dataUrl} className="h-48 rounded-lg" />
           <p>Foto {currentShotIndex + 1}: sudah sesuai?</p>
           <div className="flex gap-3">
-            <Button onClick={retakeCurrent} className="bg-slate-500">
+            <NeoButton onClick={retakeCurrent} variant='outlined'>
               Ulangi
-            </Button>
-            <Button onClick={handleContinue}>Lanjutkan</Button>
+            </NeoButton>
+            <NeoButton onClick={handleContinue}>Lanjutkan</NeoButton>
           </div>
         </div>
       )}
@@ -202,9 +205,9 @@ export default function CameraCapture({
       )}
 
       {stage === 'idle' && (
-        <Button onClick={start} className="px-8 py-3 text-lg">
+        <NeoButton onClick={start} className="px-8 py-3 text-lg">
           Mulai Ambil Foto
-        </Button>
+        </NeoButton>
       )}
 
       {stage === 'done' && <p className="text-white">Selesai! Menyiapkan preview...</p>}

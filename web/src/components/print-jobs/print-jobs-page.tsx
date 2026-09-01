@@ -1,59 +1,740 @@
-import { Ban, ChevronLeft, ChevronRight, CircleAlert, Eye, LoaderCircle, Printer, RefreshCw, RotateCcw, TriangleAlert } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
-import { toast } from "sonner"
+import {
+  Ban,
+  ChevronLeft,
+  ChevronRight,
+  CircleAlert,
+  Eye,
+  Info,
+  LoaderCircle,
+  Printer,
+  RefreshCw,
+  RotateCcw,
+  TriangleAlert,
+} from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactElement,
+} from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogMedia, AlertDialogTitle } from "@/components/ui/alert-dialog"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Toaster } from "@/components/ui/sonner"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { isSuperAdmin } from "@/features/auth/auth-access"
-import { useAuth } from "@/features/auth/auth-context"
-import { getPartners } from "@/features/partners/partner-service"
-import type { PartnerRecord } from "@/features/partners/partner.types"
-import { cancelPrintJob, getPrintJob, getPrintJobs, retryPrintJob } from "@/features/print-jobs/print-job-service"
-import { PRINT_JOB_STATUSES, isPrintJobStatus, type PrintJobListResponse, type PrintJobRecord, type PrintJobStatus } from "@/features/print-jobs/print-job.types"
-import { getPrinters } from "@/features/printers/printer-service"
-import type { PrinterRecord } from "@/features/printers/printer.types"
-import { ApiError } from "@/lib/api-client"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Toaster } from "@/components/ui/sonner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { isSuperAdmin } from "@/features/auth/auth-access";
+import { useAuth } from "@/features/auth/auth-context";
+import { getPartners } from "@/features/partners/partner-service";
+import type { PartnerRecord } from "@/features/partners/partner.types";
+import {
+  cancelPrintJob,
+  getPrintJob,
+  getPrintJobs,
+  retryPrintJob,
+} from "@/features/print-jobs/print-job-service";
+import {
+  PRINT_JOB_STATUSES,
+  isPrintJobStatus,
+  type PrintJobListResponse,
+  type PrintJobRecord,
+  type PrintJobStatus,
+} from "@/features/print-jobs/print-job.types";
+import { getPrinters } from "@/features/printers/printer-service";
+import type { PrinterRecord } from "@/features/printers/printer.types";
+import { ApiError } from "@/lib/api-client";
 
-const labels: Record<PrintJobStatus, string> = { queued: "Queued", printing: "Printing", success: "Success", failed: "Failed", cancelled: "Cancelled" }
-const variants: Record<PrintJobStatus, "default" | "secondary" | "destructive" | "outline"> = { queued: "secondary", printing: "default", success: "default", failed: "destructive", cancelled: "outline" }
-function positive(value: string | null, fallback: number): number { const parsed = Number(value); return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback }
-function date(value: string | null): string { return value ? new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—" }
-
-function DetailDialog({ job, onClose, onUnauthorized, onForbidden }: { readonly job: PrintJobRecord; readonly onClose: () => void; readonly onUnauthorized: () => void; readonly onForbidden: () => void }): ReactElement {
-  const { token } = useAuth(); const [detail, setDetail] = useState<PrintJobRecord | null>(null); const [error, setError] = useState("")
-  useEffect(() => { if (!token) return; const controller = new AbortController(); getPrintJob(token, job.id).then(setDetail).catch((caught: unknown) => { if (caught instanceof ApiError && caught.status === 401) return onUnauthorized(); if (caught instanceof ApiError && caught.status === 403) return onForbidden(); setError(caught instanceof ApiError ? caught.message : "Tidak dapat terhubung ke server.") }); return () => controller.abort() }, [job.id, onForbidden, onUnauthorized, token])
-  const item = detail ?? job
-  return <Dialog open onOpenChange={(open) => !open && onClose()}><DialogContent><DialogHeader><DialogTitle>Print Job #{item.id}</DialogTitle><DialogDescription>Photo Session #{item.photo_session_id}</DialogDescription></DialogHeader>{error ? <p role="alert" className="text-sm text-destructive">{error}</p> : <dl className="grid gap-4 sm:grid-cols-2"><div><dt className="text-xs text-muted-foreground">Status</dt><dd className="mt-1"><Badge variant={variants[item.status]}>{labels[item.status]}</Badge></dd></div><div><dt className="text-xs text-muted-foreground">Printer</dt><dd className="mt-1 font-medium">{item.printer?.name ?? `Printer #${item.printer_id}`}</dd></div><div><dt className="text-xs text-muted-foreground">Salinan</dt><dd className="mt-1 font-medium">{item.copies}</dd></div><div><dt className="text-xs text-muted-foreground">Durasi</dt><dd className="mt-1 font-medium">{item.duration_ms === null ? "—" : `${item.duration_ms} ms`}</dd></div><div><dt className="text-xs text-muted-foreground">Queued</dt><dd className="mt-1 font-medium">{date(item.queued_at)}</dd></div><div><dt className="text-xs text-muted-foreground">Selesai</dt><dd className="mt-1 font-medium">{date(item.finished_at)}</dd></div>{item.error_log && <div className="sm:col-span-2"><dt className="text-xs text-muted-foreground">Detail error</dt><dd className="mt-1 whitespace-pre-wrap rounded-md border border-destructive/30 bg-destructive/5 p-3 font-mono text-xs text-destructive">{item.error_log}</dd></div>}</dl>}<DialogFooter><Button variant="outline" onClick={onClose}>Tutup</Button></DialogFooter></DialogContent></Dialog>
+const labels: Record<PrintJobStatus, string> = {
+  queued: "Queued",
+  printing: "Printing",
+  success: "Success",
+  failed: "Failed",
+  cancelled: "Cancelled",
+};
+const variants: Record<
+  PrintJobStatus,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  queued: "secondary",
+  printing: "default",
+  success: "default",
+  failed: "destructive",
+  cancelled: "outline",
+};
+function positive(value: string | null, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+function date(value: string | null): string {
+  return value
+    ? new Intl.DateTimeFormat("id-ID", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(value))
+    : "—";
 }
 
-function ActionDialog({ job, onClose, onDone, onUnauthorized, onForbidden }: { readonly job: PrintJobRecord; readonly onClose: () => void; readonly onDone: (job: PrintJobRecord) => void; readonly onUnauthorized: () => void; readonly onForbidden: () => void }): ReactElement {
-  const { token } = useAuth(); const [pending, setPending] = useState(false); const [error, setError] = useState(""); const retry = job.status === "failed"
-  async function confirm(): Promise<void> { if (!token || pending) return; setPending(true); setError(""); try { const saved = retry ? await retryPrintJob(token, job.id) : await cancelPrintJob(token, job.id); onDone(saved); onClose() } catch (caught: unknown) { if (caught instanceof ApiError && caught.status === 401) return onUnauthorized(); if (caught instanceof ApiError && caught.status === 403) return onForbidden(); setError(caught instanceof ApiError ? caught.validationErrors.status?.[0] ?? caught.message : "Tidak dapat terhubung ke server.") } finally { setPending(false) } }
-  return <AlertDialog open onOpenChange={(open) => !open && !pending && onClose()}><AlertDialogContent><AlertDialogHeader><AlertDialogMedia className={retry ? "" : "bg-destructive/10 text-destructive"}>{retry ? <RotateCcw aria-hidden="true" /> : <TriangleAlert aria-hidden="true" />}</AlertDialogMedia><AlertDialogTitle>{retry ? "Retry Print Job?" : "Batalkan Print Job?"}</AlertDialogTitle><AlertDialogDescription>{retry ? `Print Job #${job.id} akan kembali ke antrean.` : `Print Job #${job.id} akan dibatalkan dan tidak dicetak.`}</AlertDialogDescription></AlertDialogHeader>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}<AlertDialogFooter><AlertDialogCancel disabled={pending}>Kembali</AlertDialogCancel><AlertDialogAction variant={retry ? "default" : "destructive"} disabled={pending} onClick={() => void confirm()}>{pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}{retry ? "Retry" : "Batalkan job"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+function DetailDialog({
+  job,
+  onClose,
+  onUnauthorized,
+  onForbidden,
+}: {
+  readonly job: PrintJobRecord;
+  readonly onClose: () => void;
+  readonly onUnauthorized: () => void;
+  readonly onForbidden: () => void;
+}): ReactElement {
+  const { token } = useAuth();
+  const [detail, setDetail] = useState<PrintJobRecord | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+    getPrintJob(token, job.id)
+      .then(setDetail)
+      .catch((caught: unknown) => {
+        if (caught instanceof ApiError && caught.status === 401)
+          return onUnauthorized();
+        if (caught instanceof ApiError && caught.status === 403)
+          return onForbidden();
+        setError(
+          caught instanceof ApiError
+            ? caught.message
+            : "Tidak dapat terhubung ke server.",
+        );
+      });
+    return () => controller.abort();
+  }, [job.id, onForbidden, onUnauthorized, token]);
+  const item = detail ?? job;
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Print Job #{item.id}</DialogTitle>
+          <DialogDescription>
+            Photo Session #{item.photo_session_id}
+          </DialogDescription>
+        </DialogHeader>
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : (
+          <dl className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs text-muted-foreground">Status</dt>
+              <dd className="mt-1">
+                <Badge variant={variants[item.status]}>
+                  {labels[item.status]}
+                </Badge>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Printer</dt>
+              <dd className="mt-1 font-medium">
+                {item.printer?.name ?? `Printer #${item.printer_id}`}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Salinan</dt>
+              <dd className="mt-1 font-medium">{item.copies}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Durasi</dt>
+              <dd className="mt-1 font-medium">
+                {item.duration_ms === null ? "—" : `${item.duration_ms} ms`}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Queued</dt>
+              <dd className="mt-1 font-medium">{date(item.queued_at)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Selesai</dt>
+              <dd className="mt-1 font-medium">{date(item.finished_at)}</dd>
+            </div>
+            {item.error_log && (
+              <div className="sm:col-span-2">
+                <dt className="text-xs text-muted-foreground">Detail error</dt>
+                <dd className="mt-1 whitespace-pre-wrap rounded-md border border-destructive/30 bg-destructive/5 p-3 font-mono text-xs text-destructive">
+                  {item.error_log}
+                </dd>
+              </div>
+            )}
+          </dl>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Tutup
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ActionDialog({
+  job,
+  onClose,
+  onDone,
+  onUnauthorized,
+  onForbidden,
+}: {
+  readonly job: PrintJobRecord;
+  readonly onClose: () => void;
+  readonly onDone: (job: PrintJobRecord) => void;
+  readonly onUnauthorized: () => void;
+  readonly onForbidden: () => void;
+}): ReactElement {
+  const { token } = useAuth();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const retry = job.status === "failed";
+  async function confirm(): Promise<void> {
+    if (!token || pending) return;
+    setPending(true);
+    setError("");
+    try {
+      const saved = retry
+        ? await retryPrintJob(token, job.id)
+        : await cancelPrintJob(token, job.id);
+      onDone(saved);
+      onClose();
+    } catch (caught: unknown) {
+      if (caught instanceof ApiError && caught.status === 401)
+        return onUnauthorized();
+      if (caught instanceof ApiError && caught.status === 403)
+        return onForbidden();
+      setError(
+        caught instanceof ApiError
+          ? (caught.validationErrors.status?.[0] ?? caught.message)
+          : "Tidak dapat terhubung ke server.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+  return (
+    <AlertDialog open onOpenChange={(open) => !open && !pending && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogMedia
+            className={retry ? "" : "bg-destructive/10 text-destructive"}
+          >
+            {retry ? (
+              <RotateCcw aria-hidden="true" />
+            ) : (
+              <TriangleAlert aria-hidden="true" />
+            )}
+          </AlertDialogMedia>
+          <AlertDialogTitle>
+            {retry ? "Retry Print Job?" : "Batalkan Print Job?"}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {retry
+              ? `Print Job #${job.id} akan kembali ke antrean.`
+              : `Print Job #${job.id} akan dibatalkan dan tidak dicetak.`}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={pending}>Kembali</AlertDialogCancel>
+          <AlertDialogAction
+            variant={retry ? "default" : "destructive"}
+            disabled={pending}
+            onClick={() => void confirm()}
+          >
+            {pending && (
+              <LoaderCircle className="animate-spin" aria-hidden="true" />
+            )}
+            {retry ? "Retry" : "Batalkan job"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
 }
 
 export function PrintJobsPage(): ReactElement {
-  const navigate = useNavigate(); const [params, setParams] = useSearchParams(); const { token, user, logout } = useAuth(); const superAdmin = isSuperAdmin(user)
-  const page = positive(params.get("page"), 1); const statusParam = params.get("status"); const status = isPrintJobStatus(statusParam) ? statusParam : undefined; const partnerId = positive(params.get("partner_id"), 0); const printerId = positive(params.get("printer_id"), 0)
-  const [response, setResponse] = useState<PrintJobListResponse | null>(null); const [partners, setPartners] = useState<ReadonlyArray<PartnerRecord>>([]); const [printers, setPrinters] = useState<ReadonlyArray<PrinterRecord>>([]); const [state, setState] = useState<"loading" | "success" | "error">("loading"); const [error, setError] = useState(""); const [retryKey, setRetryKey] = useState(0); const [detail, setDetail] = useState<PrintJobRecord | null>(null); const [action, setAction] = useState<PrintJobRecord | null>(null)
-  const update = useCallback((values: Readonly<Record<string, string | null>>) => setParams((current) => {
-    const next = new URLSearchParams(current)
-    for (const [key, value] of Object.entries(values)) {
-      if (value) next.set(key, value)
-      else next.delete(key)
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const { token, user, logout } = useAuth();
+  const superAdmin = isSuperAdmin(user);
+  const page = positive(params.get("page"), 1);
+  const statusParam = params.get("status");
+  const status = isPrintJobStatus(statusParam) ? statusParam : undefined;
+  const partnerId = positive(params.get("partner_id"), 0);
+  const printerId = positive(params.get("printer_id"), 0);
+  const [response, setResponse] = useState<PrintJobListResponse | null>(null);
+  const [partners, setPartners] = useState<ReadonlyArray<PartnerRecord>>([]);
+  const [printers, setPrinters] = useState<ReadonlyArray<PrinterRecord>>([]);
+  const [state, setState] = useState<"loading" | "success" | "error">(
+    "loading",
+  );
+  const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
+  const [detail, setDetail] = useState<PrintJobRecord | null>(null);
+  const [action, setAction] = useState<PrintJobRecord | null>(null);
+  const update = useCallback(
+    (values: Readonly<Record<string, string | null>>) =>
+      setParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          for (const [key, value] of Object.entries(values)) {
+            if (value) next.set(key, value);
+            else next.delete(key);
+          }
+          return next;
+        },
+        { replace: true },
+      ),
+    [setParams],
+  );
+  const unauthorized = useCallback(async () => {
+    await logout();
+    navigate("/login", { replace: true });
+  }, [logout, navigate]);
+  const forbidden = useCallback(
+    () =>
+      navigate("/admin/forbidden", {
+        replace: true,
+        state: { from: "/print-jobs" },
+      }),
+    [navigate],
+  );
+  useEffect(() => {
+    if (!token) return;
+    const accessToken = token;
+    const controller = new AbortController();
+    async function load(): Promise<void> {
+      setState("loading");
+      setError("");
+      try {
+        const [jobs, partnerResult, printerResult] = await Promise.all([
+          getPrintJobs(
+            accessToken,
+            {
+              partner_id: partnerId || undefined,
+              printer_id: printerId || undefined,
+              status,
+              per_page: 10,
+              page,
+            },
+            controller.signal,
+          ),
+          superAdmin
+            ? getPartners(accessToken, { per_page: 100 }, controller.signal)
+            : Promise.resolve(null),
+          getPrinters(
+            accessToken,
+            { partner_id: partnerId || undefined, per_page: 100 },
+            controller.signal,
+          ),
+        ]);
+        if (controller.signal.aborted) return;
+        if (page > Math.max(1, jobs.meta.last_page)) {
+          update({
+            page: jobs.meta.last_page > 1 ? String(jobs.meta.last_page) : null,
+          });
+          return;
+        }
+        setResponse(jobs);
+        setPartners(partnerResult?.data ?? []);
+        setPrinters(printerResult.data);
+        setState("success");
+      } catch (caught: unknown) {
+        if (controller.signal.aborted) return;
+        if (caught instanceof ApiError && caught.status === 401)
+          return void unauthorized();
+        if (caught instanceof ApiError && caught.status === 403)
+          return forbidden();
+        setResponse(null);
+        setError(
+          caught instanceof ApiError
+            ? caught.message
+            : "Tidak dapat terhubung ke server.",
+        );
+        setState("error");
+      }
     }
-    return next
-  }, { replace: true }), [setParams])
-  const unauthorized = useCallback(async () => { await logout(); navigate("/login", { replace: true }) }, [logout, navigate]); const forbidden = useCallback(() => navigate("/admin/forbidden", { replace: true, state: { from: "/print-jobs" } }), [navigate])
-  useEffect(() => { if (!token) return; const accessToken = token; const controller = new AbortController(); async function load(): Promise<void> { setState("loading"); setError(""); try { const [jobs, partnerResult, printerResult] = await Promise.all([getPrintJobs(accessToken, { partner_id: partnerId || undefined, printer_id: printerId || undefined, status, per_page: 10, page }, controller.signal), superAdmin ? getPartners(accessToken, { per_page: 100 }, controller.signal) : Promise.resolve(null), getPrinters(accessToken, { partner_id: partnerId || undefined, per_page: 100 }, controller.signal)]); if (controller.signal.aborted) return; if (page > Math.max(1, jobs.meta.last_page)) { update({ page: jobs.meta.last_page > 1 ? String(jobs.meta.last_page) : null }); return } setResponse(jobs); setPartners(partnerResult?.data ?? []); setPrinters(printerResult.data); setState("success") } catch (caught: unknown) { if (controller.signal.aborted) return; if (caught instanceof ApiError && caught.status === 401) return void unauthorized(); if (caught instanceof ApiError && caught.status === 403) return forbidden(); setResponse(null); setError(caught instanceof ApiError ? caught.message : "Tidak dapat terhubung ke server."); setState("error") } } void load(); return () => controller.abort() }, [forbidden, page, partnerId, printerId, retryKey, status, superAdmin, token, unauthorized, update])
-  const counts = useMemo(() => { const rows = response?.data ?? []; return Object.fromEntries(PRINT_JOB_STATUSES.map((item) => [item, rows.filter((job) => job.status === item).length])) as Record<PrintJobStatus, number> }, [response]); const filtered = Boolean(status || partnerId || printerId)
-  return <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8"><header><h1 className="text-3xl font-semibold tracking-tight">Print Jobs</h1><p className="mt-1 text-sm text-muted-foreground">Pantau antrean dan hasil cetak dari printer fisik.</p></header>{state === "loading" && <><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">{PRINT_JOB_STATUSES.map((item) => <Skeleton key={item} className="h-24" />)}</div><Skeleton className="h-96" /></>}{state === "error" && <Card><CardContent className="grid min-h-64 place-items-center text-center"><div><CircleAlert className="mx-auto size-10 text-destructive" /><p className="mt-3 font-medium">Print Jobs gagal dimuat</p><p className="mt-1 text-sm text-muted-foreground">{error}</p><Button className="mt-4" variant="outline" onClick={() => setRetryKey((value) => value + 1)}><RefreshCw aria-hidden="true" /> Coba lagi</Button></div></CardContent></Card>}{state === "success" && <><section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">{PRINT_JOB_STATUSES.map((item) => <Card key={item}><CardHeader className="pb-2"><CardTitle className="text-xs uppercase text-muted-foreground">{labels[item]}</CardTitle></CardHeader><CardContent><p className="text-2xl font-semibold tabular-nums">{counts[item]}</p><p className="text-xs text-muted-foreground">pada halaman ini</p></CardContent></Card>)}</section><Card><CardHeader className="gap-4 border-b"><div><CardTitle>Antrean Cetak</CardTitle><CardDescription>Filter diproses oleh backend. Pembuatan manual ditunda sampai Photo Session dapat dipilih dari dashboard.</CardDescription></div><div className={`grid gap-3 ${superAdmin ? "lg:grid-cols-[repeat(3,minmax(12rem,1fr))_auto]" : "lg:grid-cols-[repeat(2,minmax(12rem,1fr))_auto]"}`}>{superAdmin && <Select value={partnerId ? String(partnerId) : "all"} onValueChange={(value) => value && update({ partner_id: value === "all" ? null : value, printer_id: null, page: null })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Semua Partner</SelectItem>{partners.map((partner) => <SelectItem key={partner.id} value={String(partner.id)}>{partner.brand_name || partner.company_name}</SelectItem>)}</SelectContent></Select>}<Select value={printerId ? String(printerId) : "all"} onValueChange={(value) => value && update({ printer_id: value === "all" ? null : value, page: null })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Semua Printer</SelectItem>{printers.map((printer) => <SelectItem key={printer.id} value={String(printer.id)}>{printer.name}</SelectItem>)}</SelectContent></Select><Select value={status ?? "all"} onValueChange={(value) => value && update({ status: value === "all" ? null : value, page: null })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Semua Status</SelectItem>{PRINT_JOB_STATUSES.map((item) => <SelectItem key={item} value={item}>{labels[item]}</SelectItem>)}</SelectContent></Select><Button variant="ghost" disabled={!filtered} onClick={() => setParams(new URLSearchParams(), { replace: true })}>Reset</Button></div></CardHeader><CardContent className="px-0">{!response?.data.length ? <div className="grid min-h-64 place-items-center text-center"><div><Printer className="mx-auto size-10 text-muted-foreground" /><p className="mt-3 font-medium">{filtered ? "Print Job tidak ditemukan" : "Belum ada Print Job"}</p></div></div> : <><Table><TableHeader><TableRow><TableHead>Job</TableHead>{superAdmin && <TableHead>Partner</TableHead>}<TableHead>Printer</TableHead><TableHead>Photo Session</TableHead><TableHead>Salinan</TableHead><TableHead>Status</TableHead><TableHead>Queued</TableHead><TableHead className="text-right">Aksi</TableHead></TableRow></TableHeader><TableBody>{response.data.map((job) => <TableRow key={job.id}><TableCell className="font-mono">#{job.id}</TableCell>{superAdmin && <TableCell>{partners.find((partner) => partner.id === job.partner_id)?.company_name ?? `Partner #${job.partner_id}`}</TableCell>}<TableCell>{job.printer?.name ?? `Printer #${job.printer_id}`}</TableCell><TableCell className="font-mono">#{job.photo_session_id}</TableCell><TableCell>{job.copies}</TableCell><TableCell><Badge variant={variants[job.status]}>{labels[job.status]}</Badge></TableCell><TableCell>{date(job.queued_at)}</TableCell><TableCell><div className="flex justify-end gap-1"><Button size="icon-sm" variant="ghost" aria-label={`Detail Print Job ${job.id}`} onClick={() => setDetail(job)}><Eye aria-hidden="true" /></Button>{job.status === "queued" && <Button size="icon-sm" variant="ghost" aria-label={`Batalkan Print Job ${job.id}`} onClick={() => setAction(job)}><Ban aria-hidden="true" /></Button>}{job.status === "failed" && <Button size="icon-sm" variant="ghost" aria-label={`Retry Print Job ${job.id}`} onClick={() => setAction(job)}><RotateCcw aria-hidden="true" /></Button>}</div></TableCell></TableRow>)}</TableBody></Table><div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 pt-4"><p className="text-sm text-muted-foreground">{response.meta.from ?? 0}–{response.meta.to ?? 0} dari {response.meta.total} Print Job</p><div className="flex gap-2"><Button size="sm" variant="outline" disabled={page <= 1} onClick={() => update({ page: page - 1 === 1 ? null : String(page - 1) })}><ChevronLeft aria-hidden="true" /> Sebelumnya</Button><Button size="sm" variant="outline" disabled={page >= response.meta.last_page} onClick={() => update({ page: String(page + 1) })}>Berikutnya <ChevronRight aria-hidden="true" /></Button></div></div></>}</CardContent></Card></>}{detail && <DetailDialog job={detail} onClose={() => setDetail(null)} onUnauthorized={() => void unauthorized()} onForbidden={forbidden} />}{action && <ActionDialog job={action} onClose={() => setAction(null)} onDone={(saved) => { toast.success(saved.status === "queued" ? `Print Job #${saved.id} kembali ke antrean.` : `Print Job #${saved.id} dibatalkan.`); setRetryKey((value) => value + 1) }} onUnauthorized={() => void unauthorized()} onForbidden={forbidden} />}<Toaster position="top-right" /></div>
+    void load();
+    return () => controller.abort();
+  }, [
+    forbidden,
+    page,
+    partnerId,
+    printerId,
+    retryKey,
+    status,
+    superAdmin,
+    token,
+    unauthorized,
+    update,
+  ]);
+  const counts = useMemo(() => {
+    const rows = response?.data ?? [];
+    return Object.fromEntries(
+      PRINT_JOB_STATUSES.map((item) => [
+        item,
+        rows.filter((job) => job.status === item).length,
+      ]),
+    ) as Record<PrintJobStatus, number>;
+  }, [response]);
+  const filtered = Boolean(status || partnerId || printerId);
+  return (
+    <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
+      <header>
+        <h1 className="text-3xl font-semibold tracking-tight">Print Jobs</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Pantau antrean dan hasil cetak dari printer fisik.
+        </p>
+      </header>
+      {/* ponytail: printed_locally hanya flag request dan tidak disimpan backend, jadi cetak lokal tak bisa dihitung. Ganti catatan ini dengan kolom sumber begitu photo_sessions menyimpan flag tersebut. */}
+      <Alert role="note">
+        <Info aria-hidden="true" />
+        <AlertTitle>Cetak lokal kiosk tidak masuk antrean</AlertTitle>
+        <AlertDescription>
+          Sesi yang dicetak langsung oleh aplikasi desktop tidak membuat Print
+          Job di backend, sehingga tidak muncul pada daftar maupun ringkasan
+          status di halaman ini.
+        </AlertDescription>
+      </Alert>
+      {state === "loading" && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            {PRINT_JOB_STATUSES.map((item) => (
+              <Skeleton key={item} className="h-24" />
+            ))}
+          </div>
+          <Skeleton className="h-96" />
+        </>
+      )}
+      {state === "error" && (
+        <Card>
+          <CardContent className="grid min-h-64 place-items-center text-center">
+            <div>
+              <CircleAlert className="mx-auto size-10 text-destructive" />
+              <p className="mt-3 font-medium">Print Jobs gagal dimuat</p>
+              <p className="mt-1 text-sm text-muted-foreground">{error}</p>
+              <Button
+                className="mt-4"
+                variant="outline"
+                onClick={() => setRetryKey((value) => value + 1)}
+              >
+                <RefreshCw aria-hidden="true" /> Coba lagi
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {state === "success" && (
+        <>
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            {PRINT_JOB_STATUSES.map((item) => (
+              <Card key={item}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs uppercase text-muted-foreground">
+                    {labels[item]}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-semibold tabular-nums">
+                    {counts[item]}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    pada halaman ini
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </section>
+          <Card>
+            <CardHeader className="gap-4 border-b">
+              <div>
+                <CardTitle>Antrean Cetak</CardTitle>
+                <CardDescription>
+                  Filter diproses oleh backend. Pembuatan manual ditunda sampai
+                  Photo Session dapat dipilih dari dashboard.
+                </CardDescription>
+              </div>
+              <div
+                className={`grid gap-3 ${superAdmin ? "lg:grid-cols-[repeat(3,minmax(12rem,1fr))_auto]" : "lg:grid-cols-[repeat(2,minmax(12rem,1fr))_auto]"}`}
+              >
+                {superAdmin && (
+                  <Select
+                    value={partnerId ? String(partnerId) : "all"}
+                    onValueChange={(value) =>
+                      value &&
+                      update({
+                        partner_id: value === "all" ? null : value,
+                        printer_id: null,
+                        page: null,
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Partner</SelectItem>
+                      {partners.map((partner) => (
+                        <SelectItem key={partner.id} value={String(partner.id)}>
+                          {partner.brand_name || partner.company_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <Select
+                  value={printerId ? String(printerId) : "all"}
+                  onValueChange={(value) =>
+                    value &&
+                    update({
+                      printer_id: value === "all" ? null : value,
+                      page: null,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Printer</SelectItem>
+                    {printers.map((printer) => (
+                      <SelectItem key={printer.id} value={String(printer.id)}>
+                        {printer.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={status ?? "all"}
+                  onValueChange={(value) =>
+                    value &&
+                    update({
+                      status: value === "all" ? null : value,
+                      page: null,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Status</SelectItem>
+                    {PRINT_JOB_STATUSES.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {labels[item]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="ghost"
+                  disabled={!filtered}
+                  onClick={() =>
+                    setParams(new URLSearchParams(), { replace: true })
+                  }
+                >
+                  Reset
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="px-0">
+              {!response?.data.length ? (
+                <div className="grid min-h-64 place-items-center text-center">
+                  <div>
+                    <Printer className="mx-auto size-10 text-muted-foreground" />
+                    <p className="mt-3 font-medium">
+                      {filtered
+                        ? "Print Job tidak ditemukan"
+                        : "Belum ada Print Job"}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Job</TableHead>
+                        {superAdmin && <TableHead>Partner</TableHead>}
+                        <TableHead>Printer</TableHead>
+                        <TableHead>Photo Session</TableHead>
+                        <TableHead>Salinan</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Queued</TableHead>
+                        <TableHead className="text-right">Aksi</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {response.data.map((job) => (
+                        <TableRow key={job.id}>
+                          <TableCell className="font-mono">#{job.id}</TableCell>
+                          {superAdmin && (
+                            <TableCell>
+                              {partners.find(
+                                (partner) => partner.id === job.partner_id,
+                              )?.company_name ?? `Partner #${job.partner_id}`}
+                            </TableCell>
+                          )}
+                          <TableCell>
+                            {job.printer?.name ?? `Printer #${job.printer_id}`}
+                          </TableCell>
+                          <TableCell className="font-mono">
+                            #{job.photo_session_id}
+                          </TableCell>
+                          <TableCell>{job.copies}</TableCell>
+                          <TableCell>
+                            <Badge variant={variants[job.status]}>
+                              {labels[job.status]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{date(job.queued_at)}</TableCell>
+                          <TableCell>
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                size="icon-sm"
+                                variant="ghost"
+                                aria-label={`Detail Print Job ${job.id}`}
+                                onClick={() => setDetail(job)}
+                              >
+                                <Eye aria-hidden="true" />
+                              </Button>
+                              {job.status === "queued" && (
+                                <Button
+                                  size="icon-sm"
+                                  variant="ghost"
+                                  aria-label={`Batalkan Print Job ${job.id}`}
+                                  onClick={() => setAction(job)}
+                                >
+                                  <Ban aria-hidden="true" />
+                                </Button>
+                              )}
+                              {job.status === "failed" && (
+                                <Button
+                                  size="icon-sm"
+                                  variant="ghost"
+                                  aria-label={`Retry Print Job ${job.id}`}
+                                  onClick={() => setAction(job)}
+                                >
+                                  <RotateCcw aria-hidden="true" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 pt-4">
+                    <p className="text-sm text-muted-foreground">
+                      {response.meta.from ?? 0}–{response.meta.to ?? 0} dari{" "}
+                      {response.meta.total} Print Job
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={page <= 1}
+                        onClick={() =>
+                          update({
+                            page: page - 1 === 1 ? null : String(page - 1),
+                          })
+                        }
+                      >
+                        <ChevronLeft aria-hidden="true" /> Sebelumnya
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={page >= response.meta.last_page}
+                        onClick={() => update({ page: String(page + 1) })}
+                      >
+                        Berikutnya <ChevronRight aria-hidden="true" />
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+      {detail && (
+        <DetailDialog
+          job={detail}
+          onClose={() => setDetail(null)}
+          onUnauthorized={() => void unauthorized()}
+          onForbidden={forbidden}
+        />
+      )}
+      {action && (
+        <ActionDialog
+          job={action}
+          onClose={() => setAction(null)}
+          onDone={(saved) => {
+            toast.success(
+              saved.status === "queued"
+                ? `Print Job #${saved.id} kembali ke antrean.`
+                : `Print Job #${saved.id} dibatalkan.`,
+            );
+            setRetryKey((value) => value + 1);
+          }}
+          onUnauthorized={() => void unauthorized()}
+          onForbidden={forbidden}
+        />
+      )}
+      <Toaster position="top-right" />
+    </div>
+  );
 }
