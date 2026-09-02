@@ -58,6 +58,10 @@ export async function getVouchers(token: string, filters: VoucherListFilters = {
   return payload
 }
 
+export async function getVoucher(token: string, voucherId: number, signal?: AbortSignal): Promise<VoucherRecord> {
+  return parseVoucher(await apiRequest(`/v1/vouchers/${voucherId}`, { signal }, token))
+}
+
 export async function issueVoucher(token: string, input: IssueVoucherInput): Promise<VoucherRecord> {
   return parseVoucher(await apiRequest("/v1/vouchers", { method: "POST", body: JSON.stringify(input) }, token))
 }

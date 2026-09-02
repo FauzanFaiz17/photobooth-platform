@@ -133,7 +133,7 @@ export default function PreviewPage(): JSX.Element | null {
       </div>
 
       <div className="mt-auto flex gap-4">
-        <NeoButton variant='outlined' onClick={handleRetake}>
+        <NeoButton variant="outlined" onClick={handleRetake}>
           Ambil Ulang
         </NeoButton>
 
