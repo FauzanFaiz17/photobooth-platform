@@ -8,7 +8,7 @@ import { useState } from 'react'
 import { createQrisPayment, getPayment, redeemVoucher } from '@/api/payment'
 import type { Payment } from '@/api/payment'
 import Alert from '@/components/ui/Alert'
-import Input from '@/components/ui/Input'
+import { NeoInput } from '@/components/shared/input'
 
 export default function PaymentPage(): JSX.Element | null {
   const navigate = useNavigate()
@@ -103,10 +103,11 @@ export default function PaymentPage(): JSX.Element | null {
           </NeoButton>
         </div>
         {method === 'voucher' && (
-          <Input
+          <NeoInput
             value={code}
             onChange={(event) => setCode(event.target.value.toUpperCase())}
             placeholder="Kode voucher"
+            className='mt-4'
           />
         )}
         {method === 'qris' && qrisPayment && (

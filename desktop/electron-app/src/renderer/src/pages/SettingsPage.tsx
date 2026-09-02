@@ -4,10 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import { getApiErrorMessage } from '@/api/axios'
 import { NeoButton } from '@/components/shared/button'
 import Alert from '@/components/ui/Alert'
-import Input from '@/components/ui/Input'
 import { verifyPassword } from '@/features/auth/api/auth'
 import { authService } from '@/features/auth/services/authService'
-import CameraTestPanel from '@/features/camera/components/CameraTestPanel'
+import { useWebcam } from '@/features/camera/hooks/useWebcam'
+import { NeoInput } from '@/components/shared/input'
 import {
   type AppSettings,
   DEFAULT_APP_SETTINGS,
@@ -213,10 +213,32 @@ function AppSettingsPanel({ onBack }: { onBack: () => void }): JSX.Element {
           />
         </section>
       </div>
+<<<<<<< HEAD
 
       {saved && <Alert type="success">Setting aplikasi berhasil disimpan.</Alert>}
       <div className="flex justify-between gap-3">
         <NeoButton variant="outlined" onClick={onBack}>
+=======
+      {devices.length > 1 && (
+        <select
+          value={activeDeviceId ?? ''}
+          onChange={(event) => selectDevice(event.target.value)}
+          className="border-4 border-[var(--border)] bg-[var(--surface)] px-3 py-3 font-bold text-[var(--foreground)] shadow-[var(--shadow-neo)] outline-none"
+        >
+          {devices.map((device) => (
+            <option key={device.deviceId} value={device.deviceId}>
+              {device.label}
+            </option>
+          ))}
+        </select>
+      )}
+      <div className="flex gap-3">
+        <NeoButton
+          variant="outlined"
+          onClick={onBack}
+          className="border-(--border) bg-(--surface) px-5 py-3 font-black text-(--foreground) shadow-(--shadow-neo) [transition:none] hover:bg-[var(--accent)]"
+        >
+>>>>>>> 434f641efcc3346a5a5bcbba76a9713e89a4de5e
           Kembali
         </NeoButton>
         <NeoButton onClick={() => void save()}>Simpan Setting</NeoButton>
@@ -350,7 +372,7 @@ export default function SettingsPage(): JSX.Element {
         <p className="text-sm font-semibold text-[var(--muted-foreground)]">
           Masukkan password operator yang sedang login.
         </p>
-        <Input
+        <NeoInput
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -376,7 +398,113 @@ export default function SettingsPage(): JSX.Element {
     )
   if (screen === 'camera') return <CameraTestPanel onBack={() => setScreen('menu')} />
   if (screen === 'printer') return <PrinterTest onBack={() => setScreen('menu')} />
+<<<<<<< HEAD
   if (screen === 'app') return <AppSettingsPanel onBack={() => setScreen('menu')} />
+=======
+  if (screen === 'countdown')
+    return (
+      <div className="mx-auto flex h-full w-full max-w-xl flex-col gap-6 bg-[var(--background)] p-5 text-[var(--foreground)] md:p-8">
+        <div>
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--danger)]">
+            02 / Camera timing
+          </p>
+          <h1 className="text-4xl font-black tracking-[-0.04em]">Countdown Foto</h1>
+          <p className="mt-2 font-semibold text-[var(--muted-foreground)]">
+            Waktu ini berlaku untuk pengambilan foto pada perangkat booth ini.
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {COUNTDOWN_OPTIONS.map((seconds) => (
+            <button
+              key={seconds}
+              type="button"
+              onClick={() => setCountdown(seconds)}
+              className={`min-h-24 border-4 border-[var(--border)] text-2xl font-black shadow-[var(--shadow-neo)] [transition:none] ${
+                countdown === seconds ? 'bg-[var(--primary)]' : 'bg-[var(--surface)]'
+              }`}
+            >
+              {seconds} detik
+            </button>
+          ))}
+        </div>
+        {saved && <Alert type="success">Countdown berhasil disimpan.</Alert>}
+        <div className="mt-auto flex gap-3">
+          <NeoButton variant="outlined" onClick={() => setScreen('menu')}>
+            Kembali
+          </NeoButton>
+          <NeoButton onClick={() => void saveCountdown()}>Simpan</NeoButton>
+        </div>
+      </div>
+    )
+  if (screen === 'home')
+    return (
+      <div className="mx-auto flex h-full w-full max-w-xl flex-col gap-5 bg-[var(--background)] p-5 text-[var(--foreground)] md:p-8">
+        <div>
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--danger)]">
+            01 / Home identity
+          </p>
+          <h1 className="text-4xl font-black tracking-[-0.04em]">Edit Home</h1>
+          <p className="mt-2 font-semibold text-[var(--muted-foreground)]">
+            Logo dan tulisan disimpan pada perangkat booth ini.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-4 border-4 border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-neo)]">
+          {home.logo ? (
+            <img src={home.logo} className="h-24 w-24 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-24 w-24 items-center justify-center border-4 border-[var(--border)] bg-[var(--accent)] font-black">
+              Logo
+            </div>
+          )}
+          <div className="flex gap-2">
+            <NeoButton
+              onClick={() => void chooseLogo()}
+              className="border-[var(--border)] bg-[var(--primary)] font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[#f2cc25]"
+            >
+              Pilih Logo
+            </NeoButton>
+            {home.logo && (
+              <NeoButton
+                variant="secondary"
+                onClick={() => setHome((current) => ({ ...current, logo: null }))}
+                className="border-[var(--border)] bg-[var(--secondary)] font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[#ff78a4]"
+              >
+                Hapus
+              </NeoButton>
+            )}
+          </div>
+        </div>
+        <NeoInput
+          value={home.title}
+          onChange={(event) => setHome((current) => ({ ...current, title: event.target.value }))}
+          placeholder="Judul halaman Start"
+          maxLength={100}
+        />
+        <NeoInput
+          value={home.subtitle}
+          onChange={(event) => setHome((current) => ({ ...current, subtitle: event.target.value }))}
+          placeholder="Keterangan singkat"
+          maxLength={150}
+        />
+        {saved && <Alert type="success">Tampilan Home berhasil disimpan.</Alert>}
+        <div className="mt-auto flex gap-3">
+          <NeoButton
+            variant="outlined"
+            onClick={() => setScreen('menu')}
+            className="border-[var(--border)] bg-[var(--surface)] font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--accent)]"
+          >
+            Kembali
+          </NeoButton>
+          <NeoButton
+            onClick={() => void saveHome()}
+            className="border-[var(--border)] bg-[var(--primary)] font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[#f2cc25]"
+          >
+            Simpan
+          </NeoButton>
+        </div>
+      </div>
+    )
+>>>>>>> 434f641efcc3346a5a5bcbba76a9713e89a4de5e
   return (
     <div className="flex h-full flex-col gap-6 bg-[var(--background)] p-5 text-[var(--foreground)] md:p-8">
       <div>
@@ -396,7 +524,21 @@ export default function SettingsPage(): JSX.Element {
         >
           <span className="text-xl font-black">Setting App</span>
           <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">
+<<<<<<< HEAD
             Atur tampilan home, timer sesi, QR, countdown, dan folder foto.
+=======
+            Pilih jeda 2, 3, atau 5 detik sebelum kamera mengambil foto.
+          </p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setScreen('home')}
+          className="border-4 border-(--border) bg-[var(--surface)] p-7 text-left shadow-(--shadow-neo) [transition:none] hover:bg-[var(--accent)]"
+        >
+          <span className="text-xl font-black">Edit Home</span>
+          <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">
+            Ubah logo, judul, dan keterangan halaman Start.
+>>>>>>> 434f641efcc3346a5a5bcbba76a9713e89a4de5e
           </p>
         </button>
         <button

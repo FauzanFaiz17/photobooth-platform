@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Input from '@/components/ui/Input'
 import Label from '@/components/ui/Label'
 import Alert from '@/components/ui/Alert'
 import { getApiErrorMessage } from '@/api/axios'
 import { useLogin } from '@/features/auth/hooks/useLogin'
 import { NeoButton } from '@/components/shared/button'
+import { NeoInput } from '@/components/shared/input'
 
 interface LoginFormProps {
   initialMessage?: string
@@ -37,19 +37,19 @@ export default function LoginForm({ initialMessage }: LoginFormProps): JSX.Eleme
       {/* CARD: Border tebal, warna surface, dan shadow variabel neo */}
       <div className="rounded-none">
         {/* CARD BODY: Layouting form dengan jarak (gap) yang solid */}
-        <div className="p-6 flex flex-col gap-6">
+        <div className="p-2 flex flex-col gap-6">
           <div className="flex flex-col gap-2">
-            <Label className="font-bold text-[var(--foreground)] uppercase tracking-wide text-sm">
+            <Label className="font-bold text-(--foreground) uppercase tracking-wide text-sm">
               Email
             </Label>
 
             {/* INPUT: Solid shadow, efek 'ditekan' saat focus */}
-            <Input
+            <NeoInput
               type="email"
               placeholder="Masukkan email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="bg-white border-[3px] border-[var(--border)] p-3 text-[var(--foreground)] font-semibold shadow-[4px_4px_0_0_var(--border)] focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-[2px_2px_0_0_var(--border)] transition-all rounded-none placeholder:text-[var(--muted-foreground)]"
+              className="bg-white border-[3px] border-(--border) p-3 text-(--foreground) font-semibold shadow-[4px_4px_0_0_var(--border)] focus:outline-none focus:translate-x-[2px] focus:translate-y-[2px] focus:shadow-[2px_2px_0_0_var(--border)] transition-all rounded-none placeholder:text-[var(--muted-foreground)]"
             />
           </div>
 
@@ -58,7 +58,7 @@ export default function LoginForm({ initialMessage }: LoginFormProps): JSX.Eleme
               Password
             </Label>
 
-            <Input
+            <NeoInput
               type="password"
               placeholder="Masukkan password"
               value={password}

@@ -10,6 +10,9 @@ import { useSessionStore } from '@/store/sessionStore'
 export default function WelcomePage(): JSX.Element {
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.user)
+  const device = useDeviceStore((state) => state.device)
+  const partnerName = user?.partner?.company_name ?? 'Kolase Photobooth'
+  const name = user?.name ?? 'Kolase'
   const beginEvent = useSessionStore((state) => state.beginEvent)
   const [home, setHome] = useState<{ title?: string; subtitle?: string; logo?: string } | null>(
     null
@@ -32,6 +35,10 @@ export default function WelcomePage(): JSX.Element {
     }
   }
 
+<<<<<<< HEAD
+=======
+  const title = home?.title || `Selamat Datang di ${partnerName}`
+>>>>>>> 434f641efcc3346a5a5bcbba76a9713e89a4de5e
   return (
     <main className="relative -m-5 flex h-[calc(100%+2.5rem)] min-h-[520px] flex-col overflow-hidden bg-(--background) md:-m-8 md:h-[calc(100%+4rem)]">
       <div className="absolute left-5 top-5 flex max-w-lg items-center gap-4 text-white drop-shadow-lg md:left-8 md:top-8">

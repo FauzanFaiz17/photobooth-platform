@@ -104,7 +104,7 @@ export default function TemplatePage(): JSX.Element | null {
         <Alert type="warning">{syncError ?? 'Sesi berjalan dengan penyimpanan lokal.'}</Alert>
       )}
       <NeoButton
-        onClick={() => navigate('/dashboard')}
+        onClick={() => navigate('/welcome')}
         variant="outlined"
         className="mr-auto [transition:none]"
       >

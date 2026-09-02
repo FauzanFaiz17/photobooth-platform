@@ -154,7 +154,7 @@ function createWindow(): void {
     show: false,
     frame: false,
     fullscreen: true,
-    kiosk: true,
+    kiosk: !is.dev,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
