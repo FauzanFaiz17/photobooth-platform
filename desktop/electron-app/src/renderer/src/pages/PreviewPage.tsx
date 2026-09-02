@@ -8,6 +8,7 @@ import { createSessionGif } from '@/features/gif/services/createSessionGif'
 import { composeTemplateImage } from '@/features/template/services/composeTemplate'
 
 import { useSessionStore } from '@/store/sessionStore'
+import { NeoButton } from '@/components/shared/button'
 
 export default function PreviewPage(): JSX.Element | null {
   const navigate = useNavigate()
@@ -132,13 +133,13 @@ export default function PreviewPage(): JSX.Element | null {
       </div>
 
       <div className="mt-auto flex gap-4">
-        <Button onClick={handleRetake} className="bg-slate-500 hover:bg-slate-600">
+        <NeoButton variant='outlined' onClick={handleRetake}>
           Ambil Ulang
-        </Button>
+        </NeoButton>
 
-        <Button onClick={handleConfirm} disabled={!composedImage || !animatedGif || composing}>
+        <NeoButton onClick={handleConfirm} disabled={!composedImage || !animatedGif || composing}>
           Pilih Filter Print
-        </Button>
+        </NeoButton>
       </div>
     </div>
   )
