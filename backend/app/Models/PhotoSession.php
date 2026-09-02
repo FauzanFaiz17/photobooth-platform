@@ -18,6 +18,7 @@ class PhotoSession extends Model
         'customer_id',
         'payment_id',
         'download_token',
+        'folder_slug',
         'status',
         'started_at',
         'completed_at'];

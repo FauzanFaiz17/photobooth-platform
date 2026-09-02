@@ -3,6 +3,7 @@
 namespace App\Services\Desktop;
 
 use App\Contracts\MediaStorage;
+use App\Jobs\SendGalleryLinkEmail;
 use App\Models\Customer;
 use App\Models\Device;
 use App\Models\DownloadToken;
@@ -22,7 +23,8 @@ class PhotoSessionService
     public function __construct(
         protected MediaStorage $storage,
         protected AuditService $auditService,
-        protected PrintJobService $printJobService
+        protected PrintJobService $printJobService,
+        protected SessionFolderService $folderService
     ) {}
 
     public function create(
@@ -44,6 +46,7 @@ class PhotoSessionService
                 'customer_id' => $data['customer_id'] ?? null,
                 'payment_id' => $data['payment_id'] ?? null,
                 'download_token' => Str::random(64),
+                'folder_slug' => null,
                 'status' => 'started',
             ]);
         });
@@ -82,10 +85,15 @@ class PhotoSessionService
             return $existingMedia;
         }
 
-        $scope = $photoSession->event_id
-            ? sprintf('partners/%d/events/%d/sessions/%d', $photoSession->partner_id, $photoSession->event_id, $photoSession->id)
-            : sprintf('partners/%d/sessions/%d', $photoSession->partner_id, $photoSession->id);
-        $objectKey = sprintf('%s/%s-%s', $scope, Str::uuid(), $data['filename']);
+        $folderPath = $this->folderService->folderPathFor($photoSession);
+
+        $folderSlug = last(explode('/', $folderPath));
+
+        if ($photoSession->folder_slug !== $folderSlug) {
+            $photoSession->forceFill(['folder_slug' => $folderSlug])->save();
+        }
+
+        $objectKey = sprintf('%s/%s-%s', $folderPath, Str::uuid(), $data['filename']);
 
         if (! $this->storage->put($objectKey, $binary)) {
             throw ValidationException::withMessages([
@@ -149,6 +157,12 @@ class PhotoSessionService
         ]);
 
         $this->ensureDownloadToken($photoSession);
+
+        // Queue the customer gallery link email when an email is known.
+        if ($photoSession->customer?->email) {
+            SendGalleryLinkEmail::dispatch($photoSession->id);
+        }
+
         if (! $printedLocally) {
             $this->printJobService->queueForCompletedSession($photoSession, $user);
         }

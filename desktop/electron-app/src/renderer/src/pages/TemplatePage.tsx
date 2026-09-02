@@ -7,6 +7,15 @@ import { NeoButton } from '@/components/shared/button'
 import { mapTemplateSnapshot } from '@/features/event/types'
 import { useSessionStore } from '@/store/sessionStore'
 
+function resolveTemplateAsset(path: string | null): string | null {
+  if (!path) return null
+  if (/^(data:|blob:|https?:)/i.test(path)) return path
+  const apiUrl = import.meta.env.VITE_API_URL as string | undefined
+  if (!apiUrl) return path
+  const base = new URL(apiUrl)
+  return new URL(`/storage/${path.replace(/^storage\//, '').replace(/^\//, '')}`, base.origin).toString()
+}
+
 export default function TemplatePage(): JSX.Element | null {
   const navigate = useNavigate()
   const configuration = useSessionStore((state) => state.eventConfiguration)
@@ -52,25 +61,24 @@ export default function TemplatePage(): JSX.Element | null {
         <div className="grid grid-cols-1 gap-6 overflow-auto pb-3 md:grid-cols-2 xl:grid-cols-3">
           {templates.map((item) => {
             const mapped = mapTemplateSnapshot(item)
+            const previewSource = resolveTemplateAsset(mapped.previewPath || mapped.thumbnailPath)
             return (
               <article
                 key={item.id}
                 className="border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo)"
               >
-                <div className="mb-4 flex min-h-56 items-center justify-center border-4 border-(--border) bg-[#202020] p-5">
-                  <div
-                    className="grid w-full max-w-47.5 gap-2 border-2 border-white/50 bg-white/5 p-2"
-                    style={{ gridTemplateColumns: mapped.layout === 'strip' ? '1fr' : '1fr 1fr' }}
-                  >
-                    {Array.from({ length: mapped.slots }).map((_, index) => (
-                      <div
-                        key={index}
-                        className="flex min-h-14 items-center justify-center border-2 border-white/40 bg-(--accent) text-sm font-black text-(--foreground)"
-                      >
-                        {index + 1}
-                      </div>
-                    ))}
-                  </div>
+                <div className="mb-4 flex min-h-56 items-center justify-center border-4 border-(--border) bg-[#202020] p-3">
+                  {previewSource ? (
+                    <img
+                      src={previewSource}
+                      alt={`Pratinjau ${mapped.name}`}
+                      className="max-h-72 w-full object-contain"
+                    />
+                  ) : (
+                    <div className="grid w-full max-w-47.5 gap-2 border-2 border-white/50 bg-white/5 p-2" style={{ gridTemplateColumns: mapped.layout === 'strip' ? '1fr' : '1fr 1fr' }}>
+                      {Array.from({ length: mapped.slots }).map((_, index) => <div key={index} className="flex min-h-14 items-center justify-center border-2 border-white/40 bg-(--accent) text-sm font-black text-(--foreground)">{index + 1}</div>)}
+                    </div>
+                  )}
                 </div>
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <p className="font-black">{mapped.name}</p>

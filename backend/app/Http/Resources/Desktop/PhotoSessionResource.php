@@ -20,13 +20,14 @@ class PhotoSessionResource extends JsonResource
             'payment_id' => $this->payment_id,
             'status' => $this->status,
             'download_token' => $this->download_token,
+            'folder_slug' => $this->folder_slug,
             'gallery' => $this->whenLoaded('downloadAccess', function () {
                 if (! $this->downloadAccess) {
                     return null;
                 }
 
                 return [
-                    'url' => route('gallery.show', $this->downloadAccess->token),
+                    'url' => rtrim(config('media.gallery_web_base_url'), '/').'/gallery/'.$this->downloadAccess->token,
                     'expires_at' => $this->downloadAccess->expires_at,
                 ];
             }),

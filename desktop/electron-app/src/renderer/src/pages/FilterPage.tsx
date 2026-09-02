@@ -17,6 +17,7 @@ export default function FilterPage(): JSX.Element | null {
   const filter = useSessionStore((state) => state.filter)
   const setFilter = useSessionStore((state) => state.setFilter)
   const setPrintImage = useSessionStore((state) => state.setPrintImage)
+  const stopSessionTimer = useSessionStore((state) => state.stopSessionTimer)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -49,13 +50,14 @@ export default function FilterPage(): JSX.Element | null {
         cssFilter: filter.cssFilter
       })
       setPrintImage(image)
+      stopSessionTimer()
       navigate('/finish')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Hasil khusus print tidak dapat dibuat.')
     } finally {
       setProcessing(false)
     }
-  }, [filter, navigate, setPrintImage, shots, template])
+  }, [filter, navigate, setPrintImage, shots, stopSessionTimer, template])
 
   if (!configuration || !template || shots.length === 0 || !composedImage || !filter) {
     return null

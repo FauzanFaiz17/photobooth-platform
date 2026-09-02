@@ -10,6 +10,11 @@ export interface RemotePhotoSession {
   id: number
   event_id: number | null
   status: 'started' | 'completed'
+  folder_slug?: string | null
+  gallery?: {
+    url: string
+    expires_at: string
+  } | null
 }
 
 export interface UploadedMedia {
@@ -51,6 +56,10 @@ export async function uploadSessionMedia(
   )
 
   return response.data.data
+}
+
+export function extractGalleryUrl(session: RemotePhotoSession | null): string | null {
+  return session?.gallery?.url ?? null
 }
 
 export async function completePhotoSession(

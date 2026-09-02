@@ -29,6 +29,7 @@ interface SessionState {
   shots: CapturedShot[]
   requiredShots: number
   remoteSessionId: number | null
+  galleryUrl: string | null
   syncStatus: SessionSyncStatus
   syncError: string | null
   localDirectory: string | null
@@ -39,8 +40,10 @@ interface SessionState {
   printedLocally: boolean
   animatedGif: AnimatedGif | null
   animatedGifUploaded: boolean
+  sessionDeadline: number | null
   beginEvent: (configuration: EventConfiguration) => void
   setRemoteSession: (sessionId: number | null) => void
+  setGalleryUrl: (url: string | null) => void
   setSyncStatus: (status: SessionSyncStatus, error?: string | null) => void
   setLocalDirectory: (directory: string) => void
   setUploadedShotCount: (count: number) => void
@@ -56,6 +59,8 @@ interface SessionState {
   setPrintSelection: (option: EventPrintOption, quantity: number) => void
   setPaymentId: (paymentId: number) => void
   setCustomerId: (customerId: number | null) => void
+  startSessionTimer: (minutes: number) => void
+  stopSessionTimer: () => void
   addShot: (shot: CapturedShot) => void
   resetShots: () => void
   resetTransaction: () => void
@@ -76,6 +81,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   shots: [],
   requiredShots: DEFAULT_REQUIRED_SHOTS,
   remoteSessionId: null,
+  galleryUrl: null,
   syncStatus: 'idle',
   syncError: null,
   localDirectory: null,
@@ -86,6 +92,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   printedLocally: false,
   animatedGif: null,
   animatedGifUploaded: false,
+  sessionDeadline: null,
 
   beginEvent: (configuration) => {
     const mappedTemplate = mapTemplateSnapshot(configuration.template)
@@ -112,6 +119,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       shots: [],
       requiredShots,
       remoteSessionId: null,
+      galleryUrl: null,
       syncStatus: 'creating',
       syncError: null,
       localDirectory: null,
@@ -121,11 +129,14 @@ export const useSessionStore = create<SessionState>((set) => ({
       printImage: null,
       printedLocally: false,
       animatedGif: null,
-      animatedGifUploaded: false
+      animatedGifUploaded: false,
+      sessionDeadline: null
     })
   },
 
   setRemoteSession: (remoteSessionId) => set({ remoteSessionId }),
+
+  setGalleryUrl: (galleryUrl) => set({ galleryUrl }),
 
   setSyncStatus: (syncStatus, syncError = null) => set({ syncStatus, syncError }),
 
@@ -156,6 +167,11 @@ export const useSessionStore = create<SessionState>((set) => ({
   setPrintSelection: (printOption, quantity) => set({ printOption, quantity }),
   setPaymentId: (paymentId) => set({ paymentId }),
   setCustomerId: (customerId) => set({ customerId }),
+  startSessionTimer: (minutes) =>
+    set((state) => ({
+      sessionDeadline: state.sessionDeadline ?? Date.now() + Math.max(1, minutes) * 60_000
+    })),
+  stopSessionTimer: () => set({ sessionDeadline: null }),
 
   addShot: (shot) =>
     set((state) => ({
@@ -187,6 +203,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       shots: [],
       requiredShots: DEFAULT_REQUIRED_SHOTS,
       remoteSessionId: null,
+      galleryUrl: null,
       syncStatus: 'idle',
       syncError: null,
       localDirectory: null,
@@ -196,7 +213,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       printImage: null,
       printedLocally: false,
       animatedGif: null,
-      animatedGifUploaded: false
+      animatedGifUploaded: false,
+      sessionDeadline: null
     })),
 
   reset: () =>
@@ -212,6 +230,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       shots: [],
       requiredShots: DEFAULT_REQUIRED_SHOTS,
       remoteSessionId: null,
+      galleryUrl: null,
       syncStatus: 'idle',
       syncError: null,
       localDirectory: null,
@@ -221,6 +240,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       printImage: null,
       printedLocally: false,
       animatedGif: null,
-      animatedGifUploaded: false
+      animatedGifUploaded: false,
+      sessionDeadline: null
     })
 }))

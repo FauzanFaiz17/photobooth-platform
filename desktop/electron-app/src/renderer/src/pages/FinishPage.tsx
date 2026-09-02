@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
+import QRCode from 'qrcode'
 
 import { getApiErrorMessage } from '@/api/axios'
 import { completePhotoSession, createPhotoSession, uploadSessionMedia } from '@/api/media'
 import Alert from '@/components/ui/Alert'
 import Button from '@/components/ui/Button'
-import { getPrinterSettings } from '@/features/settings/deviceSettings'
+import { getAppSettings, getPrinterSettings } from '@/features/settings/deviceSettings'
 import { useSessionStore } from '@/store/sessionStore'
-
-const AUTO_REDIRECT_SECONDS = 10
 
 export default function FinishPage(): JSX.Element {
   const navigate = useNavigate()
@@ -23,6 +22,8 @@ export default function FinishPage(): JSX.Element {
   const paperSize = useSessionStore((state) => state.paperSize)
   const quantity = useSessionStore((state) => state.quantity)
   const animatedGif = useSessionStore((state) => state.animatedGif)
+  const galleryUrl = useSessionStore((state) => state.galleryUrl)
+  const setGalleryUrl = useSessionStore((state) => state.setGalleryUrl)
   const resetTransaction = useSessionStore((state) => state.resetTransaction)
   const setLocalDirectory = useSessionStore((state) => state.setLocalDirectory)
   const setRemoteSession = useSessionStore((state) => state.setRemoteSession)
@@ -31,8 +32,10 @@ export default function FinishPage(): JSX.Element {
   const setComposedImageUploaded = useSessionStore((state) => state.setComposedImageUploaded)
   const setAnimatedGifUploaded = useSessionStore((state) => state.setAnimatedGifUploaded)
   const setPrintedLocally = useSessionStore((state) => state.setPrintedLocally)
-  const [secondsLeft, setSecondsLeft] = useState(AUTO_REDIRECT_SECONDS)
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
+  const [qrTimerSeconds, setQrTimerSeconds] = useState<number | null>(null)
   const [processing, setProcessing] = useState(true)
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const startedRef = useRef(false)
 
   const finalizeSession = useCallback(async (): Promise<void> => {
@@ -57,10 +60,12 @@ export default function FinishPage(): JSX.Element {
 
     if (!currentDirectory) {
       try {
+        const appSettings = await getAppSettings()
         const saved = await window.session.saveWebcamShots(
           shots.map((shot) => shot.dataUrl),
           composedImage.dataUrl,
-          animatedGif.dataUrl
+          animatedGif.dataUrl,
+          appSettings.storageDirectory
         )
         currentDirectory = saved.directory
         setLocalDirectory(saved.directory)
@@ -141,7 +146,9 @@ export default function FinishPage(): JSX.Element {
         setPrintedLocally(true)
       }
 
-      await completePhotoSession(sessionId, printAccepted)
+      await completePhotoSession(sessionId, printAccepted).then((session) => {
+        setGalleryUrl(session.gallery?.url ?? null)
+      })
       setSyncStatus('synced', localSaveError)
     } catch (error) {
       const message = getApiErrorMessage(error, 'Foto belum dapat disinkronkan ke server.')
@@ -168,6 +175,7 @@ export default function FinishPage(): JSX.Element {
     setComposedImageUploaded,
     setAnimatedGifUploaded,
     setPrintedLocally,
+    setGalleryUrl,
     shots
   ])
 
@@ -178,23 +186,52 @@ export default function FinishPage(): JSX.Element {
   }, [finalizeSession])
 
   useEffect(() => {
-    if (processing) return
+    void getAppSettings().then((settings) => setQrTimerSeconds(settings.qrTimerSeconds))
+  }, [])
+
+  useEffect(() => {
+    if (!galleryUrl) return
+
+    let cancelled = false
+
+    QRCode.toDataURL(galleryUrl, {
+      width: 320,
+      margin: 1,
+      errorCorrectionLevel: 'M'
+    })
+      .then((dataUrl) => {
+        if (!cancelled) setQrDataUrl(dataUrl)
+      })
+      .catch(() => {
+        if (!cancelled) setQrDataUrl(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [galleryUrl])
+
+  useEffect(() => {
+    if (processing || !qrDataUrl || qrTimerSeconds === null) return
+
+    const initializeTimer = window.setTimeout(() => setSecondsLeft(qrTimerSeconds), 0)
 
     const interval = window.setInterval(() => {
-      setSecondsLeft((previous) => {
-        if (previous <= 1) {
-          window.clearInterval(interval)
-          resetTransaction()
-          navigate('/welcome', { replace: true })
-          return 0
-        }
-
-        return previous - 1
-      })
+      setSecondsLeft((previous) => Math.max(0, (previous ?? qrTimerSeconds) - 1))
     }, 1000)
 
-    return () => window.clearInterval(interval)
-  }, [navigate, processing, resetTransaction])
+    const timeout = window.setTimeout(() => {
+      window.clearInterval(interval)
+      resetTransaction()
+      navigate('/welcome', { replace: true })
+    }, qrTimerSeconds * 1000)
+
+    return () => {
+      window.clearTimeout(initializeTimer)
+      window.clearInterval(interval)
+      window.clearTimeout(timeout)
+    }
+  }, [navigate, processing, qrDataUrl, qrTimerSeconds, resetTransaction])
 
   function returnToDashboard(): void {
     resetTransaction()
@@ -216,6 +253,19 @@ export default function FinishPage(): JSX.Element {
           Foto sudah tersinkron ke server.
           {syncError ? ` ${syncError}` : ''}
         </Alert>
+      )}
+
+      {!processing && syncStatus === 'synced' && qrDataUrl && (
+        <div className="flex flex-col items-center gap-2">
+          <img
+            src={qrDataUrl}
+            alt="QR kode galeri foto"
+            className="h-48 w-48 rounded-lg border border-slate-200 bg-white p-2"
+          />
+          <p className="max-w-xs text-sm text-slate-600">
+            Scan QR untuk melihat &amp; mengunduh foto Anda
+          </p>
+        </div>
       )}
 
       {!processing && syncStatus === 'local-only' && (
@@ -242,7 +292,9 @@ export default function FinishPage(): JSX.Element {
           <Button onClick={returnToDashboard} className="bg-slate-600 hover:bg-slate-700">
             Kembali ke Beranda
           </Button>
-          <p className="text-sm text-slate-400">Kembali otomatis dalam {secondsLeft} detik</p>
+          {secondsLeft !== null && (
+            <p className="text-sm text-slate-400">Kembali otomatis dalam {secondsLeft} detik</p>
+          )}
         </div>
       )}
     </div>

@@ -214,6 +214,41 @@ app.whenReady().then(() => {
     const bytes = await readFile(source)
     return `data:image/${extension === 'jpg' ? 'jpeg' : extension};base64,${bytes.toString('base64')}`
   })
+  ipcMain.handle('storage:pick-directory', async () => {
+    const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    const result = await dialog.showOpenDialog(window, {
+      properties: ['openDirectory', 'createDirectory'],
+      title: 'Pilih Folder Penyimpanan Foto'
+    })
+    return result.canceled ? null : (result.filePaths[0] ?? null)
+  })
+  ipcMain.handle('camera:capture-preview', async () => {
+    await fetch(`${SERVER_URL}/capture`, { method: 'POST' })
+    const response = await fetch(`${SERVER_URL}/video_feed`)
+    if (!response.ok || !response.body) throw new Error('Preview Canon tidak tersedia.')
+
+    const reader = response.body.getReader()
+    let bytes = Buffer.alloc(0)
+    const deadline = Date.now() + 5000
+
+    try {
+      while (Date.now() < deadline) {
+        const { value, done } = await reader.read()
+        if (done) break
+        bytes = Buffer.concat([bytes, Buffer.from(value)])
+        const start = bytes.indexOf(Buffer.from([0xff, 0xd8]))
+        const end = start >= 0 ? bytes.indexOf(Buffer.from([0xff, 0xd9]), start + 2) : -1
+        if (start >= 0 && end > start) {
+          return `data:image/jpeg;base64,${bytes.subarray(start, end + 2).toString('base64')}`
+        }
+        if (bytes.length > 10 * 1024 * 1024) bytes = bytes.subarray(-2 * 1024 * 1024)
+      }
+    } finally {
+      await reader.cancel()
+    }
+
+    throw new Error('Frame Canon tidak diterima dalam 5 detik.')
+  })
   ipcMain.handle('printer:list', async (event) => {
     const printers = await event.sender.getPrintersAsync()
     return printers.map((printer) => ({
@@ -252,9 +287,16 @@ app.whenReady().then(() => {
 
   ipcMain.handle(
     'session:save-webcam-shots',
-    async (_, shots: string[], finalImage?: string, gifImage?: string) => {
+    async (
+      _,
+      shots: string[],
+      finalImage?: string,
+      gifImage?: string,
+      storageDirectory?: string | null
+    ) => {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-      const directory = join(app.getPath('pictures'), 'Photobooth', timestamp)
+      const baseDirectory = storageDirectory || join(app.getPath('pictures'), 'Photobooth')
+      const directory = join(baseDirectory, timestamp)
 
       await mkdir(directory, { recursive: true })
 
@@ -392,5 +434,6 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => {
+  fetch(`${SERVER_URL}/toggle_webcam`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ use_webcam: false, device_index: 0 }) }).catch(() => undefined)
   killBackend()
 })

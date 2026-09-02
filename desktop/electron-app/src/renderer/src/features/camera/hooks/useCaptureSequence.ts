@@ -6,7 +6,7 @@ interface UseCaptureSequenceOptions {
   totalShots: number
   countdownSeconds?: number
   reviewPauseMs?: number
-  onCapture: () => string | null
+  onCapture: () => string | null | Promise<string | null>
   onComplete?: () => void
 }
 
@@ -56,18 +56,18 @@ export function useCaptureSequence({
       if (secondsLeft <= 0) {
         setStage('flash')
 
-        const captured = onCapture()
+        void Promise.resolve(onCapture())
+          .then((captured) => {
+            if (!captured) {
+              setStage('idle')
+              return
+            }
 
-        if (!captured) {
-          setStage('idle')
-          return
-        }
-
-        timeoutRef.current = setTimeout(() => {
-          setStage('review')
-
-          // Tunggu keputusan pengguna (ulangi atau lanjutkan).
-        }, 250)
+            timeoutRef.current = setTimeout(() => {
+              setStage('review')
+            }, 250)
+          })
+          .catch(() => setStage('idle'))
 
         return
       }

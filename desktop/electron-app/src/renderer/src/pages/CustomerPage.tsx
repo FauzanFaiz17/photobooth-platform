@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Button from '@/components/ui/Button'
@@ -8,6 +8,7 @@ import { getApiErrorMessage } from '@/api/axios'
 import { resolveCustomer } from '@/api/customer'
 import { createPhotoSession } from '@/api/media'
 import { useSessionStore } from '@/store/sessionStore'
+import { getAppSettings } from '@/features/settings/deviceSettings'
 
 export default function CustomerPage(): JSX.Element | null {
   const navigate = useNavigate()
@@ -16,11 +17,17 @@ export default function CustomerPage(): JSX.Element | null {
   const setCustomerId = useSessionStore((s) => s.setCustomerId)
   const setRemoteSession = useSessionStore((s) => s.setRemoteSession)
   const setSyncStatus = useSessionStore((s) => s.setSyncStatus)
+  const startSessionTimer = useSessionStore((s) => s.startSessionTimer)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    void getAppSettings().then((settings) => startSessionTimer(settings.sessionTimerMinutes))
+  }, [startSessionTimer])
+
   if (!configuration || !paymentId) return null
   async function submit(skip = false): Promise<void> {
     if (!configuration || !paymentId) return

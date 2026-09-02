@@ -11,6 +11,13 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+extraResources:
+  - from: cameraAPI/main.exe
+    to: bin/main.exe
+  - from: cameraAPI/EDSDK.dll
+    to: bin/EDSDK.dll
+  - from: cameraAPI/EdsImage.dll
+    to: bin/EdsImage.dll
 win:
   executableName: electron-app
 nsis:

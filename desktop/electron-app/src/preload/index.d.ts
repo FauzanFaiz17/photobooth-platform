@@ -17,6 +17,8 @@ declare global {
         close(): Promise<void>
       }
       home: { pickImage(): Promise<string | null> }
+      storage: { pickDirectory(): Promise<string | null> }
+      camera: { capturePreview(): Promise<string> }
       printer: {
         list(): Promise<Array<{ name: string; displayName: string; isDefault: boolean }>>
         printImage(options: {
@@ -58,7 +60,8 @@ declare global {
       saveWebcamShots(
         shots: string[],
         finalImage?: string,
-        gifImage?: string
+        gifImage?: string,
+        storageDirectory?: string | null
       ): Promise<{ directory: string }>
     }
   }

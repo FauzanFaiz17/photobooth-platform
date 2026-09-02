@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Mail\GalleryLinkMail;
 use App\Models\Booth;
+use App\Models\Customer;
 use App\Models\Device;
 use App\Models\DownloadToken;
 use App\Models\Media;
 use App\Models\PhotoSession;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 
@@ -121,6 +124,148 @@ class GalleryApiTest extends ApiTestCase
         $media = Media::findOrFail($response->json('data.id'));
         $this->assertSame('test-r2-bucket', $media->bucket);
         Storage::disk('r2')->assertExists($media->object_key);
+    }
+
+    public function test_media_upload_uses_customer_based_folder_slug(): void
+    {
+        Storage::fake('local');
+        [$operator, $device] = $this->desktopContext('slug');
+        Sanctum::actingAs($operator);
+        $headers = ['X-Device-UUID' => $device->device_uuid];
+
+        $customer = Customer::create([
+            'partner_id' => $device->partner_id,
+            'name' => 'Budi // Santoso!!',
+            'email' => 'budi@example.test',
+        ]);
+
+        $sessionId = $this->withHeaders($headers)
+            ->postJson('/api/v1/desktop/photo-sessions', [
+                'customer_id' => $customer->id,
+            ])->json('data.id');
+
+        $response = $this->withHeaders($headers)
+            ->postJson("/api/v1/desktop/photo-sessions/{$sessionId}/media", [
+                'type' => 'edited',
+                'filename' => 'slug-photo.png',
+                'mime_type' => 'image/png',
+                'data_url' => 'data:image/png;base64,'.base64_encode('slug-bytes'),
+            ])->assertCreated();
+
+        $media = Media::findOrFail($response->json('data.id'));
+
+        $this->assertMatchesRegularExpression(
+            '#^photobooth/gallery-slug/general/name-budi-santoso/#',
+            $media->object_key
+        );
+        $this->assertDatabaseHas('photo_sessions', [
+            'id' => $sessionId,
+            'folder_slug' => 'name-budi-santoso',
+        ]);
+    }
+
+    public function test_session_folder_slug_falls_back_to_datetime_without_customer(): void
+    {
+        Storage::fake('local');
+        [$operator, $device] = $this->desktopContext('slugdt');
+        Sanctum::actingAs($operator);
+        $headers = ['X-Device-UUID' => $device->device_uuid];
+
+        $sessionId = $this->withHeaders($headers)
+            ->postJson('/api/v1/desktop/photo-sessions')
+            ->json('data.id');
+
+        $response = $this->withHeaders($headers)
+            ->postJson("/api/v1/desktop/photo-sessions/{$sessionId}/media", [
+                'type' => 'edited',
+                'filename' => 'slug-dt.png',
+                'mime_type' => 'image/png',
+                'data_url' => 'data:image/png;base64,'.base64_encode('dt-bytes'),
+            ])->assertCreated();
+
+        $media = Media::findOrFail($response->json('data.id'));
+
+        $session = PhotoSession::findOrFail($sessionId);
+        $this->assertNotNull(
+            $session->folder_slug,
+            'Fallback folder slug should be generated from the session start time.'
+        );
+        $this->assertMatchesRegularExpression(
+            '/^\d{8}-\d{6}$/',
+            (string) $session->folder_slug
+        );
+        $this->assertStringContainsString('/general/'.$session->folder_slug.'/', $media->object_key);
+    }
+
+    public function test_completing_session_with_customer_email_queues_gallery_email(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+        [$operator, $device] = $this->desktopContext('mail');
+        Sanctum::actingAs($operator);
+        $headers = ['X-Device-UUID' => $device->device_uuid];
+
+        $customer = Customer::create([
+            'partner_id' => $device->partner_id,
+            'name' => 'Sari Melati',
+            'email' => 'sari@example.test',
+        ]);
+
+        $sessionId = $this->withHeaders($headers)
+            ->postJson('/api/v1/desktop/photo-sessions', [
+                'customer_id' => $customer->id,
+            ])->json('data.id');
+
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/desktop/photo-sessions/{$sessionId}/media", [
+                'type' => 'edited',
+                'filename' => 'mail-photo.png',
+                'mime_type' => 'image/png',
+                'data_url' => 'data:image/png;base64,'.base64_encode('mail-bytes'),
+            ])->assertCreated();
+
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/desktop/photo-sessions/{$sessionId}/complete")
+            ->assertOk();
+
+        Mail::assertQueued(GalleryLinkMail::class, function ($mail) use ($customer) {
+            return $mail->hasTo($customer->email)
+                && $mail->envelope()->subject === 'Foto Sesi Photobooth Anda';
+        });
+
+        // Completing again (idempotent retry) must not queue a second email.
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/desktop/photo-sessions/{$sessionId}/complete")
+            ->assertOk();
+
+        Mail::assertQueued(GalleryLinkMail::class, 1);
+    }
+
+    public function test_completing_session_without_customer_email_sends_nothing(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+        [$operator, $device] = $this->desktopContext('nomail');
+        Sanctum::actingAs($operator);
+        $headers = ['X-Device-UUID' => $device->device_uuid];
+
+        $sessionId = $this->withHeaders($headers)
+            ->postJson('/api/v1/desktop/photo-sessions')
+            ->json('data.id');
+
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/desktop/photo-sessions/{$sessionId}/media", [
+                'type' => 'edited',
+                'filename' => 'nomail-photo.png',
+                'mime_type' => 'image/png',
+                'data_url' => 'data:image/png;base64,'.base64_encode('nomail-bytes'),
+            ])->assertCreated();
+
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/desktop/photo-sessions/{$sessionId}/complete")
+            ->assertOk();
+
+        Mail::assertNothingQueued();
     }
 
     private function completedSession(string $suffix): PhotoSession
