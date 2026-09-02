@@ -59,7 +59,10 @@ export default function SplashPage(): JSX.Element {
           ? 'Tidak ada koneksi internet. Periksa jaringan lalu coba lagi.'
           : caughtError instanceof Error && caughtError.message === 'Internet tidak terhubung.'
             ? 'Tidak ada koneksi internet. Periksa jaringan lalu coba lagi.'
-            : getApiErrorMessage(caughtError, 'Server tidak dapat dijangkau. Periksa koneksi internet lalu coba lagi.')
+            : getApiErrorMessage(
+                caughtError,
+                'Server tidak dapat dijangkau. Periksa koneksi internet lalu coba lagi.'
+              )
 
         setError(message)
       }

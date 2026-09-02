@@ -1,5 +1,5 @@
-import { initialize } from "./initialize";
+import { initialize } from './initialize'
 
 export async function bootstrap() {
-    await initialize();
+  await initialize()
 }

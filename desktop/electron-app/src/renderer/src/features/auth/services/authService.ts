@@ -1,51 +1,37 @@
-import api from "@/api/axios";
+import api from '@/api/axios'
 
-import { loginApi, logout } from "../api/auth";
+import { loginApi, logout } from '../api/auth'
 
-import { authStorage } from "./authStorage";
+import { authStorage } from './authStorage'
 
-import { LoginPayload } from "../types";
+import { LoginPayload } from '../types'
 
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from '@/store/authStore'
 
 export const authService = {
+  async login(payload: LoginPayload) {
+    const response = await loginApi(payload)
 
-    async login(payload: LoginPayload) {
+    const token = response.data.token
 
-        const response = await loginApi(payload);
+    api.defaults.headers.common.Authorization = `Bearer ${token}`
 
-        const token = response.data.token;
+    await authStorage.saveToken(token)
 
-        api.defaults.headers.common.Authorization =
-            `Bearer ${token}`;
+    useAuthStore.getState().login(token, response.data.user)
 
-        await authStorage.saveToken(token);
+    return response
+  },
 
-        useAuthStore.getState().login(
-            token,
-            response.data.user
-        );
+  async logout() {
+    try {
+      await logout()
+    } catch {}
 
-        return response;
+    await authStorage.removeToken()
 
-    },
+    delete api.defaults.headers.common.Authorization
 
-    async logout() {
-
-        try {
-
-            await logout();
-
-        } catch {
-
-        }
-
-        await authStorage.removeToken();
-
-        delete api.defaults.headers.common.Authorization;
-
-        useAuthStore.getState().logout();
-
-    }
-
+    useAuthStore.getState().logout()
+  }
 }

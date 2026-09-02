@@ -107,7 +107,7 @@ export default function PaymentPage(): JSX.Element | null {
             value={code}
             onChange={(event) => setCode(event.target.value.toUpperCase())}
             placeholder="Kode voucher"
-            className='mt-4'
+            className="mt-4"
           />
         )}
         {method === 'qris' && qrisPayment && (

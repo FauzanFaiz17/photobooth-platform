@@ -1,45 +1,33 @@
-import api from "@/api/axios";
+import api from '@/api/axios'
 
-import { authStorage } from "@/features/auth/services/authStorage";
+import { authStorage } from '@/features/auth/services/authStorage'
 
-import { profile } from "@/features/auth/api/auth";
+import { profile } from '@/features/auth/api/auth'
 
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore } from '@/store/authStore'
 
 export async function restoreSession() {
+  const token = await authStorage.getToken()
 
-    const token = await authStorage.getToken();
+  if (!token) {
+    console.log('No saved session.')
 
-    if (!token) {
+    return
+  }
 
-        console.log("No saved session.");
+  try {
+    api.defaults.headers.common.Authorization = `Bearer ${token}`
 
-        return;
+    const response = await profile()
 
-    }
+    useAuthStore.getState().login(token, response.data)
 
-    try {
+    console.log('Session Restored.')
+  } catch (error) {
+    console.log('Session Expired.')
 
-        api.defaults.headers.common.Authorization =
-            `Bearer ${token}`;
+    await authStorage.removeToken()
 
-        const response = await profile();
-
-        useAuthStore.getState().login(
-            token,
-            response.data
-        );
-
-        console.log("Session Restored.");
-
-    } catch (error) {
-
-        console.log("Session Expired.");
-
-        await authStorage.removeToken();
-
-        useAuthStore.getState().logout();
-
-    }
-
+    useAuthStore.getState().logout()
+  }
 }

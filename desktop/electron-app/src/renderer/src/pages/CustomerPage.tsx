@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { getApiErrorMessage } from '@/api/axios'
 import { resolveCustomer } from '@/api/customer'
 import { createPhotoSession } from '@/api/media'
+import { getAppSettings } from '@/features/settings/deviceSettings'
 import { useSessionStore } from '@/store/sessionStore'
 import { NeoInput } from '@/components/shared/input'
 import { NeoButton } from '@/components/shared/button'
@@ -116,7 +117,7 @@ export default function CustomerPage(): JSX.Element | null {
         </div>
 
         <div className="flex flex-col justify-between bg-[#ffdc3e] p-7 md:p-10">
-          <div className='space-y-5'>
+          <div className="space-y-5">
             <div className="flex flex-wrap gap-3 text-xs font-black uppercase tracking-wider">
               <span className="border-2 border-black bg-[#b7eff0] px-3 py-2">Opsional</span>
               <span className="border-2 border-black bg-white px-3 py-2">

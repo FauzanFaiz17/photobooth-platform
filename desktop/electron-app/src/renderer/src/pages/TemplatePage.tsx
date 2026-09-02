@@ -13,7 +13,10 @@ function resolveTemplateAsset(path: string | null): string | null {
   const apiUrl = import.meta.env.VITE_API_URL as string | undefined
   if (!apiUrl) return path
   const base = new URL(apiUrl)
-  return new URL(`/storage/${path.replace(/^storage\//, '').replace(/^\//, '')}`, base.origin).toString()
+  return new URL(
+    `/storage/${path.replace(/^storage\//, '').replace(/^\//, '')}`,
+    base.origin
+  ).toString()
 }
 
 export default function TemplatePage(): JSX.Element | null {
@@ -75,8 +78,18 @@ export default function TemplatePage(): JSX.Element | null {
                       className="max-h-72 w-full object-contain"
                     />
                   ) : (
-                    <div className="grid w-full max-w-47.5 gap-2 border-2 border-white/50 bg-white/5 p-2" style={{ gridTemplateColumns: mapped.layout === 'strip' ? '1fr' : '1fr 1fr' }}>
-                      {Array.from({ length: mapped.slots }).map((_, index) => <div key={index} className="flex min-h-14 items-center justify-center border-2 border-white/40 bg-(--accent) text-sm font-black text-(--foreground)">{index + 1}</div>)}
+                    <div
+                      className="grid w-full max-w-47.5 gap-2 border-2 border-white/50 bg-white/5 p-2"
+                      style={{ gridTemplateColumns: mapped.layout === 'strip' ? '1fr' : '1fr 1fr' }}
+                    >
+                      {Array.from({ length: mapped.slots }).map((_, index) => (
+                        <div
+                          key={index}
+                          className="flex min-h-14 items-center justify-center border-2 border-white/40 bg-(--accent) text-sm font-black text-(--foreground)"
+                        >
+                          {index + 1}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

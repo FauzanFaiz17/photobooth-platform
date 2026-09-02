@@ -1,3 +1,9 @@
-import { deviceStorage } from "@/features/devices/services/deviceStorage";
-import { useDeviceStore } from "@/store/deviceStore";
-export async function restoreDevice() { const stored = await deviceStorage.getFingerprint(); const fingerprint = stored ?? await window.electron.device.getFingerprint(); if (!stored) await deviceStorage.saveFingerprint(fingerprint); useDeviceStore.getState().setFingerprint(fingerprint); return true; }
+import { deviceStorage } from '@/features/devices/services/deviceStorage'
+import { useDeviceStore } from '@/store/deviceStore'
+export async function restoreDevice() {
+  const stored = await deviceStorage.getFingerprint()
+  const fingerprint = stored ?? (await window.electron.device.getFingerprint())
+  if (!stored) await deviceStorage.saveFingerprint(fingerprint)
+  useDeviceStore.getState().setFingerprint(fingerprint)
+  return true
+}

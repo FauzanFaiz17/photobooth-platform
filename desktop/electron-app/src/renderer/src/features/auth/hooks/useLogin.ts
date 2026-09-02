@@ -1,45 +1,31 @@
-import { useState } from "react";
+import { useState } from 'react'
 
-import { authService } from "../services/authService";
+import { authService } from '../services/authService'
 
 export function useLogin() {
+  const [loading, setLoading] = useState(false)
 
-    const [loading, setLoading] = useState(false);
+  const handleLogin = async (
+    email: string,
 
-    const handleLogin = async (
+    password: string
+  ) => {
+    setLoading(true)
 
-        email: string,
+    try {
+      return await authService.login({
+        email,
 
-        password: string
+        password
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
-    ) => {
+  return {
+    loading,
 
-        setLoading(true);
-
-        try {
-
-            return await authService.login({
-
-                email,
-
-                password,
-
-            });
-
-        } finally {
-
-            setLoading(false);
-
-        }
-
-    };
-
-    return {
-
-        loading,
-
-        handleLogin,
-
-    };
-
+    handleLogin
+  }
 }

@@ -1,46 +1,36 @@
-import { machineIdSync } from "node-machine-id";
-import si from "systeminformation";
+import { machineIdSync } from 'node-machine-id'
+import si from 'systeminformation'
 
 export interface DeviceFingerprint {
+  deviceUuid: string
 
-    deviceUuid: string;
+  windowsUuid: string
 
-    windowsUuid: string;
+  cpuIdentifier: string
 
-    cpuIdentifier: string;
+  macAddress: string
 
-    macAddress: string;
-
-    appVersion: string;
-
+  appVersion: string
 }
 
 export async function getFingerprint(): Promise<DeviceFingerprint> {
+  const system = await si.system()
 
-    const system = await si.system();
+  const cpu = await si.cpu()
 
-    const cpu = await si.cpu();
+  const networks = await si.networkInterfaces()
 
-    const networks = await si.networkInterfaces();
+  const mac = networks.find((n) => !n.internal && n.mac)
 
-    const mac = networks.find(
-        n =>
-            !n.internal &&
-            n.mac
-    );
+  return {
+    deviceUuid: machineIdSync(true),
 
-    return {
+    windowsUuid: system.uuid || '',
 
-        deviceUuid: machineIdSync(true),
+    cpuIdentifier: cpu.brand,
 
-        windowsUuid: system.uuid || "",
+    macAddress: mac?.mac || '',
 
-        cpuIdentifier: cpu.brand,
-
-        macAddress: mac?.mac || "",
-
-        appVersion: "1.0.0",
-
-    };
-
+    appVersion: '1.0.0'
+  }
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { JSX } from 'react'
 
-import Button from '@/components/ui/Button'
+import { NeoButton } from '@/components/shared/button'
 
 import { useWebcam } from '../hooks/useWebcam'
 import { useCaptureSequence } from '../hooks/useCaptureSequence'
@@ -227,7 +227,10 @@ export default function CameraCapture({
   }
 
   return (
-    <div ref={stageRef} className="camera-stage flex h-full flex-col items-center justify-center gap-4 bg-[#202020] p-4 fullscreen:bg-black md:p-6">
+    <div
+      ref={stageRef}
+      className="camera-stage flex h-full flex-col items-center justify-center gap-4 bg-[#202020] p-4 fullscreen:bg-black md:p-6"
+    >
       <div className="relative overflow-hidden rounded-2xl bg-black shadow-xl">
         {cameraSettings.source === 'canon' ? (
           <img
@@ -274,7 +277,7 @@ export default function CameraCapture({
           <img src={lastCaptured.dataUrl} className="h-48 rounded-lg" />
           <p>Foto {currentShotIndex + 1}: sudah sesuai?</p>
           <div className="flex gap-3">
-            <NeoButton onClick={retakeCurrent} variant='outlined'>
+            <NeoButton onClick={retakeCurrent} variant="outlined">
               Ulangi
             </NeoButton>
             <NeoButton onClick={handleContinue}>Lanjutkan</NeoButton>
@@ -283,7 +286,7 @@ export default function CameraCapture({
       )}
 
       {stage === 'idle' && (
-        <Button onClick={() => void startFullscreenCapture()} className="px-8 py-3 text-lg">
+        <NeoButton onClick={() => void startFullscreenCapture()} className="px-8 py-3 text-lg">
           Mulai Ambil Foto
         </NeoButton>
       )}

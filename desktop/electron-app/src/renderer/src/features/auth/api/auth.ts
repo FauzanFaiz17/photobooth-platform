@@ -1,55 +1,42 @@
-import api from "@/api/axios";
+import api from '@/api/axios'
 
 export interface LoginPayload {
-    email: string;
-    password: string;
+  email: string
+  password: string
 }
 
-
-
 export interface LoginResult {
+  token: string
 
-    token: string;
-
-    user: any;
-
+  user: any
 }
 
 export interface LoginResponse {
+  success: boolean
 
-    success: boolean;
+  message: string
 
-    message: string;
-
-    data: LoginResult;
-
+  data: LoginResult
 }
 
-export async function loginApi(
-    payload: LoginPayload
-): Promise<LoginResponse> {
+export async function loginApi(payload: LoginPayload): Promise<LoginResponse> {
+  const { data } = await api.post('/v1/login', payload)
 
-    const { data } = await api.post(
-        "/v1/login",
-        payload
-    );
-
-    return data;
-
+  return data
 }
 
 export async function profile() {
-    const { data } = await api.get("/v1/profile");
+  const { data } = await api.get('/v1/profile')
 
-    return data;
+  return data
 }
 
 export async function verifyPassword(password: string): Promise<void> {
-    await api.post('/v1/verify-password', { password });
+  await api.post('/v1/verify-password', { password })
 }
 
 export async function logout() {
-    const { data } = await api.post("/v1/logout");
+  const { data } = await api.post('/v1/logout')
 
-    return data;
+  return data
 }

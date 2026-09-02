@@ -434,6 +434,10 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => {
-  fetch(`${SERVER_URL}/toggle_webcam`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ use_webcam: false, device_index: 0 }) }).catch(() => undefined)
+  fetch(`${SERVER_URL}/toggle_webcam`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ use_webcam: false, device_index: 0 })
+  }).catch(() => undefined)
   killBackend()
 })

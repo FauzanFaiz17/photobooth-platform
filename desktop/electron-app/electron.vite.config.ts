@@ -12,9 +12,6 @@ export default defineConfig({
         '@': resolve(__dirname, 'src/renderer/src')
       }
     },
-    plugins: [
-      react(),
-      tailwindcss()
-    ]
+    plugins: [react(), tailwindcss()]
   }
 })

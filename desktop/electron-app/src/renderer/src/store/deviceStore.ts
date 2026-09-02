@@ -1,65 +1,46 @@
-import { create } from "zustand";
+import { create } from 'zustand'
 
-import type {
-
-    Device,
-
-    DeviceFingerprint
-
-} from "@/features/devices/types";
+import type { Device, DeviceFingerprint } from '@/features/devices/types'
 
 interface DeviceState {
+  fingerprint: DeviceFingerprint | null
 
-    fingerprint: DeviceFingerprint | null;
+  device: Device | null
 
-    device: Device | null;
+  registered: boolean
 
-    registered: boolean;
+  setFingerprint: (value: DeviceFingerprint) => void
 
-    setFingerprint: (
-        value: DeviceFingerprint
-    ) => void;
+  setDevice: (device: Device) => void
 
-    setDevice: (
-        device: Device
-    ) => void;
-
-    reset: () => void;
-
+  reset: () => void
 }
 
-export const useDeviceStore =
-create<DeviceState>((set) => ({
+export const useDeviceStore = create<DeviceState>((set) => ({
+  fingerprint: null,
 
-    fingerprint: null,
+  device: null,
 
-    device: null,
+  registered: false,
 
-    registered: false,
+  setFingerprint: (fingerprint) =>
+    set({
+      fingerprint
+    }),
 
-    setFingerprint: (fingerprint) =>
-        set({
-            fingerprint
-        }),
+  setDevice: (device) =>
+    set({
+      device,
 
-    setDevice: (device) =>
-        set({
+      registered: true
+    }),
 
-            device,
+  reset: () =>
+    set({
+      fingerprint: null,
 
-            registered: true,
+      device: null,
 
-        }),
-
-    reset: () =>
-        set({
-
-            fingerprint: null,
-
-            device: null,
-
-            registered: false,
-
-        })
-
-}));
+      registered: false
+    })
+}))
