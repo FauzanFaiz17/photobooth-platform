@@ -8,5 +8,5 @@ return [
     // Public base URL of the customer-facing gallery web app.
     // The backend builds QR/email gallery links from this, so customers
     // land on the web page, not on a JSON API endpoint.
-    'gallery_web_base_url' => env('GALLERY_WEB_BASE_URL', 'http://localhost:5173'),
+    'gallery_web_base_url' => env('GALLERY_WEB_BASE_URL', env('APP_URL', 'http://localhost:5173')),
 ];

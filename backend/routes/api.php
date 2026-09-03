@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AdminGalleryController;
 use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BoothController;
@@ -105,6 +106,8 @@ Route::prefix('v1')->group(function () {
             'events' => EventController::class,
             'devices' => ManagementDeviceController::class,
         ]);
+        Route::get('/galleries', [AdminGalleryController::class, 'index']);
+        Route::get('/galleries/{photoSession}', [AdminGalleryController::class, 'show']);
         Route::post('/templates/{template}/assets', [TemplateController::class, 'uploadAsset']);
         Route::post('/devices/{device}/regenerate-activation', [ManagementDeviceController::class, 'regenerateActivation']);
         /*
