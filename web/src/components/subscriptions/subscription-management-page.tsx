@@ -570,9 +570,19 @@ export function SubscriptionManagement(): ReactElement {
                                 >
                                   {statusLabels[item.status]}
                                 </Badge>
+                                {item.status === "active" && !item.is_current && (
+                                  <div className="mt-1 text-xs text-muted-foreground">
+                                    Di luar periode
+                                  </div>
+                                )}
                               </TableCell>
                               <TableCell>
                                 {date(item.starts_at)} – {date(item.ends_at)}
+                                {item.cancelled_at && (
+                                  <div className="text-xs text-muted-foreground">
+                                    Dibatalkan {date(item.cancelled_at)}
+                                  </div>
+                                )}
                               </TableCell>
                               <TableCell>
                                 {item.auto_renew ? "Ya" : "Tidak"}

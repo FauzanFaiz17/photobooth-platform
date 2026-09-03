@@ -5,10 +5,12 @@ import QRCode from 'qrcode'
 
 import { getApiErrorMessage } from '@/api/axios'
 import { completePhotoSession, createPhotoSession, uploadSessionMedia } from '@/api/media'
-import Alert from '@/components/ui/Alert'
-import Button from '@/components/ui/Button'
+import { NeoButton } from '@/components/shared/button'
 import { getAppSettings, getPrinterSettings } from '@/features/settings/deviceSettings'
 import { useSessionStore } from '@/store/sessionStore'
+
+const focusRing =
+  'focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-(--danger)'
 
 export default function FinishPage(): JSX.Element {
   const navigate = useNavigate()
@@ -253,65 +255,135 @@ export default function FinishPage(): JSX.Element {
     navigate('/welcome', { replace: true })
   }
 
+  const status = processing
+    ? { label: 'Memproses', tone: 'bg-(--accent)' }
+    : syncStatus === 'synced'
+      ? syncError
+        ? { label: 'Tersinkron sebagian', tone: 'bg-(--primary)' }
+        : { label: 'Tersinkron', tone: 'bg-(--accent)' }
+      : syncStatus === 'local-only'
+        ? { label: 'Tersimpan lokal', tone: 'bg-(--secondary)' }
+        : { label: 'Gagal disimpan', tone: 'bg-(--danger) text-white' }
+
+  const showQr = !processing && syncStatus === 'synced' && Boolean(qrDataUrl)
+  const retryable = !processing && (syncStatus === 'local-only' || syncStatus === 'failed')
+
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-5 text-center">
-      <h1 className="text-3xl font-bold text-slate-800">
-        {processing ? 'Menyimpan Foto' : 'Sesi Selesai'}
-      </h1>
+    <main className="grid h-full min-h-[520px] place-items-center">
+      <section className="relative grid w-full max-w-5xl overflow-hidden border-4 border-(--border) bg-(--surface) text-(--foreground) shadow-[12px_12px_0_0_var(--border)] md:grid-cols-[1.05fr_0.95fr]">
+        <span
+          className="absolute left-0 top-0 h-4 w-32 border-b-4 border-r-4 border-(--border) bg-(--primary)"
+          aria-hidden="true"
+        />
 
-      {processing && (
-        <div className="h-9 w-9 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-      )}
+        <div className="flex flex-col justify-between border-b-4 border-(--border) p-7 pt-12 md:border-b-0 md:border-r-4 md:p-10 md:pt-14">
+          <div>
+            <p
+              className={`w-fit border-2 border-(--border) px-3 py-2 text-xs font-black uppercase tracking-wider ${status.tone}`}
+            >
+              {status.label}
+            </p>
+            <h1 className="mt-5 text-5xl font-black leading-[0.88] tracking-[-0.04em] text-balance sm:text-6xl">
+              {processing ? 'Menyimpan Foto' : 'Sesi Selesai'}
+            </h1>
 
-      {!processing && syncStatus === 'synced' && (
-        <Alert type={syncError ? 'warning' : 'success'}>
-          Foto sudah tersinkron ke server.
-          {syncError ? ` ${syncError}` : ''}
-        </Alert>
-      )}
+            {processing && (
+              <p className="mt-6 max-w-md text-lg font-semibold leading-7 text-(--muted-foreground)">
+                Foto sedang disimpan, diunggah, dan dicetak. Mohon tunggu sebentar.
+              </p>
+            )}
 
-      {!processing && syncStatus === 'synced' && qrDataUrl && (
-        <div className="flex flex-col items-center gap-2">
-          <img
-            src={qrDataUrl}
-            alt="QR kode galeri foto"
-            className="h-48 w-48 rounded-lg border border-slate-200 bg-white p-2"
-          />
-          <p className="max-w-xs text-sm text-slate-600">
-            Scan QR untuk melihat &amp; mengunduh foto Anda
-          </p>
-        </div>
-      )}
+            {!processing && syncStatus === 'synced' && (
+              <p className="mt-6 max-w-md text-lg font-semibold leading-7 text-(--muted-foreground)">
+                Foto sudah tersinkron ke server.
+                {syncError ? ` ${syncError}` : ''}
+              </p>
+            )}
 
-      {!processing && syncStatus === 'local-only' && (
-        <Alert type="warning">
-          Foto tersimpan lokal, tetapi belum tersinkron ke server.
-          {syncError ? ` ${syncError}` : ''}
-        </Alert>
-      )}
+            {!processing && syncStatus === 'local-only' && (
+              <p className="mt-6 max-w-md border-4 border-(--border) bg-(--secondary) p-4 font-bold leading-6 shadow-[var(--shadow-neo)]">
+                Foto tersimpan lokal, tetapi belum tersinkron ke server.
+                {syncError ? ` ${syncError}` : ''}
+              </p>
+            )}
 
-      {!processing && syncStatus === 'failed' && (
-        <Alert type="error">{syncError ?? 'Foto tidak dapat disimpan.'}</Alert>
-      )}
+            {!processing && syncStatus === 'failed' && (
+              <p
+                role="alert"
+                className="mt-6 max-w-md border-4 border-(--border) bg-(--danger) p-4 font-bold leading-6 text-white shadow-[var(--shadow-neo)]"
+              >
+                {syncError ?? 'Foto tidak dapat disimpan.'}
+              </p>
+            )}
+          </div>
 
-      {localDirectory && (
-        <p className="max-w-xl break-all text-sm text-slate-500">{localDirectory}</p>
-      )}
-
-      {!processing && (syncStatus === 'local-only' || syncStatus === 'failed') && (
-        <Button onClick={() => void finalizeSession()}>Coba Sinkronkan Lagi</Button>
-      )}
-
-      {!processing && (
-        <div className="flex flex-col gap-2">
-          <Button onClick={returnToDashboard} className="bg-slate-600 hover:bg-slate-700">
-            Kembali ke Beranda
-          </Button>
-          {secondsLeft !== null && (
-            <p className="text-sm text-slate-400">Kembali otomatis dalam {secondsLeft} detik</p>
+          {localDirectory && (
+            <div className="mt-8 border-2 border-(--border) bg-(--background) p-3">
+              <p className="text-[0.65rem] font-black uppercase tracking-[0.18em] text-(--muted-foreground)">
+                Tersimpan di
+              </p>
+              <p className="mt-1 break-all font-mono text-xs font-semibold">{localDirectory}</p>
+            </div>
           )}
         </div>
-      )}
-    </div>
+
+        <div className="flex flex-col justify-between bg-(--primary) p-7 md:p-10">
+          <div>
+            <div className="mb-8 flex items-start justify-between gap-4">
+              <span className="border-2 border-(--border) bg-(--surface) px-3 py-2 text-xs font-black uppercase">
+                {showQr ? 'Ambil foto kamu' : 'Selesai'}
+              </span>
+              <span className="text-4xl font-black leading-none" aria-hidden="true">
+                &#10039;
+              </span>
+            </div>
+
+            {showQr ? (
+              <div className="flex flex-col items-center gap-5">
+                <img
+                  src={qrDataUrl as string}
+                  alt="QR kode galeri foto"
+                  className="h-56 w-56 border-4 border-(--border) bg-white p-3 shadow-[var(--shadow-neo)] md:h-64 md:w-64"
+                />
+                <p className="max-w-xs text-center text-xl font-black leading-tight">
+                  Pindai QR untuk melihat &amp; mengunduh fotomu.
+                </p>
+              </div>
+            ) : (
+              <p className="max-w-xs text-2xl font-black leading-tight">
+                {processing
+                  ? 'Jangan tutup layar ini sampai proses selesai.'
+                  : 'Terima kasih sudah berfoto di booth kami.'}
+              </p>
+            )}
+          </div>
+
+          {!processing && (
+            <div className="mt-10 grid gap-4">
+              {retryable && (
+                <NeoButton
+                  onClick={() => void finalizeSession()}
+                  className={`w-full bg-(--danger) px-6 py-4 text-lg text-white shadow-[var(--shadow-neo)] [transition:none] hover:bg-[#cf3d26] ${focusRing}`}
+                >
+                  Coba Sinkronkan Lagi
+                </NeoButton>
+              )}
+              <NeoButton
+                variant="outlined"
+                onClick={returnToDashboard}
+                className={`w-full px-6 py-4 text-base shadow-[var(--shadow-neo)] [transition:none] ${focusRing}`}
+              >
+                Kembali ke Beranda
+              </NeoButton>
+              {secondsLeft !== null && (
+                <p className="border-2 border-(--border) bg-(--surface) px-4 py-3 text-center text-sm font-black uppercase tracking-wider tabular-nums">
+                  Kembali otomatis dalam {secondsLeft} detik
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
   )
 }

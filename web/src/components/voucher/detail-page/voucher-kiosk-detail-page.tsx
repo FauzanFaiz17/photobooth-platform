@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Search,
   Trash2,
+  Eye,
 } from "lucide-react";
 import {
   useCallback,
@@ -85,9 +86,11 @@ import {
   type VoucherPackageRecord,
   type VoucherRecord,
   type VoucherStatus,
+  voucherUsage,
 } from "@/features/vouchers/voucher.types";
 import { ApiError } from "@/lib/api-client";
 import { VoucherIssueDialog } from "./voucher-issue-dialog";
+import { VoucherDetailDialog } from "./voucher-detail-dialog";
 import { VoucherPackageFormDialog } from "./voucher-package-form-dialog";
 
 const statusLabels: Record<VoucherStatus, string> = {
@@ -112,22 +115,6 @@ function formatDate(value: string): string {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
-}
-/** Voucher multi-sesi tetap berstatus "unused" sampai kuotanya habis, jadi pemakaian dihitung terpisah dari status. */
-function voucherUsage(voucher: VoucherRecord): {
-  used: number;
-  limit: number;
-  percent: number;
-  partial: boolean;
-} {
-  const limit = Math.max(1, voucher.usage_limit ?? 1);
-  const used = Math.min(limit, Math.max(0, voucher.usage_count ?? 0));
-  return {
-    used,
-    limit,
-    percent: Math.round((used / limit) * 100),
-    partial: voucher.status === "unused" && used > 0,
-  };
 }
 
 export function VoucherKioskDetailPage(): ReactElement {
@@ -159,6 +146,9 @@ export function VoucherKioskDetailPage(): ReactElement {
     useState<VoucherPackageRecord | null>(null);
   const [issueOpen, setIssueOpen] = useState(false);
   const [voidingVoucher, setVoidingVoucher] = useState<VoucherRecord | null>(
+    null,
+  );
+  const [detailVoucher, setDetailVoucher] = useState<VoucherRecord | null>(
     null,
   );
   const [actionPending, setActionPending] = useState(false);
@@ -688,6 +678,11 @@ export function VoucherKioskDetailPage(): ReactElement {
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
                                     <DropdownMenuItem
+                                      onClick={() => setDetailVoucher(voucher)}
+                                    >
+                                      <Eye /> Lihat Detail
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
                                       disabled={voucher.status !== "unused"}
                                       onClick={() => setVoidingVoucher(voucher)}
                                     >
@@ -735,6 +730,14 @@ export function VoucherKioskDetailPage(): ReactElement {
             </CardContent>
           </Card>
         </>
+      )}
+      {detailVoucher && (
+        <VoucherDetailDialog
+          voucher={detailVoucher}
+          onClose={() => setDetailVoucher(null)}
+          onUnauthorized={() => void unauthorized()}
+          onForbidden={forbidden}
+        />
       )}
       {packageDialog && (
         <VoucherPackageFormDialog

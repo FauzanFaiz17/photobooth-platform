@@ -1,3 +1,4 @@
+import { isPaymentRecord, type PaymentRecord } from "@/features/payments/payment.types"
 import {
   isPaginationLinks,
   isPaginationMeta,
@@ -51,7 +52,8 @@ export interface VoucherRecord {
   redeemed_by: number | null
   redeemed_at: string | null
   package: VoucherPackageRecord
-  payment: unknown | null
+  /** whenLoaded di VoucherResource: absen bila relasi tidak di-eager-load. */
+  payment?: PaymentRecord | null
   redemptions?: ReadonlyArray<VoucherRedemptionRecord>
   created_at: string
   updated_at: string
@@ -175,6 +177,7 @@ export function isVoucherRecord(value: unknown): value is VoucherRecord {
     isNullableNumber(value.usage_limit) &&
     isNullableNumber(value.usage_count) &&
     isNumber(value.remaining_uses) &&
+    (value.payment === undefined || value.payment === null || isPaymentRecord(value.payment)) &&
     (value.redemptions === undefined || (Array.isArray(value.redemptions) && value.redemptions.every(isVoucherRedemptionRecord))) &&
     typeof value.expired_at === "string" &&
     isNumber(value.generated_by) &&
@@ -200,4 +203,18 @@ export function isVoucherPackageResponse(value: unknown): value is { data: Vouch
 
 export function isVoucherResponse(value: unknown): value is { data: VoucherRecord } {
   return isRecord(value) && isVoucherRecord(value.data)
+}
+
+export interface VoucherUsage {
+  used: number
+  limit: number
+  percent: number
+  /** Voucher multi-sesi tetap berstatus "unused" sampai kuotanya habis. */
+  partial: boolean
+}
+
+export function voucherUsage(voucher: VoucherRecord): VoucherUsage {
+  const limit = Math.max(1, voucher.usage_limit ?? 1)
+  const used = Math.min(limit, Math.max(0, voucher.usage_count ?? 0))
+  return { used, limit, percent: Math.round((used / limit) * 100), partial: voucher.status === "unused" && used > 0 }
 }
