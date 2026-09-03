@@ -6,7 +6,11 @@ import { NeoButton } from '@/components/shared/button'
 import { useWebcam } from '../hooks/useWebcam'
 import { useCaptureSequence } from '../hooks/useCaptureSequence'
 import type { CapturedShot } from '@/store/sessionStore'
-import { loadTemplateOverlayDataUrl } from '@/features/template/services/composeTemplate'
+import {
+  composeTemplateImage,
+  loadTemplateFrameOverlayDataUrl
+} from '@/features/template/services/composeTemplate'
+import type { PhotoTemplate } from '@/features/template/types'
 import {
   DEFAULT_CAMERA_SETTINGS,
   getCameraSettings,
@@ -19,6 +23,7 @@ interface CameraCaptureProps {
   totalShots: number
   countdownSeconds: number
   templateOverlayPath: string | null
+  template: PhotoTemplate
   onShotCaptured: (shot: CapturedShot) => void
   onAllShotsDone: () => void
 }
@@ -27,6 +32,7 @@ export default function CameraCapture({
   totalShots,
   countdownSeconds,
   templateOverlayPath,
+  template,
   onShotCaptured,
   onAllShotsDone
 }: CameraCaptureProps): JSX.Element {
@@ -36,6 +42,7 @@ export default function CameraCapture({
   const stageRef = useRef<HTMLDivElement>(null)
 
   const [lastCaptured, setLastCaptured] = useState<CapturedShot | null>(null)
+  const [reviewImage, setReviewImage] = useState<string | null>(null)
   const [cameraSettings, setCameraSettings] = useState<CameraDeviceSettings | null>(null)
   const [templateOverlay, setTemplateOverlay] = useState<{
     path: string
@@ -80,30 +87,11 @@ export default function CameraCapture({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    let active = true
-
-    if (!templateOverlayPath) {
-      return undefined
-    }
-
-    void loadTemplateOverlayDataUrl(templateOverlayPath)
-      .then((dataUrl) => {
-        if (active) setTemplateOverlay({ path: templateOverlayPath, dataUrl })
-      })
-      .catch(() => {
-        // Countdown tetap dapat berjalan tanpa overlay jika asset gagal dimuat.
-      })
-
-    return (): void => {
-      active = false
-    }
-  }, [templateOverlayPath])
-
   // ---- Rekaman video pendek per shot (webcam, tanpa audio) ----
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recordChunksRef = useRef<Blob[]>([])
   const recordingPromiseRef = useRef<Promise<string | null> | null>(null)
+  const recordingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const startRecording = useCallback((): void => {
     const video = videoRef.current
@@ -149,12 +137,19 @@ export default function CameraCapture({
 
       recorder.start()
       mediaRecorderRef.current = recorder
+      recordingStopTimerRef.current = setTimeout(() => {
+        if (recorder.state === 'recording') recorder.stop()
+      }, countdownSeconds * 1000)
     } catch {
       recordingPromiseRef.current = null
     }
-  }, [videoRef])
+  }, [countdownSeconds, videoRef])
 
   const stopRecording = useCallback((): void => {
+    if (recordingStopTimerRef.current) {
+      clearTimeout(recordingStopTimerRef.current)
+      recordingStopTimerRef.current = null
+    }
     if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop()
     }
@@ -164,81 +159,103 @@ export default function CameraCapture({
     templateOverlay?.path === templateOverlayPath ? templateOverlay.dataUrl : null
 
   const captureFrame = useCallback(
-    async (): Promise<string | null> => {
-    const settings = cameraSettings ?? DEFAULT_CAMERA_SETTINGS
+    async (shotIndex: number): Promise<string | null> => {
+      const settings = cameraSettings ?? DEFAULT_CAMERA_SETTINGS
 
-    if (settings.source === 'canon') {
-      const dataUrl = await window.electron.camera.capturePreview()
-      const image = new Image()
-      await new Promise<void>((resolve, reject) => {
-        image.onload = () => resolve()
-        image.onerror = () => reject(new Error('Hasil Canon tidak dapat dibaca.'))
-        image.src = dataUrl
-      })
+      if (settings.source === 'canon') {
+        const dataUrl = await window.electron.camera.capturePreview()
+        const image = new Image()
+        await new Promise<void>((resolve, reject) => {
+          image.onload = () => resolve()
+          image.onerror = () => reject(new Error('Hasil Canon tidak dapat dibaca.'))
+          image.src = dataUrl
+        })
+        const canvas = canvasRef.current
+        if (!canvas) return null
+        const portrait = settings.orientation === 'portrait'
+        canvas.width = portrait ? image.naturalHeight : image.naturalWidth
+        canvas.height = portrait ? image.naturalWidth : image.naturalHeight
+        const context = canvas.getContext('2d')
+        if (!context) return null
+        context.translate(canvas.width / 2, canvas.height / 2)
+        if (portrait) context.rotate(Math.PI / 2)
+        context.scale(settings.mirror ? -1 : 1, 1)
+        context.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2)
+        const captured = canvas.toDataURL('image/png')
+        stopRecording()
+        const videoDataUrl = await (recordingPromiseRef.current ?? Promise.resolve(null))
+        const shot = {
+          id: `${Date.now()}`,
+          dataUrl: captured,
+          width: canvas.width,
+          height: canvas.height,
+          videoDataUrl: videoDataUrl ?? undefined,
+          mirror: settings.mirror
+        }
+        setLastCaptured(shot)
+        void composeTemplateImage({
+          shots: [shot],
+          jsonLayout: template.jsonLayout,
+          layout: template.layout,
+          overlayPath: template.overlayPath,
+          frameIndex: shotIndex
+        })
+          .then((composed) => setReviewImage(composed.dataUrl))
+          .catch(() => setReviewImage(captured))
+        return captured
+      }
+
+      const video = videoRef.current
+
       const canvas = canvasRef.current
-      if (!canvas) return null
+
+      if (!video || !canvas || video.videoWidth === 0) {
+        return null
+      }
+
       const portrait = settings.orientation === 'portrait'
-      canvas.width = portrait ? image.naturalHeight : image.naturalWidth
-      canvas.height = portrait ? image.naturalWidth : image.naturalHeight
-      const context = canvas.getContext('2d')
-      if (!context) return null
-      context.translate(canvas.width / 2, canvas.height / 2)
-      if (portrait) context.rotate(Math.PI / 2)
-      context.scale(settings.mirror ? -1 : 1, 1)
-      context.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2)
-      const captured = canvas.toDataURL('image/png')
+      canvas.width = portrait ? video.videoHeight : video.videoWidth
+      canvas.height = portrait ? video.videoWidth : video.videoHeight
+
+      const ctx = canvas.getContext('2d')
+
+      if (!ctx) {
+        return null
+      }
+
+      ctx.translate(canvas.width / 2, canvas.height / 2)
+      if (portrait) ctx.rotate(Math.PI / 2)
+      ctx.scale(settings.mirror ? -1 : 1, 1)
+      ctx.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2)
+
+      const dataUrl = canvas.toDataURL('image/png')
+
       stopRecording()
       const videoDataUrl = await (recordingPromiseRef.current ?? Promise.resolve(null))
-      setLastCaptured({
+
+      const shot = {
         id: `${Date.now()}`,
-        dataUrl: captured,
+        dataUrl,
         width: canvas.width,
         height: canvas.height,
-        videoDataUrl: videoDataUrl ?? undefined
-        ,mirror: settings.mirror
+        videoDataUrl: videoDataUrl ?? undefined,
+        mirror: settings.mirror
+      }
+      setLastCaptured(shot)
+      void composeTemplateImage({
+        shots: [shot],
+        jsonLayout: template.jsonLayout,
+        layout: template.layout,
+        overlayPath: template.overlayPath,
+        frameIndex: shotIndex
       })
-      return captured
-    }
+        .then((composed) => setReviewImage(composed.dataUrl))
+        .catch(() => setReviewImage(dataUrl))
 
-    const video = videoRef.current
-
-    const canvas = canvasRef.current
-
-    if (!video || !canvas || video.videoWidth === 0) {
-      return null
-    }
-
-    const portrait = settings.orientation === 'portrait'
-    canvas.width = portrait ? video.videoHeight : video.videoWidth
-    canvas.height = portrait ? video.videoWidth : video.videoHeight
-
-    const ctx = canvas.getContext('2d')
-
-    if (!ctx) {
-      return null
-    }
-
-    ctx.translate(canvas.width / 2, canvas.height / 2)
-    if (portrait) ctx.rotate(Math.PI / 2)
-    ctx.scale(settings.mirror ? -1 : 1, 1)
-    ctx.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2)
-
-    const dataUrl = canvas.toDataURL('image/png')
-
-    stopRecording()
-    const videoDataUrl = await (recordingPromiseRef.current ?? Promise.resolve(null))
-
-    setLastCaptured({
-      id: `${Date.now()}`,
-      dataUrl,
-      width: canvas.width,
-      height: canvas.height,
-      videoDataUrl: videoDataUrl ?? undefined
-      ,mirror: settings.mirror
-    })
-
-    return dataUrl
-  }, [cameraSettings, videoRef, stopRecording])
+      return dataUrl
+    },
+    [cameraSettings, template, videoRef, stopRecording]
+  )
 
   const {
     stage,
@@ -258,6 +275,26 @@ export default function CameraCapture({
     }
   })
 
+  useEffect(() => {
+    let active = true
+    if (!templateOverlayPath) return undefined
+
+    void loadTemplateFrameOverlayDataUrl(
+      templateOverlayPath,
+      template.jsonLayout,
+      template.layout,
+      currentShotIndex
+    )
+      .then((dataUrl) => {
+        if (active) setTemplateOverlay({ path: templateOverlayPath, dataUrl })
+      })
+      .catch(() => undefined)
+
+    return (): void => {
+      active = false
+    }
+  }, [currentShotIndex, template.jsonLayout, template.layout, templateOverlayPath])
+
   // Rekam mulai saat countdown berjalan (termasuk saat retake).
   useEffect(() => {
     if (stage === 'countdown') startRecording()
@@ -274,6 +311,7 @@ export default function CameraCapture({
     if (!lastCaptured) return
     onShotCaptured(lastCaptured)
     setLastCaptured(null)
+    setReviewImage(null)
     if (currentShotIndex + 1 >= totalShots) {
       if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
       window.setTimeout(onAllShotsDone, 0)
@@ -314,12 +352,14 @@ export default function CameraCapture({
       ref={stageRef}
       className="camera-stage flex h-full flex-col items-center justify-center gap-4 bg-[#202020] p-4 fullscreen:bg-black md:p-6"
     >
-      <div className="relative overflow-hidden rounded-2xl bg-black shadow-xl">
+      <div
+        className={`relative aspect-[4/3] w-[min(640px,calc(100vw-2rem))] overflow-hidden rounded-2xl bg-black shadow-xl ${stage === 'review' ? 'hidden' : ''}`}
+      >
         {cameraSettings.source === 'canon' ? (
           <img
             src={`${CAMERA_API_URL}/video_feed`}
             alt="Live preview Canon"
-            className={`h-[480px] w-[640px] object-cover ${cameraSettings.mirror ? '-scale-x-100' : ''}`}
+            className={`absolute inset-0 h-full w-full object-cover ${cameraSettings.mirror ? '-scale-x-100' : ''}`}
           />
         ) : (
           <video
@@ -327,7 +367,7 @@ export default function CameraCapture({
             autoPlay
             playsInline
             muted
-            className={`h-[480px] w-[640px] object-cover ${cameraSettings.mirror ? '-scale-x-100' : ''}`}
+            className={`absolute inset-0 h-full w-full object-cover ${cameraSettings.mirror ? '-scale-x-100' : ''}`}
           />
         )}
 
@@ -337,7 +377,7 @@ export default function CameraCapture({
               <img
                 src={activeTemplateOverlay}
                 alt=""
-                className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+                className="pointer-events-none absolute inset-0 h-full w-full object-fill"
               />
             )}
             <span className="relative text-8xl font-bold text-white drop-shadow-lg">
@@ -357,7 +397,10 @@ export default function CameraCapture({
 
       {stage === 'review' && lastCaptured && (
         <div className="flex flex-col items-center gap-3 text-white">
-          <img src={lastCaptured.dataUrl} className="h-48 rounded-lg" />
+          <img
+            src={reviewImage ?? lastCaptured.dataUrl}
+            className="max-h-[60vh] max-w-full rounded-lg object-contain"
+          />
           <p>Foto {currentShotIndex + 1}: sudah sesuai?</p>
           <div className="flex gap-3">
             <NeoButton onClick={retakeCurrent} variant="outlined">

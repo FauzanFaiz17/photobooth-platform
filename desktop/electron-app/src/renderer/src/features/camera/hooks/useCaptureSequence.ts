@@ -6,7 +6,7 @@ interface UseCaptureSequenceOptions {
   totalShots: number
   countdownSeconds?: number
   reviewPauseMs?: number
-  onCapture: () => string | null | Promise<string | null>
+  onCapture: (shotIndex: number) => string | null | Promise<string | null>
   onComplete?: () => void
 }
 
@@ -38,6 +38,8 @@ export function useCaptureSequence({
   const [stage, setStage] = useState<CaptureStage>('idle')
   const [countdown, setCountdown] = useState(countdownSeconds)
   const [currentShotIndex, setCurrentShotIndex] = useState(0)
+  const currentShotIndexRef = useRef(0)
+  currentShotIndexRef.current = currentShotIndex
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -56,7 +58,7 @@ export function useCaptureSequence({
       if (secondsLeft <= 0) {
         setStage('flash')
 
-        void Promise.resolve(onCapture())
+        void Promise.resolve(onCapture(currentShotIndexRef.current))
           .then((captured) => {
             if (!captured) {
               setStage('idle')

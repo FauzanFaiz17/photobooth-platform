@@ -18,6 +18,7 @@ interface ComposeTemplateOptions {
   layout: 'strip' | 'grid'
   overlayPath: string | null
   cssFilter?: string
+  frameIndex?: number
 }
 
 export interface ComposedImage {
@@ -123,6 +124,29 @@ export async function loadTemplateOverlayDataUrl(path: string): Promise<string> 
   return window.asset.loadImage(source)
 }
 
+/** Renders only the active JSON frame as a camera-aligned overlay. */
+export async function loadTemplateFrameOverlayDataUrl(
+  path: string,
+  jsonLayout: Record<string, unknown>,
+  layout: 'strip' | 'grid',
+  frameIndex: number,
+  width = 640,
+  height = 480
+): Promise<string> {
+  const overlay = await loadOverlay(path)
+  const canvasSize = getCanvasSize(jsonLayout)
+  const frame = getFrames(jsonLayout, Math.max(frameIndex + 1, 1), canvasSize, layout)[frameIndex]
+  if (!frame) return loadTemplateOverlayDataUrl(path)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('Overlay canvas tidak tersedia.')
+  context.drawImage(overlay, frame.x, frame.y, frame.width, frame.height, 0, 0, width, height)
+  return canvas.toDataURL('image/png')
+}
+
 async function loadOverlay(path: string): Promise<HTMLImageElement> {
   const dataUrl = await loadTemplateOverlayDataUrl(path)
   return loadImage(dataUrl, 'Overlay template')
@@ -178,12 +202,14 @@ export async function composeTemplateImage({
   jsonLayout,
   layout,
   overlayPath,
-  cssFilter = 'none'
+  cssFilter = 'none',
+  frameIndex
 }: ComposeTemplateOptions): Promise<ComposedImage> {
   if (shots.length === 0) throw new Error('Tidak ada foto untuk dikomposisikan.')
 
   const canvasSize = getCanvasSize(jsonLayout)
-  const frames = getFrames(jsonLayout, shots.length, canvasSize, layout)
+  const startFrame = frameIndex ?? 0
+  const frames = getFrames(jsonLayout, Math.max(shots.length + startFrame, 1), canvasSize, layout)
   const canvas = document.createElement('canvas')
   canvas.width = canvasSize.width
   canvas.height = canvasSize.height
@@ -204,7 +230,9 @@ export async function composeTemplateImage({
     shots.map((shot, index) => loadImage(shot.dataUrl, `Foto ${index + 1}`))
   )
 
-  shotImages.forEach((image, index) => drawCover(context, image, frames[index], cssFilter))
+  shotImages.forEach((image, index) =>
+    drawCover(context, image, frames[startFrame + index], cssFilter)
+  )
 
   if (overlayPath) {
     const overlay = await loadOverlay(overlayPath)
