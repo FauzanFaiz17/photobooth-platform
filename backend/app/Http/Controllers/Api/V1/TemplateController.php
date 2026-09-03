@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Configuration\ConfigurationIndexRequest;
+use App\Http\Requests\Configuration\TemplateAssetRequest;
 use App\Http\Requests\Configuration\TemplateRequest;
 use App\Http\Resources\TemplateResource;
 use App\Models\Template;
@@ -50,6 +51,17 @@ class TemplateController extends Controller
                 $request->user()
             )
         );
+    }
+
+    public function uploadAsset(TemplateAssetRequest $request, Template $template)
+    {
+        $this->authorize('update', $template);
+
+        return new TemplateResource($this->service->uploadAsset(
+            $template,
+            $request->file('file'),
+            $request->string('type')->toString()
+        ));
     }
 
     public function destroy(Template $template)

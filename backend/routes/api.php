@@ -105,6 +105,7 @@ Route::prefix('v1')->group(function () {
             'events' => EventController::class,
             'devices' => ManagementDeviceController::class,
         ]);
+        Route::post('/templates/{template}/assets', [TemplateController::class, 'uploadAsset']);
         Route::post('/devices/{device}/regenerate-activation', [ManagementDeviceController::class, 'regenerateActivation']);
         /*
         |--------------------------------------------------------------------------
