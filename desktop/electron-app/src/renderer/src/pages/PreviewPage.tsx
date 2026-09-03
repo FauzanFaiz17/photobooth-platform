@@ -2,14 +2,15 @@ import { useCallback, useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import Button from '@/components/ui/Button'
-import Alert from '@/components/ui/Alert'
 import { createSessionGif } from '@/features/gif/services/createSessionGif'
 import { composeTemplateImage } from '@/features/template/services/composeTemplate'
 import { composeTemplateVideo } from '@/features/template/services/composeTemplateVideo'
 
 import { useSessionStore } from '@/store/sessionStore'
 import { NeoButton } from '@/components/shared/button'
+
+const focusRing =
+  'focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-(--danger)'
 
 export default function PreviewPage(): JSX.Element | null {
   const navigate = useNavigate()
@@ -97,72 +98,148 @@ export default function PreviewPage(): JSX.Element | null {
     return null
   }
 
+  const ready = !composing && Boolean(composedImage) && Boolean(animatedGif)
+
   return (
-    <div className="flex h-full flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Preview Hasil Foto</h1>
+    <main className="flex h-full min-h-0 flex-col bg-(--background) text-(--foreground)">
+      <header className="flex flex-wrap items-end justify-between gap-5 border-b-4 border-(--border) px-5 pb-5 pt-4 md:px-8">
+        <div className="min-w-0">
+          <p className="w-fit border-2 border-(--border) bg-(--accent) px-3 py-1.5 text-[0.65rem] font-black uppercase tracking-[0.2em]">
+            {composing ? 'Menyusun' : compositionError ? 'Gagal disusun' : 'Siap dicetak'}
+          </p>
+          <h1 className="mt-4 text-5xl font-black leading-[0.85] tracking-[-0.04em] sm:text-6xl">
+            Preview Hasil
+          </h1>
+        </div>
 
-        <p className="text-slate-500">Template: {template.name}</p>
+        <dl className="flex flex-wrap gap-3">
+          <div className="border-4 border-(--border) bg-(--surface) px-4 py-2 shadow-[6px_6px_0_0_var(--border)]">
+            <dt className="text-[0.6rem] font-black uppercase tracking-[0.2em] text-(--muted-foreground)">
+              Template
+            </dt>
+            <dd className="mt-0.5 max-w-56 truncate font-black">{template.name}</dd>
+          </div>
+          <div className="border-4 border-(--border) bg-(--surface) px-4 py-2 shadow-[6px_6px_0_0_var(--border)]">
+            <dt className="text-[0.6rem] font-black uppercase tracking-[0.2em] text-(--muted-foreground)">
+              Event
+            </dt>
+            <dd className="mt-0.5 max-w-56 truncate font-black">
+              {configuration.event.event_name}
+            </dd>
+          </div>
+        </dl>
+      </header>
 
-        <p className="text-sm text-slate-400">{configuration.event.event_name}</p>
-      </div>
-
-      <div className="flex flex-1 items-center justify-center overflow-hidden">
+      <section className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-5 md:p-7">
         {composing && (
-          <div className="flex flex-col items-center gap-3 text-slate-500">
-            <div className="h-9 w-9 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-            <p>Menyusun foto ke dalam template...</p>
+          <div className="w-full max-w-2xl border-4 border-(--border) bg-(--primary) p-8 shadow-[12px_12px_0_0_var(--border)] md:p-10">
+            <p className="text-[0.65rem] font-black uppercase tracking-[0.2em]">Mohon tunggu</p>
+            <p className="mt-4 text-4xl font-black leading-[0.9] tracking-[-0.03em] text-balance sm:text-5xl">
+              Foto sedang disusun ke dalam template
+            </p>
+            <div className="mt-8 flex gap-1.5" aria-hidden="true">
+              {Array.from({ length: 9 }).map((_, index) => (
+                <span
+                  key={index}
+                  className="h-4 flex-1 border-2 border-(--border) bg-(--surface)"
+                />
+              ))}
+            </div>
           </div>
         )}
 
         {!composing && compositionError && (
-          <div className="flex max-w-lg flex-col gap-4">
-            <Alert type="error">{compositionError}</Alert>
-            <Button onClick={() => void compose()}>Coba Buat Lagi</Button>
+          <div className="w-full max-w-2xl border-4 border-(--border) bg-(--surface) p-8 shadow-[12px_12px_0_0_var(--border)] md:p-10">
+            <p className="w-fit border-2 border-(--border) bg-(--danger) px-3 py-1.5 text-[0.65rem] font-black uppercase tracking-[0.2em] text-white">
+              Gagal
+            </p>
+            <p
+              role="alert"
+              className="mt-5 text-2xl font-black leading-[1.1] tracking-[-0.02em] text-balance"
+            >
+              {compositionError}
+            </p>
+            <NeoButton
+              onClick={() => void compose()}
+              className={`mt-8 [transition:none] ${focusRing}`}
+            >
+              Coba Buat Lagi
+            </NeoButton>
           </div>
         )}
 
-        {!composing && composedImage && animatedGif && (
-          <div className="grid h-full w-full grid-cols-2 gap-6 overflow-hidden">
-            <div className="flex min-w-0 flex-col items-center gap-2 overflow-hidden">
-              <p className="text-sm font-medium text-slate-600">Hasil Template</p>
-              <img
-                src={composedImage.dataUrl}
-                alt="Hasil akhir dengan template"
-                className="min-h-0 max-h-full max-w-full border border-slate-200 bg-white object-contain shadow-lg"
-              />
-            </div>
-            <div className="flex min-w-0 flex-col items-center gap-2 overflow-hidden">
-              <p className="text-sm font-medium text-slate-600">Video Template</p>
-              {composedVideo ? (
-                <video
-                  src={composedVideo.dataUrl}
-                  controls
-                  autoPlay
-                  loop
-                  className="min-h-0 max-h-full max-w-full border border-slate-200 bg-white object-contain shadow-lg"
-                />
-              ) : (
+        {ready && composedImage && animatedGif && (
+          <div className="grid h-full min-h-0 w-full grid-cols-1 gap-6 md:grid-cols-[1.15fr_0.85fr]">
+            <figure className="flex min-h-0 flex-col border-4 border-(--border) bg-(--surface) shadow-[10px_10px_0_0_var(--border)]">
+              <figcaption className="flex items-center justify-between gap-3 border-b-4 border-(--border) bg-(--primary) px-4 py-3">
+                <span className="text-sm font-black uppercase tracking-[0.16em]">Hasil Cetak</span>
+                <span className="border-2 border-(--border) bg-(--surface) px-2 py-1 text-[0.6rem] font-black">
+                  01
+                </span>
+              </figcaption>
+              <div className="grid min-h-0 flex-1 place-items-center bg-(--background) p-4">
                 <img
-                  src={animatedGif.dataUrl}
-                  alt="Animasi seluruh hasil foto"
-                  className="min-h-0 max-h-full max-w-full border border-slate-200 bg-white object-contain shadow-lg"
+                  src={composedImage.dataUrl}
+                  alt="Hasil akhir dengan template"
+                  className="max-h-full min-h-0 max-w-full border-2 border-(--border) bg-white object-contain"
                 />
-              )}
-            </div>
+              </div>
+            </figure>
+
+            <figure className="flex min-h-0 flex-col border-4 border-(--border) bg-(--surface) shadow-[10px_10px_0_0_var(--border)]">
+              <figcaption className="flex items-center justify-between gap-3 border-b-4 border-(--border) bg-(--accent) px-4 py-3">
+                <span className="text-sm font-black uppercase tracking-[0.16em]">
+                  {composedVideo ? 'Video Template' : 'Animasi'}
+                </span>
+                <span className="border-2 border-(--border) bg-(--surface) px-2 py-1 text-[0.6rem] font-black">
+                  02
+                </span>
+              </figcaption>
+              <div className="grid min-h-0 flex-1 place-items-center bg-(--background) p-4">
+                {composedVideo ? (
+                  <video
+                    src={composedVideo.dataUrl}
+                    controls
+                    autoPlay
+                    loop
+                    className="max-h-full min-h-0 max-w-full border-2 border-(--border) bg-white object-contain"
+                  />
+                ) : (
+                  <img
+                    src={animatedGif.dataUrl}
+                    alt="Animasi seluruh hasil foto"
+                    className="max-h-full min-h-0 max-w-full border-2 border-(--border) bg-white object-contain"
+                  />
+                )}
+              </div>
+            </figure>
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="mt-auto flex gap-4">
-        <NeoButton variant="outlined" onClick={handleRetake}>
-          Ambil Ulang
-        </NeoButton>
+      <footer className="flex flex-wrap items-center justify-between gap-4 border-t-4 border-(--border) bg-(--surface) px-5 py-4 md:px-8">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-(--muted-foreground)">
+          {shots.length} foto diambil
+        </p>
 
-        <NeoButton onClick={handleConfirm} disabled={!composedImage || !animatedGif || composing}>
-          Pilih Filter Print
-        </NeoButton>
-      </div>
-    </div>
+        <div className="flex flex-wrap gap-3">
+          <NeoButton
+            variant="outlined"
+            onClick={handleRetake}
+            className={`[transition:none] ${focusRing}`}
+          >
+            Ambil Ulang
+          </NeoButton>
+
+          <NeoButton
+            onClick={handleConfirm}
+            disabled={!ready}
+            className={`px-8 text-lg disabled:cursor-not-allowed disabled:opacity-45 [transition:none] ${focusRing}`}
+          >
+            Pilih Filter Print <span aria-hidden="true">→</span>
+          </NeoButton>
+        </div>
+      </footer>
+    </main>
   )
 }

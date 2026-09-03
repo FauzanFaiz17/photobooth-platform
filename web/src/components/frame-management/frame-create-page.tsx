@@ -1,5 +1,5 @@
-import { Canvas, Rect } from "fabric"
-import { ArrowLeft, Eye, LoaderCircle, Pencil, Plus, Save, Trash2 } from "lucide-react"
+import { Canvas, FabricImage, Rect } from "fabric"
+import { ArrowLeft, Copy, Eye, ImageUp, LoaderCircle, Pencil, Plus, Save, Trash2 } from "lucide-react"
 import { useEffect, useRef, useState, type FormEvent, type ReactElement } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
@@ -16,13 +16,15 @@ import { isSuperAdmin } from "@/features/auth/auth-access"
 import { useAuth } from "@/features/auth/auth-context"
 import { getPartners } from "@/features/partners/partner-service"
 import type { PartnerRecord } from "@/features/partners/partner.types"
-import { createTemplate, getTemplate, updateTemplate } from "@/features/templates/template-service"
+import { createTemplate, getTemplate, updateTemplate, uploadTemplateAsset, type TemplateAssetType } from "@/features/templates/template-service"
 import { TEMPLATE_PAPER_SIZES, type TemplatePaperSize, type TemplateRecord, type TemplateStatus } from "@/features/templates/template.types"
-import { ApiError } from "@/lib/api-client"
+import { ApiError, resolveStorageUrl } from "@/lib/api-client"
 import { cn } from "@/lib/utils"
 
+// Template 2R dicetak di lembar 4R berisi dua strip identik, lalu dipotong tengah.
+// Jadi kanvasnya sama-sama 1200x1800; yang membedakan hanya susunan slot dan paper_size.
 const FRAME_SIZES = {
-  "2R": { width: 750, height: 1050, label: "2R (750 x 1050 px)" },
+  "2R": { width: 1200, height: 1800, label: "2R strip (cetak 4R, potong jadi 2)" },
   "4R": { width: 1200, height: 1800, label: "4R (1200 x 1800 px)" },
 } as const
 
@@ -39,6 +41,7 @@ interface PhotoSlot {
 interface FormErrors {
   partner_id?: string
   name?: string
+  png?: string
   slots?: string
 }
 
@@ -49,10 +52,13 @@ interface FrameCanvasProps {
   canvasHeight: number
   displayWidth: number
   displayHeight: number
+  overlayUrl: string | null
+  slotsInFront: boolean
   slots: ReadonlyArray<PhotoSlot>
   selectedSlotId: number | null
   onSelect: (slotId: number | null) => void
   onChange: (slotId: number, updates: Partial<Omit<PhotoSlot, "id">>) => void
+  onOverlayError: () => void
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -71,14 +77,27 @@ function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum)
 }
 
-function FrameCanvas({ canvasWidth, canvasHeight, displayWidth, displayHeight, slots, selectedSlotId, onSelect, onChange }: FrameCanvasProps): ReactElement {
+function isSlotRect(object: object): object is SlotRect {
+  return typeof (object as SlotRect).slotId === "number"
+}
+
+function FrameCanvas({ canvasWidth, canvasHeight, displayWidth, displayHeight, overlayUrl, slotsInFront, slots, selectedSlotId, onSelect, onChange, onOverlayError }: FrameCanvasProps): ReactElement {
   const containerRef = useRef<HTMLDivElement>(null)
   const fabricRef = useRef<Canvas | null>(null)
-  const callbacksRef = useRef({ onSelect, onChange })
+  const overlayRef = useRef<FabricImage | null>(null)
+  const callbacksRef = useRef({ onSelect, onChange, onOverlayError })
+
+  /** Slot digambar sebagai object biasa, jadi urutannya relatif terhadap overlay bisa dibalik. */
+  function applyOverlayOrder(canvas: Canvas, inFront: boolean) {
+    const overlay = overlayRef.current
+    if (!overlay) return
+    if (inFront) canvas.sendObjectToBack(overlay)
+    else canvas.bringObjectToFront(overlay)
+  }
 
   useEffect(() => {
-    callbacksRef.current = { onSelect, onChange }
-  }, [onChange, onSelect])
+    callbacksRef.current = { onSelect, onChange, onOverlayError }
+  }, [onChange, onOverlayError, onSelect])
 
   useEffect(() => {
     const container = containerRef.current
@@ -122,6 +141,7 @@ function FrameCanvas({ canvasWidth, canvasHeight, displayWidth, displayHeight, s
 
     return () => {
       fabricRef.current = null
+      overlayRef.current = null
       void canvas.dispose().catch(() => undefined)
       element.remove()
     }
@@ -130,8 +150,58 @@ function FrameCanvas({ canvasWidth, canvasHeight, displayWidth, displayHeight, s
   useEffect(() => {
     const canvas = fabricRef.current
     if (!canvas) return
+    let cancelled = false
+    const previous = overlayRef.current
+    if (previous) {
+      canvas.remove(previous)
+      overlayRef.current = null
+    }
+    if (!overlayUrl) {
+      canvas.requestRenderAll()
+      return
+    }
+
+    void FabricImage.fromURL(overlayUrl, { crossOrigin: "anonymous" })
+      .then((image) => {
+        if (cancelled || fabricRef.current !== canvas) return
+        image.set({
+          left: 0,
+          top: 0,
+          originX: "left",
+          originY: "top",
+          selectable: false,
+          evented: false,
+          scaleX: canvasWidth / (image.width || canvasWidth),
+          scaleY: canvasHeight / (image.height || canvasHeight),
+        })
+        overlayRef.current = image
+        canvas.add(image)
+        applyOverlayOrder(canvas, slotsInFront)
+        canvas.requestRenderAll()
+      })
+      .catch(() => {
+        if (!cancelled) callbacksRef.current.onOverlayError()
+      })
+
+    return () => {
+      cancelled = true
+    }
+    // slotsInFront sengaja tidak jadi dependency: perubahannya ditangani efek urutan di bawah.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canvasHeight, canvasWidth, overlayUrl])
+
+  useEffect(() => {
+    const canvas = fabricRef.current
+    if (!canvas) return
+    applyOverlayOrder(canvas, slotsInFront)
+    canvas.requestRenderAll()
+  }, [overlayUrl, slotsInFront])
+
+  useEffect(() => {
+    const canvas = fabricRef.current
+    if (!canvas) return
     const visualScale = canvasWidth / displayWidth
-    const current = new Map(canvas.getObjects().map((object) => [(object as SlotRect).slotId, object as SlotRect]))
+    const current = new Map(canvas.getObjects().filter(isSlotRect).map((object) => [object.slotId, object]))
 
     slots.forEach((slot) => {
       const values = {
@@ -172,31 +242,45 @@ function FrameCanvas({ canvasWidth, canvasHeight, displayWidth, displayHeight, s
     })
 
     current.forEach((object) => canvas.remove(object))
-    const selected = canvas.getObjects().find((object) => (object as SlotRect).slotId === selectedSlotId)
+    applyOverlayOrder(canvas, slotsInFront)
+    const selected = canvas.getObjects().filter(isSlotRect).find((object) => object.slotId === selectedSlotId)
     if (selected && canvas.getActiveObject() !== selected) canvas.setActiveObject(selected)
     if (!selected && canvas.getActiveObject()) canvas.discardActiveObject()
     canvas.requestRenderAll()
-  }, [canvasHeight, canvasWidth, displayWidth, selectedSlotId, slots])
+  }, [canvasHeight, canvasWidth, displayWidth, selectedSlotId, slots, slotsInFront])
 
   return <div ref={containerRef} role="application" aria-label="Editor slot foto" className="overflow-hidden bg-white [&_.canvas-container]:shadow-2xl" style={{ width: displayWidth, height: displayHeight }} />
 }
 
-function detectFrameSize(width: number, height: number): FrameSize {
-  return (Object.entries(FRAME_SIZES).find(([, option]) => option.width === width && option.height === height)?.[0] as FrameSize | undefined) ?? "4R"
+/**
+ * paper_size tidak dikembalikan TemplateResource, dan kedua ukuran kini punya kanvas
+ * identik — jadi dimensi tidak bisa dipakai membedakan. Penanda disimpan di dalam
+ * json_layout, satu-satunya bagian payload yang dijamin round-trip.
+ */
+function readFrameSize(frame: TemplateRecord): FrameSize | null {
+  if (frame.paper_size === "2r") return "2R"
+  if (frame.paper_size === "4r") return "4R"
+  if (isRecord(frame.json_layout)) {
+    const stored = frame.json_layout.paper_size
+    if (stored === "2r") return "2R"
+    if (stored === "4r") return "4R"
+  }
+  return null
 }
 
 function paperSizeForFrame(size: FrameSize): TemplatePaperSize {
   return size === "2R" ? "2r" : "4r"
 }
 
-function readFrameLayout(frame: TemplateRecord): { size: FrameSize; slots: ReadonlyArray<PhotoSlot> } {
-  const preferredSize = frame.paper_size === "2r" ? "2R" : frame.paper_size === "4r" ? "4R" : null
-  if (!isRecord(frame.json_layout)) return { size: preferredSize ?? "4R", slots: [] }
+function readFrameLayout(frame: TemplateRecord): { size: FrameSize; slots: ReadonlyArray<PhotoSlot>; slotsInFront: boolean } {
+  const preferredSize = readFrameSize(frame)
+  if (!isRecord(frame.json_layout)) return { size: preferredSize ?? "4R", slots: [], slotsInFront: false }
+  const slotsInFront = frame.json_layout.slots_on_top === true
 
   const canvas = isRecord(frame.json_layout.canvas) ? frame.json_layout.canvas : null
   const sourceWidth = positiveNumber(canvas?.width) ?? FRAME_SIZES[preferredSize ?? "4R"].width
   const sourceHeight = positiveNumber(canvas?.height) ?? FRAME_SIZES[preferredSize ?? "4R"].height
-  const size = preferredSize ?? detectFrameSize(sourceWidth, sourceHeight)
+  const size = preferredSize ?? "4R"
   const target = FRAME_SIZES[size]
   const scaleX = target.width / sourceWidth
   const scaleY = target.height / sourceHeight
@@ -215,7 +299,7 @@ function readFrameLayout(frame: TemplateRecord): { size: FrameSize; slots: Reado
     const y = clamp(rawY * scaleY, 0, target.height - scaledHeight)
     return [{ id: index + 1, x, y, width: scaledWidth, height: scaledHeight }]
   })
-  return { size, slots }
+  return { size, slots, slotsInFront }
 }
 
 function determineLayout(slots: ReadonlyArray<PhotoSlot>): "grid" | "strip" {
@@ -223,6 +307,70 @@ function determineLayout(slots: ReadonlyArray<PhotoSlot>): "grid" | "strip" {
   const centersX = slots.map((slot) => slot.x + slot.width / 2)
   const centersY = slots.map((slot) => slot.y + slot.height / 2)
   return Math.max(...centersY) - Math.min(...centersY) > Math.max(...centersX) - Math.min(...centersX) ? "strip" : "grid"
+}
+
+
+const ASSET_FIELDS: ReadonlyArray<{ type: TemplateAssetType; label: string; hint: string }> = [
+  { type: "preview", label: "Preview", hint: "Tampil di kiosk saat pelanggan memilih frame." },
+  { type: "thumbnail", label: "Thumbnail", hint: "Cadangan preview pada daftar Frame." },
+]
+
+function AssetUpload({ templateId, type, label, hint, currentPath, onUploaded, onFailed }: {
+  readonly templateId: number
+  readonly type: TemplateAssetType
+  readonly label: string
+  readonly hint: string
+  readonly currentPath: string | null
+  readonly onUploaded: (saved: TemplateRecord) => void
+  readonly onFailed: (message: string) => void
+}): ReactElement {
+  const { token } = useAuth()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const previewUrl = resolveStorageUrl(currentPath)
+
+  async function upload(file: File): Promise<void> {
+    if (!token || busy) return
+    setBusy(true)
+    try {
+      onUploaded(await uploadTemplateAsset(token, templateId, file, type))
+      toast.success(`${label} berhasil diunggah.`)
+    } catch (caught: unknown) {
+      onFailed(caught instanceof ApiError ? Object.values(caught.validationErrors).flat()[0] ?? caught.message : "Tidak dapat terhubung ke server.")
+    } finally {
+      setBusy(false)
+      if (inputRef.current) inputRef.current.value = ""
+    }
+  }
+
+  return (
+    <div className="flex items-start gap-3">
+      <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted/40">
+        {previewUrl
+          ? <img src={previewUrl} alt={`${label} saat ini`} className="size-full object-contain" />
+          : <ImageUp className="size-5 text-muted-foreground" aria-hidden="true" />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
+        <input
+          ref={inputRef}
+          id={`asset-${type}`}
+          type="file"
+          accept="image/png"
+          className="sr-only"
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) void upload(file)
+          }}
+        />
+        <Button type="button" size="sm" variant="outline" className="mt-2" disabled={busy} onClick={() => inputRef.current?.click()}>
+          {busy ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <ImageUp aria-hidden="true" />}
+          {currentPath ? "Ganti" : "Unggah"} PNG
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 export function FrameCreatePage(): ReactElement {
@@ -234,6 +382,12 @@ export function FrameCreatePage(): ReactElement {
   const frameId = Number(frameIdParam)
   const editing = Number.isInteger(frameId) && frameId > 0
   const nextSlotId = useRef(1)
+  const overlayInputRef = useRef<HTMLInputElement>(null)
+  const overlayUrlRef = useRef<string | null>(null)
+  const [overlayUrl, setOverlayUrl] = useState<string | null>(null)
+  const [overlayFile, setOverlayFile] = useState<File | null>(null)
+  const [overlayBroken, setOverlayBroken] = useState(false)
+  const [slotsInFront, setSlotsInFront] = useState(false)
   const [partners, setPartners] = useState<ReadonlyArray<PartnerRecord>>([])
   const [partnerId, setPartnerId] = useState(String(user?.partner?.id ?? ""))
   const [name, setName] = useState("")
@@ -267,6 +421,8 @@ export function FrameCreatePage(): ReactElement {
           setStatus(loadedFrame.status)
           setSize(layout.size)
           setSlots(layout.slots)
+          setSlotsInFront(layout.slotsInFront)
+          setOverlayUrl(resolveStorageUrl(loadedFrame.png_path))
           nextSlotId.current = Math.max(0, ...layout.slots.map((slot) => slot.id)) + 1
         }
         setLoadState("ready")
@@ -287,6 +443,24 @@ export function FrameCreatePage(): ReactElement {
 
     return () => controller.abort()
   }, [editing, frameId, location, logout, navigate, superAdmin, token])
+
+  useEffect(() => () => {
+    if (overlayUrlRef.current) URL.revokeObjectURL(overlayUrlRef.current)
+  }, [])
+
+  /**
+   * PNG ditampilkan dari objectURL lokal, bukan dari png_path hasil unggah — backend
+   * belum punya endpoint penyaji asset, jadi URL storage-nya selalu gagal dimuat.
+   * Unggahannya sendiri ditunda sampai Frame punya id (setelah simpan).
+   */
+  function pickOverlay(file: File) {
+    if (overlayUrlRef.current) URL.revokeObjectURL(overlayUrlRef.current)
+    overlayUrlRef.current = URL.createObjectURL(file)
+    setOverlayUrl(overlayUrlRef.current)
+    setOverlayFile(file)
+    setOverlayBroken(false)
+    setErrors((current) => ({ ...current, png: undefined }))
+  }
 
   const selectedSlot = slots.find((slot) => slot.id === selectedSlotId) ?? null
   const canvasSize = FRAME_SIZES[size]
@@ -323,6 +497,20 @@ export function FrameCreatePage(): ReactElement {
         y: clamp(next.y, 0, canvasSize.height - height),
       }
     }))
+  }
+
+  /** Salinan digeser sedikit supaya slot aslinya masih bisa diklik di canvas. */
+  function duplicateSlot(source: PhotoSlot) {
+    const step = Math.round(Math.min(canvasSize.width, canvasSize.height) * 0.03)
+    const slot: PhotoSlot = {
+      id: nextSlotId.current++,
+      width: source.width,
+      height: source.height,
+      x: clamp(source.x + step, 0, canvasSize.width - source.width),
+      y: clamp(source.y + step, 0, canvasSize.height - source.height),
+    }
+    setSlots((current) => [...current, slot])
+    setSelectedSlotId(slot.id)
   }
 
   function removeSlot(slotId: number) {
@@ -364,6 +552,7 @@ export function FrameCreatePage(): ReactElement {
     if (!Number.isInteger(Number(partnerId)) || Number(partnerId) <= 0) nextErrors.partner_id = "Partner wajib dipilih."
     if (!name.trim()) nextErrors.name = "Nama Frame wajib diisi."
     else if (name.trim().length > 150) nextErrors.name = "Maksimal 150 karakter."
+    if (!overlayUrl) nextErrors.png = "Unggah PNG frame terlebih dahulu."
     if (slots.length === 0) nextErrors.slots = "Tambahkan minimal satu slot foto."
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors)
@@ -388,6 +577,8 @@ export function FrameCreatePage(): ReactElement {
         psd_path: frame?.psd_path ?? null,
         json_layout: {
           canvas: { width: canvasSize.width, height: canvasSize.height, background: typeof currentCanvas?.background === "string" ? currentCanvas.background : "#ffffff" },
+          paper_size: paperSizeForFrame(size),
+          slots_on_top: slotsInFront,
           layout: determineLayout(slots),
           frames: slots.map((slot) => ({
             x: Math.round(slot.x),
@@ -398,6 +589,14 @@ export function FrameCreatePage(): ReactElement {
         },
       }
       const saved = editing ? await updateTemplate(token, frameId, payload) : await createTemplate(token, payload)
+      if (overlayFile) {
+        try {
+          await uploadTemplateAsset(token, saved.id, overlayFile, "png")
+        } catch {
+          setFormError(`Frame ${saved.name} tersimpan, tapi PNG gagal diunggah. Buka lagi Frame ini untuk mengulang unggahan.`)
+          return
+        }
+      }
       toast.success(`Frame ${saved.name} ${editing ? "diperbarui" : "ditambahkan"}.`)
       navigate("/frame-photo", { replace: true })
     } catch (error: unknown) {
@@ -440,7 +639,7 @@ export function FrameCreatePage(): ReactElement {
 
       <div className={cn("grid items-start gap-5", mode === "edit" && "xl:grid-cols-[minmax(0,1fr)_20rem]")}>
         <Card>
-          <CardHeader className="border-b"><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>{mode === "edit" ? "Editor Slot Foto" : "Preview Frame"}</CardTitle><CardDescription>{mode === "edit" ? "Tarik slot untuk mengatur posisi pada canvas." : "Preview menggunakan koordinat yang sama dengan hasil Electron."}</CardDescription></div><div className="flex flex-wrap gap-2"><div className="flex rounded-md border p-1"><Button type="button" size="sm" variant={mode === "edit" ? "secondary" : "ghost"} onClick={() => setMode("edit")}><Pencil aria-hidden="true" /> Edit</Button><Button type="button" size="sm" variant={mode === "preview" ? "secondary" : "ghost"} onClick={() => setMode("preview")}><Eye aria-hidden="true" /> Preview</Button></div>{mode === "edit" && <Button type="button" onClick={addSlot}><Plus aria-hidden="true" /> Tambah Foto</Button>}</div></div></CardHeader>
+          <CardHeader className="border-b"><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>{mode === "edit" ? "Editor Slot Foto" : "Preview Frame"}</CardTitle><CardDescription>{mode === "edit" ? "Tarik slot untuk mengatur posisi pada canvas." : "Preview menggunakan koordinat yang sama dengan hasil Electron."}</CardDescription></div><div className="flex flex-wrap gap-2"><div className="flex rounded-md border p-1"><Button type="button" size="sm" variant={mode === "edit" ? "secondary" : "ghost"} onClick={() => setMode("edit")}><Pencil aria-hidden="true" /> Edit</Button><Button type="button" size="sm" variant={mode === "preview" ? "secondary" : "ghost"} onClick={() => setMode("preview")}><Eye aria-hidden="true" /> Preview</Button></div>{mode === "edit" && <Button type="button" onClick={addSlot} disabled={!overlayUrl} title={overlayUrl ? undefined : "Unggah PNG frame dulu"}><Plus aria-hidden="true" /> Tambah Foto</Button>}</div></div></CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -454,16 +653,26 @@ export function FrameCreatePage(): ReactElement {
             </div>
             <div className="grid min-h-136 place-items-center overflow-auto rounded-md border bg-zinc-100 p-5 dark:bg-zinc-950 sm:p-10">
               {mode === "edit" ? (
-                <div className="overflow-hidden rounded-sm border-8 border-white bg-white shadow-2xl ring-1 ring-black/10">
-                  <FrameCanvas canvasWidth={canvasSize.width} canvasHeight={canvasSize.height} displayWidth={displayWidth} displayHeight={displayHeight} slots={slots} selectedSlotId={selectedSlotId} onSelect={setSelectedSlotId} onChange={updateSlot} />
+                <div className="relative overflow-hidden rounded-sm border-8 border-white bg-white shadow-2xl ring-1 ring-black/10">
+                  <FrameCanvas canvasWidth={canvasSize.width} canvasHeight={canvasSize.height} displayWidth={displayWidth} displayHeight={displayHeight} overlayUrl={overlayUrl} slotsInFront={slotsInFront} slots={slots} selectedSlotId={selectedSlotId} onSelect={setSelectedSlotId} onChange={updateSlot} onOverlayError={() => setOverlayBroken(true)} />
+                  {(!overlayUrl || overlayBroken) && (
+                    <button type="button" onClick={() => overlayInputRef.current?.click()} className="absolute inset-3 grid place-items-center rounded-md border-2 border-dashed border-muted-foreground/40 bg-white/70 text-center transition-colors hover:border-primary hover:bg-primary/5">
+                      <span className="grid gap-1 px-6">
+                        <ImageUp className="mx-auto size-8 text-muted-foreground" aria-hidden="true" />
+                        <span className="font-medium">{overlayBroken ? "PNG tidak bisa dimuat" : "Unggah Image PNG"}</span>
+                        <span className="text-xs text-muted-foreground">{overlayBroken ? "File tersimpan di server, tapi belum bisa diambil kembali. Klik untuk mengunggah ulang." : "Klik untuk memilih PNG frame. Slot foto bisa ditambahkan setelah gambar tampil di canvas."}</span>
+                      </span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="overflow-hidden rounded-sm border-8 border-white bg-white shadow-2xl ring-1 ring-black/10">
                   <div className="relative overflow-hidden bg-white" style={{ width: displayWidth, height: displayHeight }}>
                     {slots.map((slot, index) => (
-                      <div key={slot.id} className="absolute overflow-hidden bg-muted ring-1 ring-black/10" style={{ left: `${(slot.x / canvasSize.width) * 100}%`, top: `${(slot.y / canvasSize.height) * 100}%`, width: `${(slot.width / canvasSize.width) * 100}%`, height: `${(slot.height / canvasSize.height) * 100}%` }}><img src={samplePhoto} alt={`Contoh foto ${index + 1}`} className="size-full object-cover" style={{ objectPosition: index % 2 === 0 ? "center 25%" : "center 65%" }} /><span className="absolute left-2 top-2 grid size-6 place-items-center rounded-full bg-black/70 text-xs font-medium text-white">{index + 1}</span></div>
+                      <div key={slot.id} className="absolute overflow-hidden bg-muted ring-1 ring-black/10" style={{ left: `${(slot.x / canvasSize.width) * 100}%`, top: `${(slot.y / canvasSize.height) * 100}%`, width: `${(slot.width / canvasSize.width) * 100}%`, height: `${(slot.height / canvasSize.height) * 100}%`, zIndex: slotsInFront ? 2 : 1 }}><img src={samplePhoto} alt={`Contoh foto ${index + 1}`} className="size-full object-cover" style={{ objectPosition: index % 2 === 0 ? "center 25%" : "center 65%" }} /><span className="absolute left-2 top-2 grid size-6 place-items-center rounded-full bg-black/70 text-xs font-medium text-white">{index + 1}</span></div>
                     ))}
-                    {slots.length === 0 && <div className="absolute inset-0 grid place-items-center p-6 text-center"><div><p className="font-medium text-muted-foreground">Canvas {size}</p><p className="mt-1 text-xs text-muted-foreground">Klik Tambah Foto untuk membuat slot.</p></div></div>}
+                    {overlayUrl && !overlayBroken && <img src={overlayUrl} alt="PNG frame" className="pointer-events-none absolute inset-0 size-full object-contain" style={{ zIndex: slotsInFront ? 1 : 2 }} />}
+                    {slots.length === 0 && <div className="absolute inset-0 grid place-items-center p-6 text-center"><div><p className="font-medium text-muted-foreground">Canvas {size}</p><p className="mt-1 text-xs text-muted-foreground">{overlayUrl ? "Klik Tambah Foto untuk membuat slot." : "Unggah PNG frame di mode Edit."}</p></div></div>}
                   </div>
                 </div>
               )}
@@ -484,7 +693,70 @@ export function FrameCreatePage(): ReactElement {
           </Card>
 
           <Card>
-            <CardHeader><div className="flex items-center justify-between gap-3"><div><CardTitle>Slot Foto</CardTitle><CardDescription>{slots.length} slot dibuat</CardDescription></div>{selectedSlot && <Button type="button" size="icon" variant="destructive" aria-label="Hapus slot terpilih" onClick={() => removeSlot(selectedSlot.id)}><Trash2 aria-hidden="true" /></Button>}</div></CardHeader>
+            <CardHeader><CardTitle>Gambar Frame</CardTitle><CardDescription>PNG maksimal 10 MB, digambar sesuai canvas {canvasSize.width} x {canvasSize.height} px.</CardDescription></CardHeader>
+            <CardContent className="grid gap-5">
+              <div className="grid gap-3">
+                <input
+                  ref={overlayInputRef}
+                  type="file"
+                  accept="image/png"
+                  className="sr-only"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    if (file) pickOverlay(file)
+                    event.target.value = ""
+                  }}
+                />
+                <div className="flex items-center gap-3">
+                  <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted/40">
+                    {overlayUrl && !overlayBroken
+                      ? <img src={overlayUrl} alt="PNG frame saat ini" className="size-full object-contain" onError={() => setOverlayBroken(true)} />
+                      : <ImageUp className="size-5 text-muted-foreground" aria-hidden="true" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">PNG Frame</p>
+                    {overlayBroken && <p className="mt-0.5 text-xs text-amber-600">Tersimpan, tapi backend belum menyajikannya kembali. Unggah ulang bila ingin melihatnya di editor.</p>}
+                    <Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => overlayInputRef.current?.click()}>
+                      <ImageUp aria-hidden="true" /> {overlayUrl ? "Ganti" : "Unggah"} PNG
+                    </Button>
+                  </div>
+                </div>
+                {errors.png && <p className="text-xs text-destructive">{errors.png}</p>}
+              </div>
+
+              <fieldset className="grid gap-2" disabled={!overlayUrl}>
+                <legend className="text-sm font-medium">Urutan Slot Foto</legend>
+                <p className="text-xs text-muted-foreground">Posisi slot foto terhadap PNG saat dicetak.</p>
+                {([
+                  { value: false, label: "Slot di belakang PNG", hint: "PNG menutupi foto — untuk frame berbingkai." },
+                  { value: true, label: "Slot di depan PNG", hint: "Foto menutupi PNG — untuk background polos." },
+                ] as const).map((option) => (
+                  <label key={String(option.value)} className={cn("flex cursor-pointer items-start gap-2 rounded-md border p-2.5 text-sm", slotsInFront === option.value && "border-primary bg-primary/5")}>
+                    <input type="radio" name="slot-z-index" className="mt-0.5" checked={slotsInFront === option.value} onChange={() => setSlotsInFront(option.value)} />
+                    <span className="min-w-0"><span className="font-medium">{option.label}</span><span className="mt-0.5 block text-xs text-muted-foreground">{option.hint}</span></span>
+                  </label>
+                ))}
+              </fieldset>
+
+              {editing && frame
+                ? ASSET_FIELDS.map((field) => (
+                    <AssetUpload
+                      key={field.type}
+                      templateId={frame.id}
+                      type={field.type}
+                      label={field.label}
+                      hint={field.hint}
+                      currentPath={field.type === "preview" ? frame.preview_path : frame.thumbnail_path}
+                      onUploaded={(saved) => { setFrame(saved); setFormError("") }}
+                      onFailed={setFormError}
+                    />
+                  ))
+                : <p className="text-sm text-muted-foreground">Preview dan thumbnail bisa diunggah setelah Frame tersimpan.</p>}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><div className="flex items-center justify-between gap-3"><div><CardTitle>Slot Foto</CardTitle><CardDescription>{slots.length} slot dibuat</CardDescription></div>{selectedSlot && <div className="flex gap-2"><Button type="button" size="icon" variant="outline" aria-label="Duplikat slot terpilih" title="Duplikat slot (ukuran sama)" onClick={() => duplicateSlot(selectedSlot)}><Copy aria-hidden="true" /></Button><Button type="button" size="icon" variant="destructive" aria-label="Hapus slot terpilih" onClick={() => removeSlot(selectedSlot.id)}><Trash2 aria-hidden="true" /></Button></div>}</div></CardHeader>
             <CardContent>
               {!selectedSlot && <p className="text-sm text-muted-foreground">Pilih slot pada canvas untuk mengatur ukuran dan posisinya.</p>}
               {selectedSlot && <div className="grid grid-cols-2 gap-3">{(["x", "y", "width", "height"] as const).map((field) => <div key={field} className="grid gap-2"><Label htmlFor={`slot-${field}`}>{field === "x" ? "Posisi X (px)" : field === "y" ? "Posisi Y (px)" : field === "width" ? "Lebar (px)" : "Tinggi (px)"}</Label><Input id={`slot-${field}`} type="number" min={field === "x" || field === "y" ? 0 : 10} max={field === "x" ? canvasSize.width - selectedSlot.width : field === "y" ? canvasSize.height - selectedSlot.height : field === "width" ? canvasSize.width - selectedSlot.x : canvasSize.height - selectedSlot.y} step={1} value={Math.round(selectedSlot[field])} onChange={(event) => changeSlotNumber(field, event.target.value)} /></div>)}</div>}
