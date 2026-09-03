@@ -292,6 +292,7 @@ app.whenReady().then(() => {
       shots: string[],
       finalImage?: string,
       gifImage?: string,
+      composedVideo?: string,
       storageDirectory?: string | null
     ) => {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -318,6 +319,11 @@ app.whenReady().then(() => {
       if (gifImage) {
         const base64 = gifImage.replace(/^data:image\/gif;base64,/, '')
         await writeFile(join(directory, 'session-animation.gif'), Buffer.from(base64, 'base64'))
+      }
+
+      if (composedVideo) {
+        const base64 = composedVideo.replace(/^data:video\/[^;]+;base64,/, '')
+        await writeFile(join(directory, 'template-video.webm'), Buffer.from(base64, 'base64'))
       }
 
       return { directory }

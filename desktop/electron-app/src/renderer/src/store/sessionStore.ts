@@ -5,6 +5,7 @@ import { mapFilterSnapshot, mapTemplateSnapshot } from '@/features/event/types'
 import type { PhotoFilter } from '@/features/filter/types'
 import type { AnimatedGif } from '@/features/gif/services/createSessionGif'
 import type { ComposedImage } from '@/features/template/services/composeTemplate'
+import type { ComposedVideo } from '@/features/template/services/composeTemplateVideo'
 import type { PhotoTemplate } from '@/features/template/types'
 
 export interface CapturedShot {
@@ -12,6 +13,9 @@ export interface CapturedShot {
   dataUrl: string
   width?: number
   height?: number
+  /** Rekaman video pendek (webm data URL, tanpa audio) selama countdown shot ini. */
+  videoDataUrl?: string
+  mirror?: boolean
 }
 
 export type SessionSyncStatus =
@@ -34,12 +38,15 @@ interface SessionState {
   syncError: string | null
   localDirectory: string | null
   uploadedShotCount: number
+  uploadedVideoShotCount: number
   composedImage: ComposedImage | null
   composedImageUploaded: boolean
   printImage: ComposedImage | null
   printedLocally: boolean
   animatedGif: AnimatedGif | null
   animatedGifUploaded: boolean
+  composedVideo: ComposedVideo | null
+  composedVideoUploaded: boolean
   sessionDeadline: number | null
   beginEvent: (configuration: EventConfiguration) => void
   setRemoteSession: (sessionId: number | null) => void
@@ -47,12 +54,15 @@ interface SessionState {
   setSyncStatus: (status: SessionSyncStatus, error?: string | null) => void
   setLocalDirectory: (directory: string) => void
   setUploadedShotCount: (count: number) => void
+  setUploadedVideoShotCount: (count: number) => void
   setComposedImage: (image: ComposedImage | null) => void
   setComposedImageUploaded: (uploaded: boolean) => void
   setPrintImage: (image: ComposedImage | null) => void
   setPrintedLocally: (printed: boolean) => void
   setAnimatedGif: (gif: AnimatedGif | null) => void
   setAnimatedGifUploaded: (uploaded: boolean) => void
+  setComposedVideo: (video: ComposedVideo | null) => void
+  setComposedVideoUploaded: (uploaded: boolean) => void
   setTemplate: (template: PhotoTemplate) => void
   setFilter: (filter: PhotoFilter | null) => void
   setPaperSize: (paperSize: '2r' | '4r') => void
@@ -86,12 +96,15 @@ export const useSessionStore = create<SessionState>((set) => ({
   syncError: null,
   localDirectory: null,
   uploadedShotCount: 0,
+  uploadedVideoShotCount: 0,
   composedImage: null,
   composedImageUploaded: false,
   printImage: null,
   printedLocally: false,
   animatedGif: null,
   animatedGifUploaded: false,
+  composedVideo: null,
+  composedVideoUploaded: false,
   sessionDeadline: null,
 
   beginEvent: (configuration) => {
@@ -124,12 +137,15 @@ export const useSessionStore = create<SessionState>((set) => ({
       syncError: null,
       localDirectory: null,
       uploadedShotCount: 0,
+      uploadedVideoShotCount: 0,
       composedImage: null,
       composedImageUploaded: false,
       printImage: null,
       printedLocally: false,
       animatedGif: null,
       animatedGifUploaded: false,
+      composedVideo: null,
+      composedVideoUploaded: false,
       sessionDeadline: null
     })
   },
@@ -143,6 +159,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   setLocalDirectory: (localDirectory) => set({ localDirectory }),
 
   setUploadedShotCount: (uploadedShotCount) => set({ uploadedShotCount }),
+  setUploadedVideoShotCount: (uploadedVideoShotCount) => set({ uploadedVideoShotCount }),
 
   setComposedImage: (composedImage) => set({ composedImage, composedImageUploaded: false }),
 
@@ -155,6 +172,9 @@ export const useSessionStore = create<SessionState>((set) => ({
   setAnimatedGif: (animatedGif) => set({ animatedGif, animatedGifUploaded: false }),
 
   setAnimatedGifUploaded: (animatedGifUploaded) => set({ animatedGifUploaded }),
+
+  setComposedVideo: (composedVideo) => set({ composedVideo, composedVideoUploaded: false }),
+  setComposedVideoUploaded: (composedVideoUploaded) => set({ composedVideoUploaded }),
 
   setTemplate: (template) =>
     set({
@@ -187,7 +207,9 @@ export const useSessionStore = create<SessionState>((set) => ({
       printedLocally: false,
       animatedGif: null,
       animatedGifUploaded: false,
+      composedVideo: null,
       uploadedShotCount: 0
+      ,uploadedVideoShotCount: 0
     }),
 
   resetTransaction: () =>
@@ -214,6 +236,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       printedLocally: false,
       animatedGif: null,
       animatedGifUploaded: false,
+      composedVideo: null,
+      composedVideoUploaded: false,
       sessionDeadline: null
     })),
 
@@ -235,12 +259,15 @@ export const useSessionStore = create<SessionState>((set) => ({
       syncError: null,
       localDirectory: null,
       uploadedShotCount: 0,
+      uploadedVideoShotCount: 0,
       composedImage: null,
       composedImageUploaded: false,
       printImage: null,
       printedLocally: false,
       animatedGif: null,
       animatedGifUploaded: false,
+      composedVideo: null,
+      composedVideoUploaded: false,
       sessionDeadline: null
     })
 }))

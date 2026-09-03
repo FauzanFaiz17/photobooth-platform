@@ -98,9 +98,10 @@ contextBridge.exposeInMainWorld('session', {
     shots: string[],
     finalImage?: string,
     gifImage?: string,
+    composedVideo?: string,
     storageDirectory?: string | null
   ): Promise<{ directory: string }> =>
-    ipcRenderer.invoke('session:save-webcam-shots', shots, finalImage, gifImage, storageDirectory)
+    ipcRenderer.invoke('session:save-webcam-shots', shots, finalImage, gifImage, composedVideo, storageDirectory)
 })
 contextBridge.exposeInMainWorld('asset', {
   loadImage: (url: string): Promise<string> => ipcRenderer.invoke('asset:load-image', url)

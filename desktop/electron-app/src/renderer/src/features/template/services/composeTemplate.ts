@@ -43,7 +43,7 @@ function finiteNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-function getCanvasSize(jsonLayout: Record<string, unknown>): CanvasSize {
+export function getCanvasSize(jsonLayout: Record<string, unknown>): CanvasSize {
   const canvas = jsonLayout.canvas
 
   if (!isRecord(canvas)) return DEFAULT_CANVAS
@@ -73,7 +73,7 @@ function createFallbackFrames(
   }))
 }
 
-function getFrames(
+export function getFrames(
   jsonLayout: Record<string, unknown>,
   count: number,
   canvas: CanvasSize,

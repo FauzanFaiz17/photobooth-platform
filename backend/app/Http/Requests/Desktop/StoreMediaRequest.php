@@ -29,9 +29,9 @@ class StoreMediaRequest extends FormRequest
             'mime_type' => [
                 'required',
                 'string',
-                'in:image/jpeg,image/png,image/webp,image/gif,video/mp4,application/zip',
+                'in:image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,application/zip',
             ],
-            'data_url' => ['required', 'string', 'max:30000000'],
+            'data_url' => ['required', 'string', 'max:120000000'],
             'width' => ['nullable', 'integer', 'min:1'],
             'height' => ['nullable', 'integer', 'min:1'],
             'duration_seconds' => ['nullable', 'numeric', 'min:0'],

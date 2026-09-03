@@ -41,9 +41,9 @@ export async function createPhotoSession(
 export async function uploadSessionMedia(
   sessionId: number,
   payload: {
-    type: 'original' | 'edited' | 'template' | 'gif' | 'thumbnail'
+    type: 'original' | 'edited' | 'template' | 'gif' | 'video' | 'thumbnail'
     filename: string
-    mime_type: 'image/png' | 'image/jpeg' | 'image/gif'
+    mime_type: 'image/png' | 'image/jpeg' | 'image/gif' | 'video/webm'
     data_url: string
     width?: number
     height?: number

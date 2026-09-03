@@ -42,7 +42,14 @@ export default function CameraCapture({
     dataUrl: string
   } | null>(null)
 
+  // Guard: inisialisasi kamera hanya boleh dijalankan sekali agar tidak
+  // memicu loop reload webcam ketika daftar `devices` berubah.
+  const cameraInitializedRef = useRef(false)
+
   useEffect(() => {
+    if (cameraInitializedRef.current) return
+    cameraInitializedRef.current = true
+
     void getCameraSettings().then(async (settings) => {
       setCameraSettings(settings)
       if (settings.source === 'webcam') {
@@ -70,7 +77,8 @@ export default function CameraCapture({
       }
       await window.api?.request('/toggle_mirror', 'POST', { mirror: settings.mirror })
     })
-  }, [devices, selectDevice])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -92,10 +100,71 @@ export default function CameraCapture({
     }
   }, [templateOverlayPath])
 
+  // ---- Rekaman video pendek per shot (webcam, tanpa audio) ----
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recordChunksRef = useRef<Blob[]>([])
+  const recordingPromiseRef = useRef<Promise<string | null> | null>(null)
+
+  const startRecording = useCallback((): void => {
+    const video = videoRef.current
+    const stream = (video?.srcObject as MediaStream | null) ?? null
+
+    if (!stream || typeof MediaRecorder === 'undefined') {
+      recordingPromiseRef.current = null
+      return
+    }
+
+    try {
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9'
+        : 'video/webm'
+
+      recordChunksRef.current = []
+      const recorder = new MediaRecorder(stream, {
+        mimeType,
+        videoBitsPerSecond: 2_500_000
+      })
+
+      recorder.ondataavailable = (event): void => {
+        if (event.data.size > 0) recordChunksRef.current.push(event.data)
+      }
+
+      recordingPromiseRef.current = new Promise<string | null>((resolve) => {
+        recorder.onstop = (): void => {
+          mediaRecorderRef.current = null
+
+          if (recordChunksRef.current.length === 0) {
+            resolve(null)
+            return
+          }
+
+          const blob = new Blob(recordChunksRef.current, { type: 'video/webm' })
+          const reader = new FileReader()
+          reader.onloadend = (): void =>
+            resolve(typeof reader.result === 'string' ? reader.result : null)
+          reader.onerror = (): void => resolve(null)
+          reader.readAsDataURL(blob)
+        }
+      })
+
+      recorder.start()
+      mediaRecorderRef.current = recorder
+    } catch {
+      recordingPromiseRef.current = null
+    }
+  }, [videoRef])
+
+  const stopRecording = useCallback((): void => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop()
+    }
+  }, [])
+
   const activeTemplateOverlay =
     templateOverlay?.path === templateOverlayPath ? templateOverlay.dataUrl : null
 
-  const captureFrame = useCallback(async (): Promise<string | null> => {
+  const captureFrame = useCallback(
+    async (): Promise<string | null> => {
     const settings = cameraSettings ?? DEFAULT_CAMERA_SETTINGS
 
     if (settings.source === 'canon') {
@@ -118,11 +187,15 @@ export default function CameraCapture({
       context.scale(settings.mirror ? -1 : 1, 1)
       context.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2)
       const captured = canvas.toDataURL('image/png')
+      stopRecording()
+      const videoDataUrl = await (recordingPromiseRef.current ?? Promise.resolve(null))
       setLastCaptured({
         id: `${Date.now()}`,
         dataUrl: captured,
         width: canvas.width,
-        height: canvas.height
+        height: canvas.height,
+        videoDataUrl: videoDataUrl ?? undefined
+        ,mirror: settings.mirror
       })
       return captured
     }
@@ -152,15 +225,20 @@ export default function CameraCapture({
 
     const dataUrl = canvas.toDataURL('image/png')
 
+    stopRecording()
+    const videoDataUrl = await (recordingPromiseRef.current ?? Promise.resolve(null))
+
     setLastCaptured({
       id: `${Date.now()}`,
       dataUrl,
       width: canvas.width,
-      height: canvas.height
+      height: canvas.height,
+      videoDataUrl: videoDataUrl ?? undefined
+      ,mirror: settings.mirror
     })
 
     return dataUrl
-  }, [cameraSettings, videoRef])
+  }, [cameraSettings, videoRef, stopRecording])
 
   const {
     stage,
@@ -179,6 +257,11 @@ export default function CameraCapture({
       onAllShotsDone()
     }
   })
+
+  // Rekam mulai saat countdown berjalan (termasuk saat retake).
+  useEffect(() => {
+    if (stage === 'countdown') startRecording()
+  }, [stage, startRecording])
 
   async function startFullscreenCapture(): Promise<void> {
     if (!document.fullscreenElement && stageRef.current) {

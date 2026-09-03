@@ -80,7 +80,18 @@ export function useWebcam(): UseWebcamResult {
             label: d.label || `Kamera ${index + 1}`
           }))
 
-        setDevices(videoInputs)
+        // Hanya update state bila benar-benar berubah, agar tidak memicu
+        // render/effect loop di komponen yang bergantung pada `devices`.
+        setDevices((previous) => {
+          const same =
+            previous.length === videoInputs.length &&
+            previous.every(
+              (device, index) =>
+                device.deviceId === videoInputs[index].deviceId &&
+                device.label === videoInputs[index].label
+            )
+          return same ? previous : videoInputs
+        })
 
         setStatus('ready')
       } catch (err) {
@@ -130,6 +141,12 @@ export function useWebcam(): UseWebcamResult {
   const selectDevice = useCallback(
     (deviceId: string) => {
       setActiveDeviceId(deviceId)
+
+      // Hindari restart stream jika perangkat ini sudah aktif.
+      const activeTrack = streamRef.current?.getVideoTracks()[0]
+      if (activeTrack && activeTrack.getSettings().deviceId === deviceId) {
+        return
+      }
 
       startStream(deviceId)
     },

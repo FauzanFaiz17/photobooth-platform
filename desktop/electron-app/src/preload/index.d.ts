@@ -61,6 +61,7 @@ declare global {
         shots: string[],
         finalImage?: string,
         gifImage?: string,
+        composedVideo?: string,
         storageDirectory?: string | null
       ): Promise<{ directory: string }>
     }

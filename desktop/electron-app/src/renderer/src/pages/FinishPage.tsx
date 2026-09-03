@@ -22,6 +22,8 @@ export default function FinishPage(): JSX.Element {
   const paperSize = useSessionStore((state) => state.paperSize)
   const quantity = useSessionStore((state) => state.quantity)
   const animatedGif = useSessionStore((state) => state.animatedGif)
+  const composedVideo = useSessionStore((state) => state.composedVideo)
+  const composedVideoUploaded = useSessionStore((state) => state.composedVideoUploaded)
   const galleryUrl = useSessionStore((state) => state.galleryUrl)
   const setGalleryUrl = useSessionStore((state) => state.setGalleryUrl)
   const resetTransaction = useSessionStore((state) => state.resetTransaction)
@@ -31,6 +33,7 @@ export default function FinishPage(): JSX.Element {
   const setUploadedShotCount = useSessionStore((state) => state.setUploadedShotCount)
   const setComposedImageUploaded = useSessionStore((state) => state.setComposedImageUploaded)
   const setAnimatedGifUploaded = useSessionStore((state) => state.setAnimatedGifUploaded)
+  const setComposedVideoUploaded = useSessionStore((state) => state.setComposedVideoUploaded)
   const setPrintedLocally = useSessionStore((state) => state.setPrintedLocally)
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
   const [qrTimerSeconds, setQrTimerSeconds] = useState<number | null>(null)
@@ -45,9 +48,10 @@ export default function FinishPage(): JSX.Element {
       !composedImage ||
       !printImage ||
       !paperSize ||
-      !animatedGif
+      !animatedGif ||
+      !composedVideo
     ) {
-      setSyncStatus('failed', 'Data sesi foto tidak lengkap.')
+      setSyncStatus('failed', 'Video template belum berhasil dibuat. Silakan coba lagi.')
       setProcessing(false)
       return
     }
@@ -65,6 +69,7 @@ export default function FinishPage(): JSX.Element {
           shots.map((shot) => shot.dataUrl),
           composedImage.dataUrl,
           animatedGif.dataUrl,
+          composedVideo?.dataUrl,
           appSettings.storageDirectory
         )
         currentDirectory = saved.directory
@@ -75,6 +80,7 @@ export default function FinishPage(): JSX.Element {
           'Foto tidak dapat disimpan ke penyimpanan lokal.'
         )
       }
+
     }
 
     try {
@@ -103,6 +109,7 @@ export default function FinishPage(): JSX.Element {
         setUploadedShotCount(index + 1)
       }
 
+
       if (!useSessionStore.getState().composedImageUploaded) {
         await uploadSessionMedia(sessionId, {
           type: 'template',
@@ -126,6 +133,11 @@ export default function FinishPage(): JSX.Element {
           duration_seconds: animatedGif.durationSeconds
         })
         setAnimatedGifUploaded(true)
+      }
+
+      if (composedVideo && !composedVideoUploaded) {
+        await uploadSessionMedia(sessionId, { type: 'video', filename: 'template-video.webm', mime_type: 'video/webm', data_url: composedVideo.dataUrl, width: composedVideo.width, height: composedVideo.height, duration_seconds: composedVideo.durationSeconds })
+        setComposedVideoUploaded(true)
       }
 
       let printAccepted = useSessionStore.getState().printedLocally
@@ -174,6 +186,9 @@ export default function FinishPage(): JSX.Element {
     setUploadedShotCount,
     setComposedImageUploaded,
     setAnimatedGifUploaded,
+    composedVideo,
+    composedVideoUploaded,
+    setComposedVideoUploaded,
     setPrintedLocally,
     setGalleryUrl,
     shots

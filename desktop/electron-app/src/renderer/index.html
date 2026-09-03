@@ -13,6 +13,7 @@
             default-src 'self';
             script-src 'self';
             worker-src 'self' blob:;
+            media-src 'self' data: blob:;
             style-src 'self' 'unsafe-inline';
             img-src 'self' data: blob: http://127.0.0.1:5000 http://127.0.0.1:8000 http://localhost:8000;
             font-src 'self' data:;

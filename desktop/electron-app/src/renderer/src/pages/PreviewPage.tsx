@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button'
 import Alert from '@/components/ui/Alert'
 import { createSessionGif } from '@/features/gif/services/createSessionGif'
 import { composeTemplateImage } from '@/features/template/services/composeTemplate'
+import { composeTemplateVideo } from '@/features/template/services/composeTemplateVideo'
 
 import { useSessionStore } from '@/store/sessionStore'
 
@@ -23,6 +24,8 @@ export default function PreviewPage(): JSX.Element | null {
   const setComposedImage = useSessionStore((state) => state.setComposedImage)
   const animatedGif = useSessionStore((state) => state.animatedGif)
   const setAnimatedGif = useSessionStore((state) => state.setAnimatedGif)
+  const composedVideo = useSessionStore((state) => state.composedVideo)
+  const setComposedVideo = useSessionStore((state) => state.setComposedVideo)
   const [composing, setComposing] = useState(false)
   const [compositionError, setCompositionError] = useState<string | null>(null)
 
@@ -33,27 +36,36 @@ export default function PreviewPage(): JSX.Element | null {
     setCompositionError(null)
 
     try {
-      const [composedResult, gifResult] = await Promise.all([
+      const [composedResult, gifResult, videoResult] = await Promise.all([
         composeTemplateImage({
           shots,
           jsonLayout: template.jsonLayout,
           layout: template.layout,
           overlayPath: template.overlayPath
         }),
-        createSessionGif(shots)
+        createSessionGif(shots),
+        composeTemplateVideo({
+          shots,
+          jsonLayout: template.jsonLayout,
+          layout: template.layout,
+          overlayPath: template.overlayPath,
+          shotDurationSeconds: configuration?.camera.countdown_seconds
+        })
       ])
       setComposedImage(composedResult)
       setAnimatedGif(gifResult)
+      setComposedVideo(videoResult)
     } catch (error) {
       setComposedImage(null)
       setAnimatedGif(null)
+      setComposedVideo(null)
       setCompositionError(
         error instanceof Error ? error.message : 'Hasil final tidak dapat dibuat.'
       )
     } finally {
       setComposing(false)
     }
-  }, [setAnimatedGif, setComposedImage, shots, template])
+  }, [setAnimatedGif, setComposedImage, setComposedVideo, shots, template])
 
   useEffect(() => {
     if (!configuration || !template || shots.length === 0) {
@@ -120,12 +132,22 @@ export default function PreviewPage(): JSX.Element | null {
               />
             </div>
             <div className="flex min-w-0 flex-col items-center gap-2 overflow-hidden">
-              <p className="text-sm font-medium text-slate-600">GIF</p>
-              <img
-                src={animatedGif.dataUrl}
-                alt="Animasi seluruh hasil foto"
-                className="min-h-0 max-h-full max-w-full border border-slate-200 bg-white object-contain shadow-lg"
-              />
+              <p className="text-sm font-medium text-slate-600">Video Template</p>
+              {composedVideo ? (
+                <video
+                  src={composedVideo.dataUrl}
+                  controls
+                  autoPlay
+                  loop
+                  className="min-h-0 max-h-full max-w-full border border-slate-200 bg-white object-contain shadow-lg"
+                />
+              ) : (
+                <img
+                  src={animatedGif.dataUrl}
+                  alt="Animasi seluruh hasil foto"
+                  className="min-h-0 max-h-full max-w-full border border-slate-200 bg-white object-contain shadow-lg"
+                />
+              )}
             </div>
           </div>
         )}
