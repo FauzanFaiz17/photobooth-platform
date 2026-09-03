@@ -73,11 +73,6 @@ export const adminNavItems: AdminNavItem[] = [
     icon: Frame,
   },
   {
-    title: "Frame Gift",
-    url: "/admin/frame-gift",
-    icon: Gift,
-  },
-  {
     title: "Voucher",
     url: "/voucher",
     icon: TicketPercent,

@@ -119,6 +119,13 @@ export function PaymentKeyPageContent(): ReactElement {
   const [r2, setR2] = useState<R2Settings | null>(null);
   const [midtransForm, setMidtransForm] = useState<MidtransForm>(emptyMidtrans);
   const [r2Form, setR2Form] = useState<R2Form>(emptyR2);
+  /**
+   * Snapshot form saat terakhir tersimpan. Test Connection memakai kredensial yang
+   * tersimpan di server, bukan isian form — jadi selama form berbeda dari snapshot ini,
+   * hasil test menguji kredensial lama dan menyesatkan.
+   */
+  const [midtransSaved, setMidtransSaved] = useState<MidtransForm>(emptyMidtrans);
+  const [r2Saved, setR2Saved] = useState<R2Form>(emptyR2);
   const [state, setState] = useState<"loading" | "success" | "error">(
     "loading",
   );
@@ -145,20 +152,24 @@ export function PaymentKeyPageContent(): ReactElement {
         if (controller.signal.aborted) return;
         setMidtrans(midtransValue);
         setR2(r2Value);
-        setMidtransForm({
+        const loadedMidtrans: MidtransForm = {
           ...emptyMidtrans,
           merchant_id: midtransValue.merchant_id ?? "",
           production: midtransValue.environment === "production",
           qris_enabled: midtransValue.qris_enabled,
-        });
-        setR2Form({
+        };
+        const loadedR2: R2Form = {
           ...emptyR2,
           bucket: r2Value.bucket ?? "",
           endpoint: r2Value.endpoint ?? "",
           region: r2Value.region,
           use_path_style_endpoint: r2Value.use_path_style_endpoint,
           enabled: r2Value.enabled,
-        });
+        };
+        setMidtransForm(loadedMidtrans);
+        setMidtransSaved(loadedMidtrans);
+        setR2Form(loadedR2);
+        setR2Saved(loadedR2);
         setState("success");
         setError("");
       })
@@ -210,11 +221,13 @@ export function PaymentKeyPageContent(): ReactElement {
         timeout: Number(midtransForm.timeout),
       });
       setMidtrans(saved);
-      setMidtransForm((current) => ({
-        ...current,
+      const storedMidtrans: MidtransForm = {
+        ...midtransForm,
         client_key: "",
         server_key: "",
-      }));
+      };
+      setMidtransForm(storedMidtrans);
+      setMidtransSaved(storedMidtrans);
       toast.success("Konfigurasi Midtrans berhasil disimpan.");
     } catch (caught: unknown) {
       if (caught instanceof ApiError && caught.status === 401)
@@ -257,11 +270,13 @@ export function PaymentKeyPageContent(): ReactElement {
         enabled: r2Form.enabled,
       });
       setR2(saved);
-      setR2Form((current) => ({
-        ...current,
+      const storedR2: R2Form = {
+        ...r2Form,
         access_key_id: "",
         secret_access_key: "",
-      }));
+      };
+      setR2Form(storedR2);
+      setR2Saved(storedR2);
       toast.success("Konfigurasi Cloudflare R2 berhasil disimpan.");
     } catch (caught: unknown) {
       if (caught instanceof ApiError && caught.status === 401)
@@ -298,23 +313,27 @@ export function PaymentKeyPageContent(): ReactElement {
       if (provider === "midtrans") {
         const saved = await clearMidtransSettings(token);
         setMidtrans(saved);
-        setMidtransForm({
+        const clearedMidtrans: MidtransForm = {
           ...emptyMidtrans,
           merchant_id: saved.merchant_id ?? "",
           production: saved.environment === "production",
           qris_enabled: saved.qris_enabled,
-        });
+        };
+        setMidtransForm(clearedMidtrans);
+        setMidtransSaved(clearedMidtrans);
       } else {
         const saved = await clearR2Settings(token);
         setR2(saved);
-        setR2Form({
+        const clearedR2: R2Form = {
           ...emptyR2,
           bucket: saved.bucket ?? "",
           endpoint: saved.endpoint ?? "",
           region: saved.region,
           use_path_style_endpoint: saved.use_path_style_endpoint,
           enabled: saved.enabled,
-        });
+        };
+        setR2Form(clearedR2);
+        setR2Saved(clearedR2);
       }
       toast.success(
         `Konfigurasi ${provider === "midtrans" ? "Midtrans" : "R2"} kembali menggunakan .env.`,
@@ -328,6 +347,10 @@ export function PaymentKeyPageContent(): ReactElement {
       setPending(null);
     }
   }
+
+  const midtransDirty =
+    JSON.stringify(midtransForm) !== JSON.stringify(midtransSaved);
+  const r2Dirty = JSON.stringify(r2Form) !== JSON.stringify(r2Saved);
 
   if (state === "loading")
     return (
@@ -511,6 +534,7 @@ export function PaymentKeyPageContent(): ReactElement {
                   pending={pending}
                   testPending="midtrans-test"
                   savePending="midtrans-save"
+                  dirty={midtransDirty}
                   onReset={() => setConfirmation("midtrans")}
                   onTest={() => void test("midtrans")}
                 />
@@ -639,6 +663,7 @@ export function PaymentKeyPageContent(): ReactElement {
                   pending={pending}
                   testPending="r2-test"
                   savePending="r2-save"
+                  dirty={r2Dirty}
                   onReset={() => setConfirmation("r2")}
                   onTest={() => void test("r2")}
                 />
@@ -714,12 +739,14 @@ function Actions({
   pending,
   testPending,
   savePending,
+  dirty,
   onReset,
   onTest,
 }: {
   readonly pending: string | null;
   readonly testPending: string;
   readonly savePending: string;
+  readonly dirty: boolean;
   readonly onReset: () => void;
   readonly onTest: () => void;
 }): ReactElement {
@@ -733,11 +760,17 @@ function Actions({
       >
         <RotateCcw /> Reset ke .env
       </Button>
-      <div className="flex flex-col-reverse gap-2 sm:flex-row">
+      <div className="flex flex-col-reverse items-stretch gap-2 sm:flex-row sm:items-center">
+        {dirty && (
+          <p className="text-sm text-muted-foreground sm:max-w-56 sm:text-right">
+            Simpan dulu — Test Connection memakai kredensial tersimpan, bukan isian
+            di form.
+          </p>
+        )}
         <Button
           type="button"
           variant="outline"
-          disabled={pending !== null}
+          disabled={pending !== null || dirty}
           onClick={onTest}
         >
           {pending === testPending ? (
