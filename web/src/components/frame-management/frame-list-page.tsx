@@ -36,11 +36,38 @@ function layoutItemCount(frame: TemplateRecord): number {
   return Array.isArray(frame.json_layout) ? frame.json_layout.length : Object.keys(frame.json_layout).length
 }
 
-function FrameCard({ frame, onEdit, onDelete }: { readonly frame: TemplateRecord; readonly onEdit?: () => void; readonly onDelete?: () => void }) {
+/**
+ * Kotak preview dikunci absolut supaya PNG 1200x1800 tidak meluber menutupi isi kartu,
+ * dan gagal-muat jatuh ke ikon — bukan teks alt mentah, karena asset masih dibalas 403.
+ */
+function FramePreview({ frame }: { readonly frame: TemplateRecord }): ReactElement {
   const previewUrl = resolveStorageUrl(frame.thumbnail_path ?? frame.preview_path ?? frame.png_path)
+  const [broken, setBroken] = useState(false)
+
   return (
-    <Card className="overflow-hidden">
-      <div className="grid h-44 place-items-center border-b bg-muted/40">{previewUrl ? <img src={previewUrl} alt={`Preview ${frame.name}`} className="h-full w-full object-contain" /> : <Frame className="size-12 text-muted-foreground" aria-hidden="true" />}</div>
+    <div className="relative aspect-[4/3] w-full overflow-hidden border-b bg-muted/40">
+      {previewUrl && !broken ? (
+        <img
+          src={previewUrl}
+          alt={`Preview ${frame.name}`}
+          loading="lazy"
+          className="absolute inset-0 size-full object-contain p-2"
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        <div className="absolute inset-0 grid place-items-center gap-1 text-center">
+          <Frame className="size-10 text-muted-foreground" aria-hidden="true" />
+          {broken && <span className="px-3 text-[11px] leading-tight text-muted-foreground">Preview belum bisa dimuat</span>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FrameCard({ frame, onEdit, onDelete }: { readonly frame: TemplateRecord; readonly onEdit?: () => void; readonly onDelete?: () => void }) {
+  return (
+    <Card className="overflow-hidden pt-0">
+      <FramePreview frame={frame} />
       <CardHeader><div className="flex items-start justify-between gap-3"><div className="min-w-0"><CardTitle className="truncate">{frame.name}</CardTitle><CardDescription className="mt-1">{frame.is_global ? "Frame Global" : frame.partner?.company_name}</CardDescription></div><div className="flex flex-wrap justify-end gap-1">{frame.is_global && <Badge variant="outline">Global</Badge>}<Badge variant={frame.status === "published" ? "default" : "secondary"}>{statusLabels[frame.status]}</Badge></div></div></CardHeader>
       <CardContent><dl className="grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted-foreground">Versi</dt><dd className="mt-1 font-medium">{frame.version}</dd></div><div><dt className="text-xs text-muted-foreground">Layout items</dt><dd className="mt-1 font-medium">{layoutItemCount(frame)}</dd></div><div className="col-span-2"><dt className="text-xs text-muted-foreground">PNG path</dt><dd className="mt-1 truncate font-medium" title={frame.png_path ?? undefined}>{frame.png_path || "—"}</dd></div></dl></CardContent>
       {!frame.is_global && onEdit && onDelete && <CardFooter className="justify-end gap-2"><Button size="sm" variant="outline" onClick={onEdit}><Pencil aria-hidden="true" /> Edit</Button><Button size="sm" variant="destructive" onClick={onDelete}><Trash2 aria-hidden="true" /> Hapus</Button></CardFooter>}

@@ -333,6 +333,10 @@ export default function SettingsPage(): JSX.Element {
     await authService.logout()
     navigate('/login', { replace: true })
   }
+
+  function handleEnterEvent() {
+    navigate('/dashboard')
+  }
   if (!verified)
     return (
       <form
@@ -444,6 +448,13 @@ export default function SettingsPage(): JSX.Element {
             className="border-[var(--border)] bg-[var(--accent)] font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[#8cdbdf]"
           >
             Minimize
+          </NeoButton>
+          <NeoButton
+            variant="outlined"
+            onClick={() => void handleEnterEvent()}
+            className="border-[var(--border)] bg-(--accent) font-black text-[var(--foreground)] shadow-[var(--shadow-neo)] [transition:none] hover:bg-[#8cdbdf]"
+          >
+            enter event
           </NeoButton>
           <NeoButton
             variant="secondary"

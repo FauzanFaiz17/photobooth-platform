@@ -46,6 +46,16 @@ export async function updateTemplate(token: string, templateId: number, input: T
   return parseTemplate(await apiRequest(`/v1/templates/${templateId}`, { method: "PUT", body: JSON.stringify(input) }, token))
 }
 
+export const TEMPLATE_ASSET_TYPES = ["png", "preview", "thumbnail"] as const
+export type TemplateAssetType = (typeof TEMPLATE_ASSET_TYPES)[number]
+
+export async function uploadTemplateAsset(token: string, templateId: number, file: File, type: TemplateAssetType): Promise<TemplateRecord> {
+  const body = new FormData()
+  body.append("file", file)
+  body.append("type", type)
+  return parseTemplate(await apiRequest(`/v1/templates/${templateId}/assets`, { method: "POST", body }, token))
+}
+
 export async function deleteTemplate(token: string, templateId: number): Promise<void> {
   await apiRequest(`/v1/templates/${templateId}`, { method: "DELETE" }, token)
 }

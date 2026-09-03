@@ -79,7 +79,8 @@ export async function apiRequest(
   const headers = new Headers(options.headers)
   headers.set("Accept", "application/json")
 
-  if (options.body && !headers.has("Content-Type")) {
+  // FormData harus menetapkan boundary-nya sendiri; memaksa JSON merusak multipart upload.
+  if (options.body && !headers.has("Content-Type") && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json")
   }
 
