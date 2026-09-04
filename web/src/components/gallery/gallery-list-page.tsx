@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, CircleAlert, Copy, ExternalLink, Images, RefreshCw } from "lucide-react"
+import { Building2, ChevronLeft, ChevronRight, CircleAlert, Copy, ExternalLink, Images, RefreshCw } from "lucide-react"
 import { useCallback, useEffect, useState, type ReactElement } from "react"
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
@@ -254,6 +254,16 @@ export function GalleryListPage(): ReactElement {
   }, [handleForbidden, handleUnauthorized, page, partnerParam, retryKey, superAdmin, token, updateQuery])
 
   const filtered = Boolean(partnerParam)
+  const partnerOptions = superAdmin
+    ? partners
+    : user?.partner
+      ? [{ id: user.partner.id, company_name: user.partner.company_name, brand_name: user.partner.brand_name }]
+      : []
+  const visibleGalleries = partnerParam ? response?.data ?? [] : []
+
+  function openPartner(partnerId: number) {
+    updateQuery({ partner_id: String(partnerId), page: null })
+  }
 
   return (
     <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
@@ -270,8 +280,8 @@ export function GalleryListPage(): ReactElement {
       <Card>
         <CardHeader className="gap-4 border-b">
           <div>
-            <CardTitle>Daftar Gallery</CardTitle>
-            <CardDescription>Hanya sesi berstatus selesai yang memiliki gallery.</CardDescription>
+            <CardTitle>{filtered ? "Gallery Partner" : "Pilih Partner / Kiosk"}</CardTitle>
+            <CardDescription>{filtered ? "Sesi foto dari partner yang dipilih." : "Pilih kiosk untuk melihat foto gallery-nya."}</CardDescription>
           </div>
           {superAdmin && (
             <div className="grid gap-3 sm:grid-cols-[16rem_auto]">
@@ -290,7 +300,22 @@ export function GalleryListPage(): ReactElement {
           )}
         </CardHeader>
         <CardContent>
-          {loadState === "loading" && <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-busy>{[0, 1, 2, 3, 4, 5].map((item) => <Skeleton key={item} className="h-96 rounded-xl" />)}</div>}
+          {loadState === "loading" && <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-busy>{[0, 1, 2].map((item) => <Skeleton key={item} className="h-40 rounded-xl" />)}</div>}
+
+          {loadState === "success" && !filtered && (
+            partnerOptions.length === 0 ? (
+              <div className="grid min-h-64 place-items-center text-center"><div><Building2 className="mx-auto size-10 text-muted-foreground" /><p className="mt-3 font-medium">Partner tidak tersedia</p></div></div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {partnerOptions.map((partner) => (
+                  <Card key={partner.id} className="cursor-pointer transition-shadow hover:shadow-md" onClick={() => openPartner(partner.id)}>
+                    <CardHeader><CardTitle className="flex items-center gap-2"><Building2 className="size-5" />{partner.brand_name || partner.company_name}</CardTitle><CardDescription>{partner.company_name}</CardDescription></CardHeader>
+                    <CardContent><Button className="w-full" onClick={(event) => { event.stopPropagation(); openPartner(partner.id) }}><Images aria-hidden="true" /> Lihat Gallery</Button></CardContent>
+                  </Card>
+                ))}
+              </div>
+            )
+          )}
 
           {loadState === "error" && (
             <div className="grid min-h-64 place-items-center text-center">
@@ -303,7 +328,7 @@ export function GalleryListPage(): ReactElement {
             </div>
           )}
 
-          {loadState === "success" && response && response.data.length === 0 && (
+          {loadState === "success" && filtered && response && visibleGalleries.length === 0 && (
             <div className="grid min-h-64 place-items-center text-center">
               <div>
                 <Images className="mx-auto size-10 text-muted-foreground" />
@@ -313,10 +338,10 @@ export function GalleryListPage(): ReactElement {
             </div>
           )}
 
-          {loadState === "success" && response && response.data.length > 0 && (
+          {loadState === "success" && filtered && response && visibleGalleries.length > 0 && (
             <>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {response.data.map((gallery) => <GalleryCard key={gallery.id} gallery={gallery} />)}
+                {visibleGalleries.map((gallery) => <GalleryCard key={gallery.id} gallery={gallery} />)}
               </div>
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4">
                 <p className="text-sm text-muted-foreground">{response.meta.from ?? 0}–{response.meta.to ?? 0} dari {response.meta.total} Gallery</p>
