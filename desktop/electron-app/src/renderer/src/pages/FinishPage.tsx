@@ -143,27 +143,32 @@ export default function FinishPage(): JSX.Element {
       }
 
       let printAccepted = useSessionStore.getState().printedLocally
+      let printWarning: string | null = null
       if (!printAccepted) {
         const printer = await getPrinterSettings()
         if (!printer) {
-          throw new Error('Printer belum dipilih. Buka Settings lalu jalankan Test Printer.')
+          printWarning = 'Printer belum dipilih; sesi tetap disimpan ke gallery.'
+        } else {
+          try {
+            await window.electron.printer.printImage({
+              dataUrl: printImage.dataUrl,
+              deviceName: printer.deviceName,
+              copies: Math.max(1, quantity),
+              paperSize,
+              orientation: eventConfiguration.printer.orientation
+            })
+            printAccepted = true
+            setPrintedLocally(true)
+          } catch (error) {
+            printWarning = getApiErrorMessage(error, 'Printer tidak dapat digunakan; sesi tetap disimpan ke gallery.')
+          }
         }
-
-        await window.electron.printer.printImage({
-          dataUrl: printImage.dataUrl,
-          deviceName: printer.deviceName,
-          copies: Math.max(1, quantity),
-          paperSize,
-          orientation: eventConfiguration.printer.orientation
-        })
-        printAccepted = true
-        setPrintedLocally(true)
       }
 
       await completePhotoSession(sessionId, printAccepted).then((session) => {
         setGalleryUrl(session.gallery?.url ?? null)
       })
-      setSyncStatus('synced', localSaveError)
+      setSyncStatus('synced', [localSaveError, printWarning].filter(Boolean).join(' ') || null)
     } catch (error) {
       const message = getApiErrorMessage(error, 'Foto belum dapat disinkronkan ke server.')
 
