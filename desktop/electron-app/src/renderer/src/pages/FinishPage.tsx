@@ -12,6 +12,19 @@ import { useSessionStore } from '@/store/sessionStore'
 const focusRing =
   'focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-(--danger)'
 
+async function applyPrinterTransform(dataUrl: string, scale: number, horizontal: number, vertical: number): Promise<string> {
+  const image = new Image()
+  await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error('Gambar print tidak dapat dibaca.')); image.src = dataUrl })
+  const canvas = document.createElement('canvas')
+  canvas.width = image.naturalWidth; canvas.height = image.naturalHeight
+  const context = canvas.getContext('2d'); if (!context) return dataUrl
+  context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height)
+  context.translate(horizontal / 100 * canvas.width, vertical / 100 * canvas.height)
+  context.translate(canvas.width / 2, canvas.height / 2); context.scale(scale / 100, scale / 100)
+  context.drawImage(image, -canvas.width / 2, -canvas.height / 2)
+  return canvas.toDataURL('image/png')
+}
+
 export default function FinishPage(): JSX.Element {
   const navigate = useNavigate()
   const eventConfiguration = useSessionStore((state) => state.eventConfiguration)
@@ -150,8 +163,9 @@ export default function FinishPage(): JSX.Element {
           printWarning = 'Printer belum dipilih; sesi tetap disimpan ke gallery.'
         } else {
           try {
+            const printDataUrl = await applyPrinterTransform(printImage.dataUrl, printer.scale, printer.horizontalPosition, printer.verticalPosition)
             await window.electron.printer.printImage({
-              dataUrl: printImage.dataUrl,
+              dataUrl: printDataUrl,
               deviceName: printer.deviceName,
               copies: Math.max(1, quantity),
               paperSize,

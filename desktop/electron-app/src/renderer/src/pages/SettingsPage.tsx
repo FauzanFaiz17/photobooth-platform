@@ -229,6 +229,11 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
     Array<{ name: string; displayName: string; isDefault: boolean }>
   >([])
   const [deviceName, setDeviceName] = useState('')
+  const [quality, setQuality] = useState<'standard' | 'high'>('standard')
+  const [scale, setScale] = useState(100)
+  const [horizontalPosition, setHorizontalPosition] = useState(0)
+  const [verticalPosition, setVerticalPosition] = useState(0)
+  const [paperSize, setPaperSize] = useState<'2r' | '4r'>('4r')
   const [loading, setLoading] = useState(true)
   const [testing, setTesting] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -243,6 +248,11 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
             available[0]?.name ??
             ''
         )
+        setQuality(stored?.quality ?? 'standard')
+        setScale(stored?.scale ?? 100)
+        setHorizontalPosition(stored?.horizontalPosition ?? 0)
+        setVerticalPosition(stored?.verticalPosition ?? 0)
+        setPaperSize(stored?.paperSize ?? '4r')
       })
       .catch((cause) => {
         setMessage({
@@ -260,7 +270,7 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
     setTesting(true)
     setMessage(null)
     try {
-      await savePrinterSettings({ deviceName: selected.name, displayName: selected.displayName })
+      await savePrinterSettings({ deviceName: selected.name, displayName: selected.displayName, quality, scale, horizontalPosition, verticalPosition, paperSize })
       await window.electron.printer.test(selected.name)
       setMessage({ type: 'success', text: 'Test print dikirim ke printer.' })
     } catch (cause) {
@@ -271,6 +281,11 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
     } finally {
       setTesting(false)
     }
+  }
+
+  async function refreshPrinters(): Promise<void> {
+    setLoading(true)
+    try { setPrinters(await window.electron.printer.list()) } finally { setLoading(false) }
   }
 
   return (
@@ -299,6 +314,23 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
           </option>
         ))}
       </select>
+      <NeoButton variant="outlined" disabled={loading} onClick={() => void refreshPrinters()}>Refresh daftar printer</NeoButton>
+
+      <div className="grid gap-4 border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo)">
+        <label className="grid gap-2 font-bold">Print quality<select value={quality} onChange={(e) => setQuality(e.target.value as 'standard' | 'high')} className="border-2 border-(--border) bg-(--background) p-2"><option value="standard">Standard</option><option value="high">High</option></select></label>
+        <label className="grid gap-2 font-bold">Ukuran kertas<select value={paperSize} onChange={(e) => setPaperSize(e.target.value as '2r' | '4r')} className="border-2 border-(--border) bg-(--background) p-2"><option value="4r">4R</option><option value="2r">2R</option></select></label>
+        {([['Scale', scale, setScale, 80, 120], ['Horizontal position', horizontalPosition, setHorizontalPosition, -100, 100], ['Vertical position', verticalPosition, setVerticalPosition, -100, 100]] as const).map(([label, value, setter, min, max]) => <label key={label} className="grid gap-2 font-bold">{label}<div className="flex gap-2"><input className="w-full" type="range" min={min} max={max} value={value} onChange={(e) => setter(Number(e.target.value))} /><input className="w-20 border-2 border-(--border) p-2" type="number" min={min} max={max} value={value} onChange={(e) => setter(Number(e.target.value))} /></div></label>)}
+      </div>
+
+      <div className="grid gap-3 border-4 border-(--border) bg-[#202020] p-4 text-white shadow-(--shadow-neo)">
+        <p className="font-black uppercase tracking-wider">Preview {paperSize === '2r' ? '2R (2R x 2)' : '4R'}</p>
+        <div className="grid min-h-64 place-items-center overflow-hidden bg-white">
+          <div className="relative grid aspect-[2/3] w-40 place-items-center overflow-hidden border-2 border-black bg-slate-200" style={{ transform: `translate(${horizontalPosition / 4}px, ${verticalPosition / 4}px) scale(${scale / 100})` }}>
+            <span className="text-center text-xs font-black text-slate-700">{paperSize === '2r' ? '2R' : '4R'}<br />{quality.toUpperCase()}<br />{scale}%</span>
+          </div>
+        </div>
+        <p className="text-xs text-white/70">Preview menunjukkan ukuran relatif dan posisi gambar sebelum dikirim ke driver printer.</p>
+      </div>
 
       {message && <Alert type={message.type}>{message.text}</Alert>}
 

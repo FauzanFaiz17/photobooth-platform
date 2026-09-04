@@ -113,6 +113,11 @@ export async function getCountdownSeconds(fallback: number): Promise<number> {
 export interface PrinterSettings {
   deviceName: string
   displayName: string
+  quality: 'standard' | 'high'
+  scale: number
+  horizontalPosition: number
+  verticalPosition: number
+  paperSize: '2r' | '4r'
 }
 
 export async function getPrinterSettings(): Promise<PrinterSettings | null> {
@@ -128,7 +133,12 @@ export async function getPrinterSettings(): Promise<PrinterSettings | null> {
     displayName:
       typeof candidate.displayName === 'string' && candidate.displayName
         ? candidate.displayName
-        : candidate.deviceName
+        : candidate.deviceName,
+    quality: candidate.quality === 'high' ? 'high' : 'standard',
+    scale: typeof candidate.scale === 'number' ? Math.min(120, Math.max(80, candidate.scale)) : 100,
+    horizontalPosition: typeof candidate.horizontalPosition === 'number' ? Math.min(100, Math.max(-100, candidate.horizontalPosition)) : 0,
+    verticalPosition: typeof candidate.verticalPosition === 'number' ? Math.min(100, Math.max(-100, candidate.verticalPosition)) : 0,
+    paperSize: candidate.paperSize === '2r' ? '2r' : '4r'
   }
 }
 
