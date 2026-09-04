@@ -41,7 +41,7 @@ function layoutItemCount(frame: TemplateRecord): number {
  * dan gagal-muat jatuh ke ikon — bukan teks alt mentah, karena asset masih dibalas 403.
  */
 function FramePreview({ frame }: { readonly frame: TemplateRecord }): ReactElement {
-  const previewUrl = resolveStorageUrl(frame.thumbnail_path ?? frame.preview_path ?? frame.png_path)
+  const previewUrl = frame.thumbnail_url ?? frame.preview_url ?? frame.png_url ?? resolveStorageUrl(frame.thumbnail_path ?? frame.preview_path ?? frame.png_path)
   const [broken, setBroken] = useState(false)
 
   return (

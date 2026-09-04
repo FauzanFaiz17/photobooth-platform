@@ -15,8 +15,9 @@ const PORT = 5000
 const SERVER_URL = `http://127.0.0.1:${PORT}`
 const MAX_TEMPLATE_ASSET_BYTES = 30 * 1024 * 1024
 const remoteApiUrl = import.meta.env.MAIN_VITE_API_URL as string | undefined
+const rendererApiUrl = (import.meta.env as unknown as Record<string, string | undefined>).VITE_API_URL
 const allowedAssetOrigins = new Set(
-  [remoteApiUrl]
+  [remoteApiUrl, rendererApiUrl]
     .filter((value): value is string => Boolean(value))
     .map((value) => new URL(value).origin)
 )

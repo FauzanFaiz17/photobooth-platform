@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\V1\PrintJobController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\SubscriptionPlanController;
 use App\Http\Controllers\Api\V1\TemplateController;
+use App\Http\Controllers\Api\V1\TemplateAssetController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\VoucherController;
 use App\Http\Controllers\Api\V1\VoucherPackageController;
@@ -60,6 +61,9 @@ Route::prefix('v1')->group(function () {
         ->whereNumber('media')
         ->middleware('throttle:30,1')
         ->name('gallery.media.download');
+    Route::get('/template-assets/{type}', [TemplateAssetController::class, 'show'])
+        ->whereIn('type', ['png', 'preview', 'thumbnail'])
+        ->name('template-assets.show');
     // Route::post('/devices/verify', [DeviceController::class, 'verify']);
 
     // khusus dekstop

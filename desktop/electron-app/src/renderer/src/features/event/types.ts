@@ -32,6 +32,7 @@ export interface TemplateSnapshot {
   json_layout: Record<string, unknown>
   psd_path: string | null
   png_path: string | null
+  png_url?: string | null
   version: number
 }
 
@@ -120,7 +121,7 @@ export function mapTemplateSnapshot(snapshot: TemplateSnapshot): PhotoTemplate {
         : 'grid',
     previewPath: snapshot.preview_path,
     thumbnailPath: snapshot.thumbnail_path,
-    overlayPath: snapshot.png_path,
+    overlayPath: snapshot.png_url ?? snapshot.png_path,
     jsonLayout: snapshot.json_layout,
     version: snapshot.version
   }

@@ -44,7 +44,14 @@ export default function PaymentPage(): JSX.Element | null {
       ),
     [configuration, paperSize]
   )
-  const option = selectedOption?.paper_size === paperSize ? selectedOption : options[0]
+  const option = selectedOption?.paper_size === paperSize ? selectedOption : options[0] ?? (configuration ? {
+    id: 0,
+    paper_size: paperSize,
+    unit_quantity: 1,
+    quantity_step: 1,
+    price: configuration.event.price,
+    is_active: true
+  } : undefined)
 
   if (!configuration || !paperSize || !option) return null
 

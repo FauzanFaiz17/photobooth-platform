@@ -28,6 +28,9 @@ export interface TemplateRecord {
   json_layout: TemplateLayout
   psd_path: string | null
   png_path: string | null
+  png_url?: string | null
+  preview_url?: string | null
+  thumbnail_url?: string | null
   version: number
   status: TemplateStatus
   created_at: string

@@ -64,7 +64,10 @@ export default function TemplatePage(): JSX.Element | null {
         <div className="grid grid-cols-1 gap-6 overflow-auto pb-3 md:grid-cols-2 xl:grid-cols-3">
           {templates.map((item) => {
             const mapped = mapTemplateSnapshot(item)
-            const previewSource = resolveTemplateAsset(mapped.previewPath || mapped.thumbnailPath)
+            // Frame PNG adalah asset preview utama; preview/thumbnail bersifat opsional.
+            const previewSource = resolveTemplateAsset(
+              mapped.overlayPath || mapped.previewPath || mapped.thumbnailPath
+            )
             return (
               <article
                 key={item.id}

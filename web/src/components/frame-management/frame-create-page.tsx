@@ -422,7 +422,7 @@ export function FrameCreatePage(): ReactElement {
           setSize(layout.size)
           setSlots(layout.slots)
           setSlotsInFront(layout.slotsInFront)
-          setOverlayUrl(resolveStorageUrl(loadedFrame.png_path))
+        setOverlayUrl(loadedFrame.png_url ?? resolveStorageUrl(loadedFrame.png_path))
           nextSlotId.current = Math.max(0, ...layout.slots.map((slot) => slot.id)) + 1
         }
         setLoadState("ready")
