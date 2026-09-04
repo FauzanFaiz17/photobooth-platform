@@ -67,7 +67,7 @@ export function useCaptureSequence({
 
             timeoutRef.current = setTimeout(() => {
               setStage('review')
-            }, 250)
+            }, 350)
           })
           .catch(() => setStage('idle'))
 
