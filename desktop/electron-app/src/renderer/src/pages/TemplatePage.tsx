@@ -1,10 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import Alert from '@/components/ui/Alert'
 import { NeoButton } from '@/components/shared/button'
 import { mapTemplateSnapshot } from '@/features/event/types'
+import { loadTemplateOverlayDataUrl } from '@/features/template/services/composeTemplate'
 import { useSessionStore } from '@/store/sessionStore'
 
 function resolveTemplateAsset(path: string | null): string | null {
@@ -27,10 +28,29 @@ export default function TemplatePage(): JSX.Element | null {
   const setTemplate = useSessionStore((state) => state.setTemplate)
   const syncStatus = useSessionStore((state) => state.syncStatus)
   const syncError = useSessionStore((state) => state.syncError)
+  const [assetPreviews, setAssetPreviews] = useState<Record<string, string>>({})
+  const [loadingAssets, setLoadingAssets] = useState(false)
 
   useEffect(() => {
     if (!configuration) navigate('/dashboard', { replace: true })
   }, [configuration, navigate])
+
+  useEffect(() => {
+    if (!configuration) return
+    const candidates = (configuration.templates ?? [configuration.template]).filter((item) => item.paper_size === paperSize)
+    let active = true
+    setLoadingAssets(candidates.some((item) => Boolean(item.png_url ?? item.png_path)))
+    void Promise.all(candidates.map(async (item) => {
+      const source = item.png_url ?? item.png_path
+      if (!source) return null
+      try { return [String(item.id), await loadTemplateOverlayDataUrl(source)] as const } catch { return null }
+    })).then((entries) => {
+      if (!active) return
+      setAssetPreviews(Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => Boolean(entry))))
+      setLoadingAssets(false)
+    })
+    return () => { active = false }
+  }, [configuration, paperSize])
 
   if (!configuration || !paperSize) return null
 
@@ -65,9 +85,7 @@ export default function TemplatePage(): JSX.Element | null {
           {templates.map((item) => {
             const mapped = mapTemplateSnapshot(item)
             // Frame PNG adalah asset preview utama; preview/thumbnail bersifat opsional.
-            const previewSource = resolveTemplateAsset(
-              mapped.overlayPath || mapped.previewPath || mapped.thumbnailPath
-            )
+            const previewSource = assetPreviews[String(item.id)] ?? resolveTemplateAsset(mapped.previewPath || mapped.thumbnailPath)
             return (
               <article
                 key={item.id}
@@ -80,7 +98,7 @@ export default function TemplatePage(): JSX.Element | null {
                       alt={`Pratinjau ${mapped.name}`}
                       className="max-h-72 w-full object-contain"
                     />
-                  ) : (
+                  ) : loadingAssets ? <div className="font-bold text-white">Memuat frame...</div> : (
                     <div
                       className="grid w-full max-w-47.5 gap-2 border-2 border-white/50 bg-white/5 p-2"
                       style={{ gridTemplateColumns: mapped.layout === 'strip' ? '1fr' : '1fr 1fr' }}

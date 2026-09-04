@@ -31,6 +31,7 @@ const DEFAULT_CANVAS: CanvasSize = {
   width: 1200,
   height: 1800
 }
+const overlayCache = new Map<string, Promise<string>>()
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -121,7 +122,14 @@ export async function loadTemplateOverlayDataUrl(path: string): Promise<string> 
     return source
   }
 
-  return window.asset.loadImage(source)
+  const cached = overlayCache.get(source)
+  if (cached) return cached
+  const request = window.asset.loadImage(source).catch((error) => {
+    overlayCache.delete(source)
+    throw error
+  })
+  overlayCache.set(source, request)
+  return request
 }
 
 /** Renders only the active JSON frame as a camera-aligned overlay. */
