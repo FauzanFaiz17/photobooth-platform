@@ -2,7 +2,6 @@ import {
   CalendarDays,
   ChartNoAxesCombined,
   Frame,
-  Gift,
   Images,
   KeyRound,
   LayoutDashboard,

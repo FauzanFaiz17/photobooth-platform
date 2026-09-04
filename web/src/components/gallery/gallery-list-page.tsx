@@ -15,6 +15,8 @@ import { fetchGalleryMediaUrl, getGalleries } from "@/features/galleries/gallery
 import type { GalleryListResponse, GalleryRecord } from "@/features/galleries/gallery.types"
 import { getPartners } from "@/features/partners/partner-service"
 import type { PartnerRecord } from "@/features/partners/partner.types"
+import { getEvents } from "@/features/events/event-service"
+import type { EventRecord } from "@/features/events/event.types"
 import { ApiError } from "@/lib/api-client"
 
 import { GalleryDetailDialog } from "./gallery-detail-dialog"
@@ -190,9 +192,11 @@ export function GalleryListPage(): ReactElement {
   const { token, user, logout } = useAuth()
   const superAdmin = isSuperAdmin(user)
   const partnerParam = searchParams.get("partner_id")
+  const eventParam = searchParams.get("event_id")
   const page = parsePositiveInteger(searchParams.get("page"), 1)
   const [response, setResponse] = useState<GalleryListResponse | null>(null)
   const [partners, setPartners] = useState<ReadonlyArray<PartnerRecord>>([])
+  const [events, setEvents] = useState<ReadonlyArray<EventRecord>>([])
   const [loadState, setLoadState] = useState<"loading" | "success" | "error">("loading")
   const [errorMessage, setErrorMessage] = useState("")
   const [retryKey, setRetryKey] = useState(0)
@@ -227,9 +231,10 @@ export function GalleryListPage(): ReactElement {
       setLoadState("loading")
       setErrorMessage("")
       try {
-        const [galleriesResult, partnersResult] = await Promise.all([
+        const [galleriesResult, partnersResult, eventsResult] = await Promise.all([
           getGalleries(accessToken, { partner_id: partnerId || undefined, per_page: 12, page }, controller.signal),
           superAdmin ? getPartners(accessToken, { status: "active", per_page: 100 }, controller.signal) : Promise.resolve(null),
+          partnerId ? getEvents(accessToken, { partner_id: partnerId, per_page: 100 }, controller.signal) : Promise.resolve(null),
         ])
         if (controller.signal.aborted) return
         if (page > Math.max(1, galleriesResult.meta.last_page)) {
@@ -238,6 +243,7 @@ export function GalleryListPage(): ReactElement {
         }
         setResponse(galleriesResult)
         setPartners(partnersResult?.data ?? [])
+        setEvents(eventsResult?.data ?? [])
         setLoadState("success")
       } catch (error: unknown) {
         if (controller.signal.aborted) return
@@ -251,18 +257,24 @@ export function GalleryListPage(): ReactElement {
 
     void loadGalleries()
     return () => controller.abort()
-  }, [handleForbidden, handleUnauthorized, page, partnerParam, retryKey, superAdmin, token, updateQuery])
+  }, [eventParam, handleForbidden, handleUnauthorized, page, partnerParam, retryKey, superAdmin, token, updateQuery])
 
   const filtered = Boolean(partnerParam)
+  const selectedEventId = eventParam ? Number(eventParam) : null
   const partnerOptions = superAdmin
     ? partners
     : user?.partner
       ? [{ id: user.partner.id, company_name: user.partner.company_name, brand_name: user.partner.brand_name }]
       : []
-  const visibleGalleries = partnerParam ? response?.data ?? [] : []
+  const eventGroups = [...new Set((response?.data ?? []).map((gallery) => gallery.event_id).filter((id): id is number => id !== null))]
+  const visibleGalleries = selectedEventId ? (response?.data ?? []).filter((gallery) => gallery.event_id === selectedEventId) : []
 
   function openPartner(partnerId: number) {
     updateQuery({ partner_id: String(partnerId), page: null })
+  }
+
+  function openEvent(eventId: number) {
+    updateQuery({ event_id: String(eventId), page: null })
   }
 
   return (
@@ -280,8 +292,8 @@ export function GalleryListPage(): ReactElement {
       <Card>
         <CardHeader className="gap-4 border-b">
           <div>
-            <CardTitle>{filtered ? "Gallery Partner" : "Pilih Partner / Kiosk"}</CardTitle>
-            <CardDescription>{filtered ? "Sesi foto dari partner yang dipilih." : "Pilih kiosk untuk melihat foto gallery-nya."}</CardDescription>
+            <CardTitle>{selectedEventId ? "Foto Event" : filtered ? "Pilih Event" : "Pilih Partner / Kiosk"}</CardTitle>
+            <CardDescription>{selectedEventId ? "Sesi foto dari event yang dipilih." : filtered ? "Pilih event untuk melihat foto gallery." : "Pilih kiosk untuk melihat daftar event."}</CardDescription>
           </div>
           {superAdmin && (
             <div className="grid gap-3 sm:grid-cols-[16rem_auto]">
@@ -328,7 +340,21 @@ export function GalleryListPage(): ReactElement {
             </div>
           )}
 
-          {loadState === "success" && filtered && response && visibleGalleries.length === 0 && (
+          {loadState === "success" && filtered && !selectedEventId && (
+            eventGroups.length === 0 ? (
+              <div className="grid min-h-64 place-items-center text-center"><div><Images className="mx-auto size-10 text-muted-foreground" /><p className="mt-3 font-medium">Belum ada Event Gallery</p></div></div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {eventGroups.map((eventId) => {
+                  const event = events.find((item) => item.id === eventId)
+                  const count = (response?.data ?? []).filter((gallery) => gallery.event_id === eventId).length
+                  return <Card key={eventId} className="cursor-pointer transition-shadow hover:shadow-md" onClick={() => openEvent(eventId)}><CardHeader><CardTitle>{event?.event_name ?? `Event #${eventId}`}</CardTitle><CardDescription>{event?.event_code ?? "Event"}</CardDescription></CardHeader><CardContent><p className="text-sm text-muted-foreground">{count} sesi gallery</p><Button className="mt-3 w-full" onClick={(clickEvent) => { clickEvent.stopPropagation(); openEvent(eventId) }}><Images aria-hidden="true" /> Lihat Foto</Button></CardContent></Card>
+                })}
+              </div>
+            )
+          )}
+
+          {loadState === "success" && selectedEventId && response && visibleGalleries.length === 0 && (
             <div className="grid min-h-64 place-items-center text-center">
               <div>
                 <Images className="mx-auto size-10 text-muted-foreground" />

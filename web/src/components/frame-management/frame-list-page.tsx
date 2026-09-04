@@ -40,9 +40,11 @@ function layoutItemCount(frame: TemplateRecord): number {
  * Kotak preview dikunci absolut supaya PNG 1200x1800 tidak meluber menutupi isi kartu,
  * dan gagal-muat jatuh ke ikon — bukan teks alt mentah, karena asset masih dibalas 403.
  */
-function FramePreview({ frame }: { readonly frame: TemplateRecord }): ReactElement {
+function FramePreview({ frame, onExpired }: { readonly frame: TemplateRecord; readonly onExpired: () => void }): ReactElement {
   const previewUrl = frame.thumbnail_url ?? frame.preview_url ?? frame.png_url ?? resolveStorageUrl(frame.thumbnail_path ?? frame.preview_path ?? frame.png_path)
   const [broken, setBroken] = useState(false)
+
+  useEffect(() => setBroken(false), [previewUrl])
 
   return (
     <div className="relative aspect-[4/3] w-full overflow-hidden border-b bg-muted/40">
@@ -57,17 +59,22 @@ function FramePreview({ frame }: { readonly frame: TemplateRecord }): ReactEleme
       ) : (
         <div className="absolute inset-0 grid place-items-center gap-1 text-center">
           <Frame className="size-10 text-muted-foreground" aria-hidden="true" />
-          {broken && <span className="px-3 text-[11px] leading-tight text-muted-foreground">Preview belum bisa dimuat</span>}
+          {broken && (
+            <>
+              <span className="px-3 text-[11px] leading-tight text-muted-foreground">Preview kedaluwarsa atau belum bisa dimuat.</span>
+              <Button size="sm" variant="outline" onClick={onExpired}>Muat ulang</Button>
+            </>
+          )}
         </div>
       )}
     </div>
   )
 }
 
-function FrameCard({ frame, onEdit, onDelete }: { readonly frame: TemplateRecord; readonly onEdit?: () => void; readonly onDelete?: () => void }) {
+function FrameCard({ frame, onEdit, onDelete, onExpired }: { readonly frame: TemplateRecord; readonly onEdit?: () => void; readonly onDelete?: () => void; readonly onExpired: () => void }) {
   return (
     <Card className="overflow-hidden pt-0">
-      <FramePreview frame={frame} />
+      <FramePreview frame={frame} onExpired={onExpired} />
       <CardHeader><div className="flex items-start justify-between gap-3"><div className="min-w-0"><CardTitle className="truncate">{frame.name}</CardTitle><CardDescription className="mt-1">{frame.is_global ? "Frame Global" : frame.partner?.company_name}</CardDescription></div><div className="flex flex-wrap justify-end gap-1">{frame.is_global && <Badge variant="outline">Global</Badge>}<Badge variant={frame.status === "published" ? "default" : "secondary"}>{statusLabels[frame.status]}</Badge></div></div></CardHeader>
       <CardContent><dl className="grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted-foreground">Versi</dt><dd className="mt-1 font-medium">{frame.version}</dd></div><div><dt className="text-xs text-muted-foreground">Layout items</dt><dd className="mt-1 font-medium">{layoutItemCount(frame)}</dd></div><div className="col-span-2"><dt className="text-xs text-muted-foreground">PNG path</dt><dd className="mt-1 truncate font-medium" title={frame.png_path ?? undefined}>{frame.png_path || "—"}</dd></div></dl></CardContent>
       {!frame.is_global && onEdit && onDelete && <CardFooter className="justify-end gap-2"><Button size="sm" variant="outline" onClick={onEdit}><Pencil aria-hidden="true" /> Edit</Button><Button size="sm" variant="destructive" onClick={onDelete}><Trash2 aria-hidden="true" /> Hapus</Button></CardFooter>}
@@ -165,7 +172,7 @@ export function FrameListPage(): ReactElement {
           {loadState === "loading" && <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-busy>{[0, 1, 2, 3, 4, 5].map((item) => <Skeleton key={item} className="h-96 rounded-xl" />)}</div>}
           {loadState === "error" && <div className="grid min-h-64 place-items-center text-center"><div><CircleAlert className="mx-auto size-10 text-destructive" /><p className="mt-3 font-medium">Daftar Frame gagal dimuat</p><p className="mt-1 text-sm text-muted-foreground">{errorMessage}</p><Button className="mt-4" variant="outline" onClick={() => setRetryKey((value) => value + 1)}><RefreshCw aria-hidden="true" /> Coba lagi</Button></div></div>}
           {loadState === "success" && response && response.data.length === 0 && <div className="grid min-h-64 place-items-center text-center"><div><Frame className="mx-auto size-10 text-muted-foreground" /><p className="mt-3 font-medium">{filtered ? "Frame tidak ditemukan" : "Belum ada Frame"}</p><p className="mt-1 text-sm text-muted-foreground">{filtered ? "Ubah atau reset filter pencarian." : "Tambahkan Frame pertama untuk Partner."}</p></div></div>}
-          {loadState === "success" && response && response.data.length > 0 && <><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{response.data.map((frame) => <FrameCard key={frame.id} frame={frame} onEdit={frame.is_global ? undefined : () => navigate(`/frame-photo/${frame.id}/edit`)} onDelete={frame.is_global ? undefined : () => setDeleteTarget(frame)} />)}</div><div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4"><p className="text-sm text-muted-foreground">{response.meta.from ?? 0}–{response.meta.to ?? 0} dari {response.meta.total} Frame</p><div className="flex gap-2"><Button size="sm" variant="outline" disabled={response.meta.current_page <= 1} onClick={() => updateQuery({ page: response.meta.current_page - 1 === 1 ? null : String(response.meta.current_page - 1) })}><ChevronLeft aria-hidden="true" /> Sebelumnya</Button><Button size="sm" variant="outline" disabled={response.meta.current_page >= response.meta.last_page} onClick={() => updateQuery({ page: String(response.meta.current_page + 1) })}>Berikutnya <ChevronRight aria-hidden="true" /></Button></div></div></>}
+          {loadState === "success" && response && response.data.length > 0 && <><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{response.data.map((frame) => <FrameCard key={frame.id} frame={frame} onExpired={() => setRetryKey((value) => value + 1)} onEdit={frame.is_global ? undefined : () => navigate(`/frame-photo/${frame.id}/edit`)} onDelete={frame.is_global ? undefined : () => setDeleteTarget(frame)} />)}</div><div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-4"><p className="text-sm text-muted-foreground">{response.meta.from ?? 0}–{response.meta.to ?? 0} dari {response.meta.total} Frame</p><div className="flex gap-2"><Button size="sm" variant="outline" disabled={response.meta.current_page <= 1} onClick={() => updateQuery({ page: response.meta.current_page - 1 === 1 ? null : String(response.meta.current_page - 1) })}><ChevronLeft aria-hidden="true" /> Sebelumnya</Button><Button size="sm" variant="outline" disabled={response.meta.current_page >= response.meta.last_page} onClick={() => updateQuery({ page: String(response.meta.current_page + 1) })}>Berikutnya <ChevronRight aria-hidden="true" /></Button></div></div></>}
         </CardContent>
       </Card>
 

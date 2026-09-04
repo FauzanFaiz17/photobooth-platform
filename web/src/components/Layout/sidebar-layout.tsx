@@ -1,5 +1,5 @@
 import { Fragment, type CSSProperties } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
 
 import { Notification } from "../shared/notification";
 import { AdminSidebar } from "../shared/sidebar-nav";
@@ -48,6 +48,7 @@ function formatPathSegment(segment: string): string {
 
 function createBreadcrumbItems(
   pathname: string,
+  searchParams: URLSearchParams,
 ): ReadonlyArray<LayoutBreadcrumbItem> {
   if (pathname === "/admin" || pathname === "/admin/") {
     return [{ label: "Overview" }];
@@ -106,6 +107,26 @@ function createBreadcrumbItems(
     ];
   }
 
+  if (section === "gallery") {
+    const partnerId = searchParams.get("partner_id");
+    const eventId = searchParams.get("event_id");
+    if (eventId && partnerId) {
+      return [
+        root,
+        { label: "Gallery", href: "/admin/gallery" },
+        { label: `Kiosk #${partnerId}`, href: `/admin/gallery?partner_id=${encodeURIComponent(partnerId)}` },
+        { label: `Event #${eventId}` },
+      ];
+    }
+    if (partnerId) {
+      return [
+        root,
+        { label: "Gallery", href: "/admin/gallery" },
+        { label: `Kiosk #${partnerId}` },
+      ];
+    }
+  }
+
   if (section === "voucher" && detail) {
     return [
       root,
@@ -132,7 +153,8 @@ function createBreadcrumbItems(
 
 export function SidebarLayout() {
   const { pathname } = useLocation();
-  const breadcrumbItems = createBreadcrumbItems(pathname);
+  const [searchParams] = useSearchParams();
+  const breadcrumbItems = createBreadcrumbItems(pathname, searchParams);
 
   return (
     <SidebarProvider style={{ "--sidebar-width": "14rem" } as CSSProperties}>

@@ -49,7 +49,6 @@ import {
   getTemplate,
   updateTemplate,
   uploadTemplateAsset,
-  type TemplateAssetType,
 } from "@/features/templates/template-service";
 import {
   TEMPLATE_PAPER_SIZES,
@@ -452,112 +451,9 @@ function determineLayout(slots: ReadonlyArray<PhotoSlot>): "grid" | "strip" {
     : "grid";
 }
 
-const ASSET_FIELDS: ReadonlyArray<{
-  type: TemplateAssetType;
-  label: string;
-  hint: string;
-}> = [
-  {
-    type: "preview",
-    label: "Preview",
-    hint: "Tampil di kiosk saat pelanggan memilih frame.",
-  },
-  {
-    type: "thumbnail",
-    label: "Thumbnail",
-    hint: "Cadangan preview pada daftar Frame.",
-  },
-];
 
-function AssetUpload({
-  templateId,
-  type,
-  label,
-  hint,
-  currentPath,
-  onUploaded,
-  onFailed,
-}: {
-  readonly templateId: number;
-  readonly type: TemplateAssetType;
-  readonly label: string;
-  readonly hint: string;
-  readonly currentPath: string | null;
-  readonly onUploaded: (saved: TemplateRecord) => void;
-  readonly onFailed: (message: string) => void;
-}): ReactElement {
-  const { token } = useAuth();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
-  const previewUrl = resolveStorageUrl(currentPath);
 
-  async function upload(file: File): Promise<void> {
-    if (!token || busy) return;
-    setBusy(true);
-    try {
-      onUploaded(await uploadTemplateAsset(token, templateId, file, type));
-      toast.success(`${label} berhasil diunggah.`);
-    } catch (caught: unknown) {
-      onFailed(
-        caught instanceof ApiError
-          ? (Object.values(caught.validationErrors).flat()[0] ?? caught.message)
-          : "Tidak dapat terhubung ke server.",
-      );
-    } finally {
-      setBusy(false);
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  }
 
-  return (
-    <div className="flex items-start gap-3">
-      <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted/40">
-        {previewUrl ? (
-          <img
-            src={previewUrl}
-            alt={`${label} saat ini`}
-            className="size-full object-contain"
-          />
-        ) : (
-          <ImageUp
-            className="size-5 text-muted-foreground border-black"
-            aria-hidden="true"
-          />
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">{label}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
-        <input
-          ref={inputRef}
-          id={`asset-${type}`}
-          type="file"
-          accept="image/png"
-          className="sr-only"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void upload(file);
-          }}
-        />
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="mt-2"
-          disabled={busy}
-          onClick={() => inputRef.current?.click()}
-        >
-          {busy ? (
-            <LoaderCircle className="animate-spin" aria-hidden="true" />
-          ) : (
-            <ImageUp aria-hidden="true" />
-          )}
-          {currentPath ? "Ganti" : "Unggah"} PNG
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 export function FrameCreatePage(): ReactElement {
   const navigate = useNavigate();
@@ -619,7 +515,7 @@ export function FrameCreatePage(): ReactElement {
           setSize(layout.size);
           setSlots(layout.slots);
           setSlotsInFront(layout.slotsInFront);
-          setOverlayUrl(resolveStorageUrl(loadedFrame.png_path));
+          setOverlayUrl(loadedFrame.png_url ?? resolveStorageUrl(loadedFrame.png_path));
           nextSlotId.current =
             Math.max(0, ...layout.slots.map((slot) => slot.id)) + 1;
         }
@@ -1398,31 +1294,7 @@ export function FrameCreatePage(): ReactElement {
                   ))}
                 </fieldset>
 
-                {editing && frame ? (
-                  ASSET_FIELDS.map((field) => (
-                    <AssetUpload
-                      key={field.type}
-                      templateId={frame.id}
-                      type={field.type}
-                      label={field.label}
-                      hint={field.hint}
-                      currentPath={
-                        field.type === "preview"
-                          ? frame.preview_path
-                          : frame.thumbnail_path
-                      }
-                      onUploaded={(saved) => {
-                        setFrame(saved);
-                        setFormError("");
-                      }}
-                      onFailed={setFormError}
-                    />
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Preview dan thumbnail bisa diunggah setelah Frame tersimpan.
-                  </p>
-                )}
+                
               </CardContent>
             </Card>
 
