@@ -34,6 +34,8 @@ const electron = {
   printer: {
     list: (): Promise<Array<{ name: string; displayName: string; isDefault: boolean }>> =>
       ipcRenderer.invoke('printer:list'),
+    pickSampleImage: (): Promise<{ name: string; dataUrl: string } | null> =>
+      ipcRenderer.invoke('printer:pick-sample-image'),
     printImage: (options: {
       dataUrl: string
       deviceName: string
@@ -41,7 +43,10 @@ const electron = {
       paperSize: '2r' | '4r'
       orientation: string
     }): Promise<void> => ipcRenderer.invoke('printer:print-image', options),
-    test: (deviceName: string): Promise<void> => ipcRenderer.invoke('printer:test', deviceName)
+    test: (
+      deviceName: string,
+      options?: { paperSize?: '2r' | '4r'; copies?: number; sampleDataUrl?: string; orientation?: 'portrait' | 'landscape' }
+    ): Promise<void> => ipcRenderer.invoke('printer:test', deviceName, options)
   }
 }
 
@@ -57,6 +62,7 @@ declare global {
       camera: { capturePreview(): Promise<string> }
       printer: {
         list(): Promise<Array<{ name: string; displayName: string; isDefault: boolean }>>
+        pickSampleImage(): Promise<{ name: string; dataUrl: string } | null>
         printImage(options: {
           dataUrl: string
           deviceName: string
@@ -64,7 +70,10 @@ declare global {
           paperSize: '2r' | '4r'
           orientation: string
         }): Promise<void>
-        test(deviceName: string): Promise<void>
+        test(
+          deviceName: string,
+          options?: { paperSize?: '2r' | '4r'; copies?: number; sampleDataUrl?: string }
+        ): Promise<void>
       }
     }
   }

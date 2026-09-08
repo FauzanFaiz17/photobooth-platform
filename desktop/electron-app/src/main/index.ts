@@ -45,9 +45,19 @@ async function printDataUrl(options: PrintImageOptions): Promise<void> {
   })
   const dimensions = paperDimensions(options.paperSize)
   const landscape = options.orientation.toLowerCase() === 'landscape'
-  const width = landscape ? dimensions.height : dimensions.width
-  const height = landscape ? dimensions.width : dimensions.height
-  const html = `<!doctype html><html><head><meta charset="utf-8"><style>@page{margin:0}html,body{margin:0;width:100%;height:100%;overflow:hidden}img{display:block;width:100%;height:100%;object-fit:contain}</style></head><body><img src="${options.dataUrl}" /></body></html>`
+  // Printer foto (mis. DNP RX1HS) punya media fisik portrait; flag
+  // `landscape: true` Chromium menimbulkan rotasi ganda sehingga hasil
+  // menjadi portrait terpotong dengan pinggir kosong. Solusinya: halaman
+  // selalu portrait sesuai media, dan gambar landscape dirotasi 90 derajat
+  // lewat CSS agar memenuhi lebar kertas.
+  const width = dimensions.width
+  const height = dimensions.height
+  const pageWidthMm = (width / 1000).toFixed(1)
+  const pageHeightMm = (height / 1000).toFixed(1)
+  const imgStyle = landscape
+    ? `position:absolute;top:50%;left:50%;width:${pageHeightMm}mm;height:${pageWidthMm}mm;object-fit:fill;transform:translate(-50%,-50%) rotate(90deg)`
+    : 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:fill'
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>@page{margin:0;size:${pageWidthMm}mm ${pageHeightMm}mm}html,body{margin:0;width:${pageWidthMm}mm;height:${pageHeightMm}mm;overflow:hidden;position:relative}img{display:block;${imgStyle}}</style></head><body><img src="${options.dataUrl}" /></body></html>`
 
   try {
     await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
@@ -58,7 +68,7 @@ async function printDataUrl(options: PrintImageOptions): Promise<void> {
           printBackground: true,
           deviceName: options.deviceName,
           copies: Math.max(1, Math.min(20, Math.trunc(options.copies))),
-          landscape,
+          landscape: false,
           margins: { marginType: 'none' },
           pageSize: { width, height }
         },
@@ -261,16 +271,34 @@ app.whenReady().then(() => {
   ipcMain.handle('printer:print-image', async (_, options: PrintImageOptions) => {
     await printDataUrl(options)
   })
-  ipcMain.handle('printer:test', async (_, deviceName: string) => {
-    const testImage = `data:image/svg+xml;base64,${Buffer.from(
+  ipcMain.handle('printer:pick-sample-image', async () => {
+    const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    const result = await dialog.showOpenDialog(window, {
+      title: 'Pilih Foto Sample Test Print',
+      properties: ['openFile'],
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
+    })
+    if (result.canceled || !result.filePaths[0]) return null
+    const source = result.filePaths[0]
+    const extension = source.split('.').pop()?.toLowerCase() ?? 'png'
+    const bytes = await readFile(source)
+    return {
+      name: source.split(/[\\/]/).pop() ?? source,
+      dataUrl: `data:image/${extension === 'jpg' ? 'jpeg' : extension};base64,${bytes.toString('base64')}`
+    }
+  })
+  ipcMain.handle('printer:test', async (_, deviceName: string, options?: { paperSize?: '2r' | '4r'; copies?: number; sampleDataUrl?: string; orientation?: 'portrait' | 'landscape' }) => {
+    const testImage =
+      options?.sampleDataUrl ??
+      `data:image/svg+xml;base64,${Buffer.from(
       '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1800"><rect width="1200" height="1800" fill="white"/><rect x="36" y="36" width="1128" height="1728" fill="none" stroke="black" stroke-width="12"/><text x="600" y="780" text-anchor="middle" font-family="Arial" font-size="84" font-weight="700">PHOTOBOOTH</text><text x="600" y="900" text-anchor="middle" font-family="Arial" font-size="48">DNP RX1HS TEST PRINT</text><text x="600" y="990" text-anchor="middle" font-family="Arial" font-size="32">Printer connection OK</text></svg>'
     ).toString('base64')}`
     await printDataUrl({
       dataUrl: testImage,
       deviceName,
-      copies: 1,
-      paperSize: '4r',
-      orientation: 'portrait'
+      copies: options?.copies ?? 1,
+      paperSize: options?.paperSize ?? '4r',
+      orientation: options?.orientation ?? 'portrait'
     })
   })
 

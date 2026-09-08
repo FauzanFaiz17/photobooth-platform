@@ -21,6 +21,7 @@ declare global {
       camera: { capturePreview(): Promise<string> }
       printer: {
         list(): Promise<Array<{ name: string; displayName: string; isDefault: boolean }>>
+        pickSampleImage(): Promise<{ name: string; dataUrl: string } | null>
         printImage(options: {
           dataUrl: string
           deviceName: string
@@ -28,7 +29,7 @@ declare global {
           paperSize: '2r' | '4r'
           orientation: string
         }): Promise<void>
-        test(deviceName: string): Promise<void>
+        test(deviceName: string, options?: { paperSize?: '2r' | '4r'; copies?: number; sampleDataUrl?: string }): Promise<void>
       }
     }
     api: unknown

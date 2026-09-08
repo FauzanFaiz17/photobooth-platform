@@ -118,6 +118,7 @@ export interface PrinterSettings {
   horizontalPosition: number
   verticalPosition: number
   paperSize: '2r' | '4r'
+  orientation: 'portrait' | 'landscape'
 }
 
 export async function getPrinterSettings(): Promise<PrinterSettings | null> {
@@ -138,10 +139,51 @@ export async function getPrinterSettings(): Promise<PrinterSettings | null> {
     scale: typeof candidate.scale === 'number' ? Math.min(120, Math.max(80, candidate.scale)) : 100,
     horizontalPosition: typeof candidate.horizontalPosition === 'number' ? Math.min(100, Math.max(-100, candidate.horizontalPosition)) : 0,
     verticalPosition: typeof candidate.verticalPosition === 'number' ? Math.min(100, Math.max(-100, candidate.verticalPosition)) : 0,
-    paperSize: candidate.paperSize === '2r' ? '2r' : '4r'
+    paperSize: candidate.paperSize === '2r' ? '2r' : '4r',
+    orientation: candidate.orientation === 'landscape' ? 'landscape' : 'portrait'
   }
 }
 
 export async function savePrinterSettings(value: PrinterSettings): Promise<void> {
   await window.storage.set(PRINTER_SETTINGS_KEY, value)
+}
+
+export interface PrintSampleImage {
+  name: string
+  dataUrl: string
+}
+
+export interface PrintSampleSettings {
+  '2r': PrintSampleImage | null
+  '4r': PrintSampleImage | null
+}
+
+const PRINT_SAMPLE_SETTINGS_KEY = 'desktop.print-sample-settings'
+
+export const DEFAULT_PRINT_SAMPLE_SETTINGS: PrintSampleSettings = {
+  '2r': null,
+  '4r': null
+}
+
+export async function getPrintSampleSettings(): Promise<PrintSampleSettings> {
+  const stored = await window.storage.get(PRINT_SAMPLE_SETTINGS_KEY)
+  if (!stored || typeof stored !== 'object') return DEFAULT_PRINT_SAMPLE_SETTINGS
+  const candidate = stored as Partial<PrintSampleSettings>
+
+  function readImage(value: unknown): PrintSampleImage | null {
+    if (!value || typeof value !== 'object') return null
+    const image = value as Partial<PrintSampleImage>
+    if (typeof image.name !== 'string' || typeof image.dataUrl !== 'string') return null
+    if (!image.name.trim() || !image.dataUrl.startsWith('data:image/')) return null
+    return { name: image.name, dataUrl: image.dataUrl }
+  }
+
+  return {
+    '2r': readImage(candidate['2r']),
+    '4r': readImage(candidate['4r'])
+  }
+}
+
+export async function savePrintSampleSettings(value: PrintSampleSettings): Promise<void> {
+  await window.storage.set(PRINT_SAMPLE_SETTINGS_KEY, value)
 }
