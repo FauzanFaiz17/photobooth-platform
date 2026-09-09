@@ -5,7 +5,8 @@ import { NeoButton } from '@/components/shared/button'
 
 import { useWebcam } from '../hooks/useWebcam'
 import { useCaptureSequence } from '../hooks/useCaptureSequence'
-import type { CapturedShot } from '@/store/sessionStore'
+import { useSessionStore, type CapturedShot } from '@/store/sessionStore'
+import { getAppSettings } from '@/features/settings/deviceSettings'
 import {
   composeTemplateImage,
   loadTemplateFrameOverlayDataUrl
@@ -72,6 +73,17 @@ export default function CameraCapture({
           )
         })
       } else {
+        // Arahkan cameraAPI menyimpan JPEG asli ke folder sesi yang sama
+        // dengan hasil webcam (Pictures/Photobooth/<timestamp>).
+        try {
+          const appSettings = await getAppSettings()
+          const { directory } = await window.session.prepareDirectory(appSettings.storageDirectory)
+          await window.electron.camera.setSaveDir(directory)
+          useSessionStore.getState().setCameraServiceDirectory(directory)
+        } catch (error) {
+          console.error('Gagal menyiapkan folder sesi Canon:', error)
+        }
+
         await window.api?.request('/toggle_webcam', 'POST', { use_webcam: false, device_index: 0 })
         for (const [property, selected] of [
           ['iso', settings.iso],
@@ -163,13 +175,19 @@ export default function CameraCapture({
       const settings = cameraSettings ?? DEFAULT_CAMERA_SETTINGS
 
       if (settings.source === 'canon') {
-        const dataUrl = await window.electron.camera.capturePreview()
+        // Ambil JPEG asli dari file yang ditulis cameraAPI di folder sesi,
+        // lalu render sekali ke canvas hanya untuk preview/komposisi.
+        const capture = await window.electron.camera.captureCanon({
+          filename: `capture-${String(shotIndex + 1).padStart(2, '0')}.jpg`
+        })
         const image = new Image()
         await new Promise<void>((resolve, reject) => {
           image.onload = () => resolve()
           image.onerror = () => reject(new Error('Hasil Canon tidak dapat dibaca.'))
-          image.src = dataUrl
+          image.src = capture.dataUrl
         })
+        const originalWidth = image.naturalWidth
+        const originalHeight = image.naturalHeight
         const canvas = canvasRef.current
         if (!canvas) return null
         const portrait = settings.orientation === 'portrait'
@@ -184,13 +202,17 @@ export default function CameraCapture({
         const captured = canvas.toDataURL('image/png')
         stopRecording()
         const videoDataUrl = await (recordingPromiseRef.current ?? Promise.resolve(null))
-        const shot = {
+        const shot: CapturedShot = {
           id: `${Date.now()}`,
           dataUrl: captured,
           width: canvas.width,
           height: canvas.height,
           videoDataUrl: videoDataUrl ?? undefined,
-          mirror: settings.mirror
+          mirror: settings.mirror,
+          originalDataUrl: capture.dataUrl,
+          originalWidth,
+          originalHeight,
+          savedPath: capture.filePath ?? undefined
         }
         setLastCaptured(shot)
         void composeTemplateImage({

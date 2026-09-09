@@ -3,7 +3,7 @@ import { join, dirname } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { spawn, ChildProcess } from 'node:child_process'
 import http from 'node:http'
-import { mkdir, writeFile, readFile } from 'node:fs/promises'
+import { mkdir, writeFile, readFile, readdir, stat, rename } from 'node:fs/promises'
 import Store from 'electron-store'
 import icon from '../../resources/icon.png?asset'
 import { registerDeviceIpc } from './ipc/device'
@@ -13,9 +13,57 @@ const store = new Store()
 let pyProcess: ChildProcess | null = null
 const PORT = 5000
 const SERVER_URL = `http://127.0.0.1:${PORT}`
+
+/** Direktori aktif yang diberitahukan ke cameraAPI via /set_save_dir. */
+let cameraSaveDir: string | null = null
+
+async function cameraServiceRequest(
+  endpoint: string,
+  method = 'GET',
+  body?: unknown
+): Promise<unknown> {
+  const response = await fetch(`${SERVER_URL}${endpoint}`, {
+    method,
+    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  })
+  return (await response.json()) as unknown
+}
+
+/** Mencari file capture JPEG terbaru yang muncul di directory setelah sinceMs. */
+async function waitForNewestCapture(directory: string, sinceMs: number): Promise<string | null> {
+  const deadline = Date.now() + 8000
+
+  while (Date.now() < deadline) {
+    try {
+      const entries = await readdir(directory)
+      const candidates = entries.filter((name) => /^capture_.+\.jpe?g$/i.test(name))
+      let newestPath: string | null = null
+      let newestTime = sinceMs
+
+      for (const name of candidates) {
+        const fullPath = join(directory, name)
+        const info = await stat(fullPath).catch(() => null)
+        if (info && info.mtimeMs > newestTime) {
+          newestTime = info.mtimeMs
+          newestPath = fullPath
+        }
+      }
+
+      if (newestPath) return newestPath
+    } catch {
+      // Direktori mungkin belum siap; coba lagi sampai deadline.
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+
+  return null
+}
 const MAX_TEMPLATE_ASSET_BYTES = 30 * 1024 * 1024
 const remoteApiUrl = import.meta.env.MAIN_VITE_API_URL as string | undefined
-const rendererApiUrl = (import.meta.env as unknown as Record<string, string | undefined>).VITE_API_URL
+const rendererApiUrl = (import.meta.env as unknown as Record<string, string | undefined>)
+  .VITE_API_URL
 const allowedAssetOrigins = new Set(
   [remoteApiUrl, rendererApiUrl]
     .filter((value): value is string => Boolean(value))
@@ -260,6 +308,57 @@ app.whenReady().then(() => {
 
     throw new Error('Frame Canon tidak diterima dalam 5 detik.')
   })
+  ipcMain.handle('camera:set-save-dir', async (_, directory: string) => {
+    if (!directory || typeof directory !== 'string')
+      throw new Error('Direktori kamera tidak valid.')
+
+    await mkdir(directory, { recursive: true })
+    await cameraServiceRequest('/set_save_dir', 'POST', { path: directory })
+    cameraSaveDir = directory
+    return { directory }
+  })
+  ipcMain.handle(
+    'camera:capture-canon',
+    async (
+      _,
+      options?: { filename?: string }
+    ): Promise<{ dataUrl: string; filePath: string | null }> => {
+      const startedAt = Date.now()
+      await cameraServiceRequest('/capture', 'POST')
+
+      if (!cameraSaveDir) {
+        throw new Error('Direktori penyimpanan kamera belum diatur.')
+      }
+
+      const capturedPath = await waitForNewestCapture(cameraSaveDir, startedAt)
+      if (!capturedPath) {
+        throw new Error('File hasil capture Canon tidak ditemukan dalam 8 detik.')
+      }
+
+      let finalPath = capturedPath
+      if (options?.filename) {
+        const renamedPath = join(cameraSaveDir, options.filename)
+        await rename(capturedPath, renamedPath).catch(() => undefined)
+        finalPath = renamedPath
+      }
+
+      const bytes = await readFile(finalPath)
+      return {
+        dataUrl: `data:image/jpeg;base64,${bytes.toString('base64')}`,
+        filePath: finalPath
+      }
+    }
+  )
+  ipcMain.handle(
+    'session:prepare-directory',
+    async (_, baseDirectory?: string | null, subdirectory?: string | null) => {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const base = baseDirectory || join(app.getPath('pictures'), 'Photobooth')
+      const directory = join(base, subdirectory || timestamp)
+      await mkdir(directory, { recursive: true })
+      return { directory }
+    }
+  )
   ipcMain.handle('printer:list', async (event) => {
     const printers = await event.sender.getPrintersAsync()
     return printers.map((printer) => ({
@@ -287,20 +386,32 @@ app.whenReady().then(() => {
       dataUrl: `data:image/${extension === 'jpg' ? 'jpeg' : extension};base64,${bytes.toString('base64')}`
     }
   })
-  ipcMain.handle('printer:test', async (_, deviceName: string, options?: { paperSize?: '2r' | '4r'; copies?: number; sampleDataUrl?: string; orientation?: 'portrait' | 'landscape' }) => {
-    const testImage =
-      options?.sampleDataUrl ??
-      `data:image/svg+xml;base64,${Buffer.from(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1800"><rect width="1200" height="1800" fill="white"/><rect x="36" y="36" width="1128" height="1728" fill="none" stroke="black" stroke-width="12"/><text x="600" y="780" text-anchor="middle" font-family="Arial" font-size="84" font-weight="700">PHOTOBOOTH</text><text x="600" y="900" text-anchor="middle" font-family="Arial" font-size="48">DNP RX1HS TEST PRINT</text><text x="600" y="990" text-anchor="middle" font-family="Arial" font-size="32">Printer connection OK</text></svg>'
-    ).toString('base64')}`
-    await printDataUrl({
-      dataUrl: testImage,
-      deviceName,
-      copies: options?.copies ?? 1,
-      paperSize: options?.paperSize ?? '4r',
-      orientation: options?.orientation ?? 'portrait'
-    })
-  })
+  ipcMain.handle(
+    'printer:test',
+    async (
+      _,
+      deviceName: string,
+      options?: {
+        paperSize?: '2r' | '4r'
+        copies?: number
+        sampleDataUrl?: string
+        orientation?: 'portrait' | 'landscape'
+      }
+    ) => {
+      const testImage =
+        options?.sampleDataUrl ??
+        `data:image/svg+xml;base64,${Buffer.from(
+          '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1800"><rect width="1200" height="1800" fill="white"/><rect x="36" y="36" width="1128" height="1728" fill="none" stroke="black" stroke-width="12"/><text x="600" y="780" text-anchor="middle" font-family="Arial" font-size="84" font-weight="700">PHOTOBOOTH</text><text x="600" y="900" text-anchor="middle" font-family="Arial" font-size="48">DNP RX1HS TEST PRINT</text><text x="600" y="990" text-anchor="middle" font-family="Arial" font-size="32">Printer connection OK</text></svg>'
+        ).toString('base64')}`
+      await printDataUrl({
+        dataUrl: testImage,
+        deviceName,
+        copies: options?.copies ?? 1,
+        paperSize: options?.paperSize ?? '4r',
+        orientation: options?.orientation ?? 'portrait'
+      })
+    }
+  )
 
   ipcMain.handle('store:get', (_, key) => {
     return store.get(key)
@@ -318,20 +429,28 @@ app.whenReady().then(() => {
     'session:save-webcam-shots',
     async (
       _,
-      shots: string[],
+      shots: Array<string | { dataUrl: string; savedPath?: string | null }>,
       finalImage?: string,
       gifImage?: string,
       composedVideo?: string,
-      storageDirectory?: string | null
+      storageDirectory?: string | null,
+      options?: { exactDirectory?: boolean }
     ) => {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
       const baseDirectory = storageDirectory || join(app.getPath('pictures'), 'Photobooth')
-      const directory = join(baseDirectory, timestamp)
+      const directory = options?.exactDirectory ? baseDirectory : join(baseDirectory, timestamp)
 
       await mkdir(directory, { recursive: true })
 
       await Promise.all(
-        shots.map((dataUrl, index) => {
+        shots.map(async (shot, index) => {
+          const dataUrl = typeof shot === 'string' ? shot : shot.dataUrl
+          const savedPath = typeof shot === 'string' ? null : (shot.savedPath ?? null)
+
+          // Foto Canon asli sudah tersimpan sebagai JPEG oleh cameraAPI
+          // di folder sesi; tidak perlu ditulis ulang sebagai PNG.
+          if (savedPath) return
+
           const base64 = dataUrl.replace(/^data:image\/(png|jpeg);base64,/, '')
           return writeFile(
             join(directory, `capture-${String(index + 1).padStart(2, '0')}.png`),

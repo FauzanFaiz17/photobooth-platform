@@ -29,7 +29,13 @@ const electron = {
     pickDirectory: (): Promise<string | null> => ipcRenderer.invoke('storage:pick-directory')
   },
   camera: {
-    capturePreview: (): Promise<string> => ipcRenderer.invoke('camera:capture-preview')
+    capturePreview: (): Promise<string> => ipcRenderer.invoke('camera:capture-preview'),
+    setSaveDir: (directory: string): Promise<{ directory: string }> =>
+      ipcRenderer.invoke('camera:set-save-dir', directory),
+    captureCanon: (options?: {
+      filename?: string
+    }): Promise<{ dataUrl: string; filePath: string | null }> =>
+      ipcRenderer.invoke('camera:capture-canon', options)
   },
   printer: {
     list: (): Promise<Array<{ name: string; displayName: string; isDefault: boolean }>> =>
@@ -45,7 +51,12 @@ const electron = {
     }): Promise<void> => ipcRenderer.invoke('printer:print-image', options),
     test: (
       deviceName: string,
-      options?: { paperSize?: '2r' | '4r'; copies?: number; sampleDataUrl?: string; orientation?: 'portrait' | 'landscape' }
+      options?: {
+        paperSize?: '2r' | '4r'
+        copies?: number
+        sampleDataUrl?: string
+        orientation?: 'portrait' | 'landscape'
+      }
     ): Promise<void> => ipcRenderer.invoke('printer:test', deviceName, options)
   }
 }
@@ -59,7 +70,14 @@ declare global {
       window: { minimize(): Promise<void>; close(): Promise<void> }
       home: { pickImage(): Promise<string | null> }
       storage: { pickDirectory(): Promise<string | null> }
-      camera: { capturePreview(): Promise<string> }
+      camera: {
+        capturePreview(): Promise<string>
+        setSaveDir(directory: string): Promise<{ directory: string }>
+        captureCanon(options?: { filename?: string }): Promise<{
+          dataUrl: string
+          filePath: string | null
+        }>
+      }
       printer: {
         list(): Promise<Array<{ name: string; displayName: string; isDefault: boolean }>>
         pickSampleImage(): Promise<{ name: string; dataUrl: string } | null>
@@ -103,14 +121,28 @@ if (process.contextIsolated) {
 }
 
 contextBridge.exposeInMainWorld('session', {
+  prepareDirectory: (
+    baseDirectory?: string | null,
+    subdirectory?: string | null
+  ): Promise<{ directory: string }> =>
+    ipcRenderer.invoke('session:prepare-directory', baseDirectory, subdirectory),
   saveWebcamShots: (
-    shots: string[],
+    shots: Array<string | { dataUrl: string; savedPath?: string | null }>,
     finalImage?: string,
     gifImage?: string,
     composedVideo?: string,
-    storageDirectory?: string | null
+    storageDirectory?: string | null,
+    options?: { exactDirectory?: boolean }
   ): Promise<{ directory: string }> =>
-    ipcRenderer.invoke('session:save-webcam-shots', shots, finalImage, gifImage, composedVideo, storageDirectory)
+    ipcRenderer.invoke(
+      'session:save-webcam-shots',
+      shots,
+      finalImage,
+      gifImage,
+      composedVideo,
+      storageDirectory,
+      options
+    )
 })
 contextBridge.exposeInMainWorld('asset', {
   loadImage: (url: string): Promise<string> => ipcRenderer.invoke('asset:load-image', url)

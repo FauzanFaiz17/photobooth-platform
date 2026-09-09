@@ -12,15 +12,28 @@ import { useSessionStore } from '@/store/sessionStore'
 const focusRing =
   'focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-(--danger)'
 
-async function applyPrinterTransform(dataUrl: string, scale: number, horizontal: number, vertical: number): Promise<string> {
+async function applyPrinterTransform(
+  dataUrl: string,
+  scale: number,
+  horizontal: number,
+  vertical: number
+): Promise<string> {
   const image = new Image()
-  await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error('Gambar print tidak dapat dibaca.')); image.src = dataUrl })
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve()
+    image.onerror = () => reject(new Error('Gambar print tidak dapat dibaca.'))
+    image.src = dataUrl
+  })
   const canvas = document.createElement('canvas')
-  canvas.width = image.naturalWidth; canvas.height = image.naturalHeight
-  const context = canvas.getContext('2d'); if (!context) return dataUrl
-  context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height)
-  context.translate(horizontal / 100 * canvas.width, vertical / 100 * canvas.height)
-  context.translate(canvas.width / 2, canvas.height / 2); context.scale(scale / 100, scale / 100)
+  canvas.width = image.naturalWidth
+  canvas.height = image.naturalHeight
+  const context = canvas.getContext('2d')
+  if (!context) return dataUrl
+  context.fillStyle = '#fff'
+  context.fillRect(0, 0, canvas.width, canvas.height)
+  context.translate((horizontal / 100) * canvas.width, (vertical / 100) * canvas.height)
+  context.translate(canvas.width / 2, canvas.height / 2)
+  context.scale(scale / 100, scale / 100)
   context.drawImage(image, -canvas.width / 2, -canvas.height / 2)
   return canvas.toDataURL('image/png')
 }
@@ -80,12 +93,18 @@ export default function FinishPage(): JSX.Element {
     if (!currentDirectory) {
       try {
         const appSettings = await getAppSettings()
+        const cameraServiceDirectory = useSessionStore.getState().cameraServiceDirectory
         const saved = await window.session.saveWebcamShots(
-          shots.map((shot) => shot.dataUrl),
+          shots.map((shot) => ({
+            dataUrl: shot.dataUrl,
+            // JPEG asli Canon sudah tersimpan di folder sesi oleh cameraAPI.
+            savedPath: shot.savedPath ?? null
+          })),
           composedImage.dataUrl,
           animatedGif.dataUrl,
           composedVideo?.dataUrl,
-          appSettings.storageDirectory
+          cameraServiceDirectory ?? appSettings.storageDirectory,
+          { exactDirectory: Boolean(cameraServiceDirectory) }
         )
         currentDirectory = saved.directory
         setLocalDirectory(saved.directory)
@@ -95,7 +114,6 @@ export default function FinishPage(): JSX.Element {
           'Foto tidak dapat disimpan ke penyimpanan lokal.'
         )
       }
-
     }
 
     try {
@@ -112,18 +130,29 @@ export default function FinishPage(): JSX.Element {
       for (let index = firstPendingIndex; index < shots.length; index += 1) {
         const shot = shots[index]
 
-        await uploadSessionMedia(sessionId, {
-          type: 'original',
-          filename: `capture-${String(index + 1).padStart(2, '0')}.png`,
-          mime_type: 'image/png',
-          data_url: shot.dataUrl,
-          width: shot.width,
-          height: shot.height
-        })
+        if (shot.originalDataUrl) {
+          // Unggah JPEG asli dari kamera Canon tanpa re-render canvas.
+          await uploadSessionMedia(sessionId, {
+            type: 'original',
+            filename: `capture-${String(index + 1).padStart(2, '0')}.jpg`,
+            mime_type: 'image/jpeg',
+            data_url: shot.originalDataUrl,
+            width: shot.originalWidth ?? shot.width,
+            height: shot.originalHeight ?? shot.height
+          })
+        } else {
+          await uploadSessionMedia(sessionId, {
+            type: 'original',
+            filename: `capture-${String(index + 1).padStart(2, '0')}.png`,
+            mime_type: 'image/png',
+            data_url: shot.dataUrl,
+            width: shot.width,
+            height: shot.height
+          })
+        }
 
         setUploadedShotCount(index + 1)
       }
-
 
       if (!useSessionStore.getState().composedImageUploaded) {
         await uploadSessionMedia(sessionId, {
@@ -151,7 +180,15 @@ export default function FinishPage(): JSX.Element {
       }
 
       if (composedVideo && !composedVideoUploaded) {
-        await uploadSessionMedia(sessionId, { type: 'video', filename: 'template-video.webm', mime_type: 'video/webm', data_url: composedVideo.dataUrl, width: composedVideo.width, height: composedVideo.height, duration_seconds: composedVideo.durationSeconds })
+        await uploadSessionMedia(sessionId, {
+          type: 'video',
+          filename: 'template-video.webm',
+          mime_type: 'video/webm',
+          data_url: composedVideo.dataUrl,
+          width: composedVideo.width,
+          height: composedVideo.height,
+          duration_seconds: composedVideo.durationSeconds
+        })
         setComposedVideoUploaded(true)
       }
 
@@ -163,7 +200,12 @@ export default function FinishPage(): JSX.Element {
           printWarning = 'Printer belum dipilih; sesi tetap disimpan ke gallery.'
         } else {
           try {
-            const printDataUrl = await applyPrinterTransform(printImage.dataUrl, printer.scale, printer.horizontalPosition, printer.verticalPosition)
+            const printDataUrl = await applyPrinterTransform(
+              printImage.dataUrl,
+              printer.scale,
+              printer.horizontalPosition,
+              printer.verticalPosition
+            )
             await window.electron.printer.printImage({
               dataUrl: printDataUrl,
               deviceName: printer.deviceName,
@@ -174,7 +216,10 @@ export default function FinishPage(): JSX.Element {
             printAccepted = true
             setPrintedLocally(true)
           } catch (error) {
-            printWarning = getApiErrorMessage(error, 'Printer tidak dapat digunakan; sesi tetap disimpan ke gallery.')
+            printWarning = getApiErrorMessage(
+              error,
+              'Printer tidak dapat digunakan; sesi tetap disimpan ke gallery.'
+            )
           }
         }
       }

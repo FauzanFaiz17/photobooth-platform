@@ -3,7 +3,11 @@ import type { JSX } from 'react'
 import Alert from '@/components/ui/Alert'
 import { NeoButton } from '@/components/shared/button'
 import { useWebcam } from '@/features/camera/hooks/useWebcam'
-import { getCameraSettings, saveCameraSettings } from '@/features/settings/deviceSettings'
+import {
+  getCameraSettings,
+  getAppSettings,
+  saveCameraSettings
+} from '@/features/settings/deviceSettings'
 
 const CAMERA_API_URL = 'http://127.0.0.1:5000'
 
@@ -291,11 +295,20 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
     setMessage(null)
     try {
       if (isCanon) {
-        const data = await cameraRequest('/capture', 'POST')
-        if (data.status === 'error') throw new Error(data.detail || 'Canon gagal mengambil foto.')
+        // Arahkan cameraAPI menyimpan hasil test ke folder test terpisah.
+        const appSettings = await getAppSettings()
+        const { directory } = await window.session.prepareDirectory(
+          appSettings.storageDirectory,
+          'test'
+        )
+        await window.electron.camera.setSaveDir(directory)
+
+        const capture = await window.electron.camera.captureCanon()
+        if (!capture.filePath) throw new Error('File hasil capture Canon tidak ditemukan.')
+        setTestPhoto(capture.dataUrl)
         setMessage({
           type: 'success',
-          text: data.message || 'Perintah test photo dikirim ke Canon.'
+          text: `Test photo Canon berhasil disimpan di: ${directory}`
         })
       } else {
         const video = videoRef.current
@@ -310,8 +323,29 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
         if (portrait) context.rotate(Math.PI / 2)
         context.scale(mirror ? -1 : 1, 1)
         context.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2)
-        setTestPhoto(canvas.toDataURL('image/jpeg', 0.92))
-        setMessage({ type: 'success', text: 'Test photo webcam berhasil diambil.' })
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
+
+        // Simpan hasil test webcam ke folder test yang sama.
+        const appSettings = await getAppSettings()
+        const { directory } = await window.session.prepareDirectory(
+          appSettings.storageDirectory,
+          'test'
+        )
+        await window.session.saveWebcamShots(
+          [dataUrl],
+          undefined,
+          undefined,
+          undefined,
+          directory,
+          {
+            exactDirectory: true
+          }
+        )
+        setTestPhoto(dataUrl)
+        setMessage({
+          type: 'success',
+          text: `Test photo webcam berhasil disimpan di: ${directory}`
+        })
       }
     } catch (cause) {
       setMessage({

@@ -16,6 +16,12 @@ export interface CapturedShot {
   /** Rekaman video pendek (webm data URL, tanpa audio) selama countdown shot ini. */
   videoDataUrl?: string
   mirror?: boolean
+  /** JPEG asli dari kamera Canon (tanpa re-render canvas) untuk disimpan/diunggah. */
+  originalDataUrl?: string
+  originalWidth?: number
+  originalHeight?: number
+  /** Path file JPEG asli yang sudah tersimpan di folder sesi oleh cameraAPI. */
+  savedPath?: string
 }
 
 export type SessionSyncStatus =
@@ -37,6 +43,8 @@ interface SessionState {
   syncStatus: SessionSyncStatus
   syncError: string | null
   localDirectory: string | null
+  /** Folder sesi yang sudah diarahkan ke cameraAPI via /set_save_dir (mode Canon). */
+  cameraServiceDirectory: string | null
   uploadedShotCount: number
   uploadedVideoShotCount: number
   composedImage: ComposedImage | null
@@ -53,6 +61,7 @@ interface SessionState {
   setGalleryUrl: (url: string | null) => void
   setSyncStatus: (status: SessionSyncStatus, error?: string | null) => void
   setLocalDirectory: (directory: string) => void
+  setCameraServiceDirectory: (directory: string | null) => void
   setUploadedShotCount: (count: number) => void
   setUploadedVideoShotCount: (count: number) => void
   setComposedImage: (image: ComposedImage | null) => void
@@ -95,6 +104,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   syncStatus: 'idle',
   syncError: null,
   localDirectory: null,
+  cameraServiceDirectory: null,
   uploadedShotCount: 0,
   uploadedVideoShotCount: 0,
   composedImage: null,
@@ -136,6 +146,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       syncStatus: 'creating',
       syncError: null,
       localDirectory: null,
+      cameraServiceDirectory: null,
       uploadedShotCount: 0,
       uploadedVideoShotCount: 0,
       composedImage: null,
@@ -157,6 +168,8 @@ export const useSessionStore = create<SessionState>((set) => ({
   setSyncStatus: (syncStatus, syncError = null) => set({ syncStatus, syncError }),
 
   setLocalDirectory: (localDirectory) => set({ localDirectory }),
+
+  setCameraServiceDirectory: (cameraServiceDirectory) => set({ cameraServiceDirectory }),
 
   setUploadedShotCount: (uploadedShotCount) => set({ uploadedShotCount }),
   setUploadedVideoShotCount: (uploadedVideoShotCount) => set({ uploadedVideoShotCount }),
@@ -208,8 +221,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       animatedGif: null,
       animatedGifUploaded: false,
       composedVideo: null,
-      uploadedShotCount: 0
-      ,uploadedVideoShotCount: 0
+      uploadedShotCount: 0,
+      uploadedVideoShotCount: 0
     }),
 
   resetTransaction: () =>
@@ -229,6 +242,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       syncStatus: 'idle',
       syncError: null,
       localDirectory: null,
+      cameraServiceDirectory: null,
       uploadedShotCount: 0,
       composedImage: null,
       composedImageUploaded: false,
@@ -258,6 +272,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       syncStatus: 'idle',
       syncError: null,
       localDirectory: null,
+      cameraServiceDirectory: null,
       uploadedShotCount: 0,
       uploadedVideoShotCount: 0,
       composedImage: null,

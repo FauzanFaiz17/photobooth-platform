@@ -20,7 +20,6 @@ import {
   type PrintSampleImage,
   type PrintSampleSettings
 } from '@/features/settings/deviceSettings'
-import type { PaperSize } from '@/features/settings/deviceSettings'
 
 const PAPER_DIMENSIONS_MM: Record<'2r' | '4r', { width: number; height: number }> = {
   '2r': { width: 60, height: 90 },
@@ -343,7 +342,7 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
         setVerticalPosition(stored?.verticalPosition ?? 0)
         setPaperSize(stored?.paperSize ?? '4r')
         setOrientation(stored?.orientation ?? 'portrait')
-        setSampleImage(sample?.image ?? null)
+        setSampleImage(sample?.['4r'] ?? null)
       })
       .catch((cause) => {
         setMessage({
@@ -418,7 +417,7 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
         <p className="font-black uppercase tracking-wider">
           Preview {paperSize === '2r' ? '2R (2R x 2)' : '4R'} — {orientation === 'landscape' ? 'Landscape' : 'Portrait'}
         </p>
-        <PaperPreview paperSize={paperSize} orientation={orientation} sampleImage={sampleImage} scale={scale} horizontalPosition={horizontalPosition} verticalPosition={verticalPosition} quality={quality} />
+        <PaperPreview paperSize={paperSize} orientation={orientation} sampleImage={sampleImage} scale={scale} horizontalPosition={horizontalPosition} verticalPosition={verticalPosition} quality={quality === 'high' ? 'photo' : 'normal'} />
         <p className="text-xs text-white/70">
           Preview menampilkan gambar sampel di atas media kertas (ukuran sebenarnya: {paperSize === '2r' ? '60 x 90 mm' : '100 x 150 mm'}).
           Area hitam adalah pinggir kertas yang tidak tertutup gambar. Atur Scale dan posisi Horizontal/Vertical sampai gambar
