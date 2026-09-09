@@ -20,7 +20,6 @@ import {
   type PrintSampleImage,
   type PrintSampleSettings
 } from '@/features/settings/deviceSettings'
-import type { PaperSize } from '@/features/settings/deviceSettings'
 
 const PAPER_DIMENSIONS_MM: Record<'2r' | '4r', { width: number; height: number }> = {
   '2r': { width: 60, height: 90 },
@@ -48,22 +47,22 @@ function PaperPreview({
   scale: number
   horizontalPosition: number
   verticalPosition: number
-  quality: 'best' | 'photo' | 'normal' | 'draft'
-}) {
+  quality: string
+}): JSX.Element {
   const paper = PAPER_DIMENSIONS_MM[paperSize]
   const isLandscape = orientation === 'landscape'
   const imgW = isLandscape ? paper.height : paper.width
   const imgH = isLandscape ? paper.width : paper.height
   const scalePct = Math.max(5, Math.min(200, scale)) / 100
 
-  // Tampilan preview dalam px (0.75 px per mm supaya pas di layar)
-  const pxPerMm = 0.75
+  // Preview diperbesar agar detail foto dan batas kertas mudah terlihat.
+  const pxPerMm = 2.2
   const paperW = paper.width * pxPerMm
   const paperH = paper.height * pxPerMm
 
   return (
     <div
-      className="relative grid place-items-center bg-black"
+      className="relative grid place-items-center overflow-hidden border-4 border-[#f2cc25] bg-[#f5f3ec] shadow-[0_0_0_2px_#111]"
       style={{ width: paperW, height: paperH, margin: '0 auto' }}
     >
       {sampleImage?.dataUrl ? (
@@ -90,7 +89,7 @@ function PaperPreview({
           }
         />
       ) : (
-        <div className="absolute inset-0 grid place-items-center text-center text-xs font-bold text-white/50">
+        <div className="absolute inset-0 grid place-items-center text-center text-xs font-bold text-black/50">
           <span>
             {imgW} x {imgH} mm
             <br />
@@ -343,7 +342,8 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
         setVerticalPosition(stored?.verticalPosition ?? 0)
         setPaperSize(stored?.paperSize ?? '4r')
         setOrientation(stored?.orientation ?? 'portrait')
-        setSampleImage(sample?.image ?? null)
+        const savedPaperSize = stored?.paperSize ?? '4r'
+        setSampleImage(sample[savedPaperSize])
       })
       .catch((cause) => {
         setMessage({
@@ -379,8 +379,22 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
     try { setPrinters(await window.electron.printer.list()) } finally { setLoading(false) }
   }
 
+  async function chooseSample(): Promise<void> {
+    const picked = await window.electron.printer.pickSampleImage()
+    if (!picked) return
+    setSampleImage(picked)
+    const current = await getPrintSampleSettings()
+    await savePrintSampleSettings({ ...current, [paperSize]: picked })
+  }
+
+  async function changePaperSize(next: '2r' | '4r'): Promise<void> {
+    setPaperSize(next)
+    const samples = await getPrintSampleSettings()
+    setSampleImage(samples[next])
+  }
+
   return (
-    <div className="mx-auto flex h-full w-full max-w-xl flex-col gap-6 bg-(--background) p-5 text-(--foreground) md:p-8">
+    <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-6 overflow-y-auto bg-(--background) p-5 text-(--foreground) md:p-8">
       <div>
         <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-(--danger)">
           Printer setup
@@ -407,23 +421,43 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
       </select>
       <NeoButton variant="outlined" disabled={loading} onClick={() => void refreshPrinters()}>Refresh daftar printer</NeoButton>
 
-      <div className="grid gap-4 border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo)">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+      <div className="grid gap-4 border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo) lg:w-[360px] lg:shrink-0">
         <label className="grid gap-2 font-bold">Print quality<select value={quality} onChange={(e) => setQuality(e.target.value as 'standard' | 'high')} className="border-2 border-(--border) bg-(--background) p-2"><option value="standard">Standard</option><option value="high">High</option></select></label>
-        <label className="grid gap-2 font-bold">Ukuran kertas<select value={paperSize} onChange={(e) => setPaperSize(e.target.value as '2r' | '4r')} className="border-2 border-(--border) bg-(--background) p-2"><option value="4r">4R</option><option value="2r">2R</option></select></label>
+        <label className="grid gap-2 font-bold">Ukuran kertas<select value={paperSize} onChange={(e) => void changePaperSize(e.target.value as '2r' | '4r')} className="border-2 border-(--border) bg-(--background) p-2"><option value="4r">4R</option><option value="2r">2R</option></select></label>
         <label className="grid gap-2 font-bold">Orientasi cetak<select value={orientation} onChange={(e) => setOrientation(e.target.value as 'portrait' | 'landscape')} className="border-2 border-(--border) bg-(--background) p-2"><option value="portrait">Portrait (tinggi)</option><option value="landscape">Landscape (mendatar)</option></select></label>
         {([['Scale', scale, setScale, 80, 120], ['Horizontal position', horizontalPosition, setHorizontalPosition, -100, 100], ['Vertical position', verticalPosition, setVerticalPosition, -100, 100]] as const).map(([label, value, setter, min, max]) => <label key={label} className="grid gap-2 font-bold">{label}<div className="flex gap-2"><input className="w-full" type="range" min={min} max={max} value={value} onChange={(e) => setter(Number(e.target.value))} /><input className="w-20 border-2 border-(--border) p-2" type="number" min={min} max={max} value={value} onChange={(e) => setter(Number(e.target.value))} /></div></label>)}
       </div>
 
-      <div className="grid gap-3 border-4 border-(--border) bg-[#202020] p-4 text-white shadow-(--shadow-neo)">
-        <p className="font-black uppercase tracking-wider">
-          Preview {paperSize === '2r' ? '2R (2R x 2)' : '4R'} — {orientation === 'landscape' ? 'Landscape' : 'Portrait'}
-        </p>
-        <PaperPreview paperSize={paperSize} orientation={orientation} sampleImage={sampleImage} scale={scale} horizontalPosition={horizontalPosition} verticalPosition={verticalPosition} quality={quality} />
-        <p className="text-xs text-white/70">
-          Preview menampilkan gambar sampel di atas media kertas (ukuran sebenarnya: {paperSize === '2r' ? '60 x 90 mm' : '100 x 150 mm'}).
-          Area hitam adalah pinggir kertas yang tidak tertutup gambar. Atur Scale dan posisi Horizontal/Vertical sampai gambar
-          penuh memenuhi kertas, lalu Simpan dan Test Print.
-        </p>
+      <div className="grid min-w-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.38fr)]">
+        <div className="grid gap-3 border-4 border-(--border) bg-[#202020] p-4 text-white shadow-(--shadow-neo)">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="font-black uppercase tracking-wider">
+              Preview {paperSize === '2r' ? '2R' : '4R'} — {orientation === 'landscape' ? 'Landscape' : 'Portrait'}
+            </p>
+            <NeoButton variant="outlined" onClick={() => void chooseSample()}>
+              {sampleImage ? 'Ganti foto sample' : 'Pilih foto sample'}
+            </NeoButton>
+          </div>
+          <div className="grid min-h-72 place-items-center border-2 border-white/15 bg-[#111111] p-5">
+            <PaperPreview paperSize={paperSize} orientation={orientation} sampleImage={sampleImage} scale={scale} horizontalPosition={horizontalPosition} verticalPosition={verticalPosition} quality={quality} />
+          </div>
+          <p className="text-xs text-white/70">
+            {sampleImage ? `Sample: ${sampleImage.name}` : 'Belum ada foto sample. Preview menampilkan ukuran media.'}
+            {' '}Ukuran media {paperSize === '2r' ? '60 x 90 mm' : '100 x 150 mm'}.
+          </p>
+        </div>
+
+        <div className="grid content-start gap-3 border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo)">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-(--danger)">Ringkasan cetak</p>
+          <div className="grid gap-2 text-sm font-bold">
+            <div className="flex justify-between gap-3 border-b-2 border-(--border) pb-2"><span>Printer</span><span className="max-w-44 truncate text-right">{printers.find((printer) => printer.name === deviceName)?.displayName ?? 'Belum dipilih'}</span></div>
+            <div className="flex justify-between gap-3 border-b-2 border-(--border) pb-2"><span>Media</span><span>{paperSize.toUpperCase()}</span></div>
+            <div className="flex justify-between gap-3 border-b-2 border-(--border) pb-2"><span>Orientasi</span><span>{orientation === 'landscape' ? 'Landscape' : 'Portrait'}</span></div>
+            <div className="flex justify-between gap-3"><span>Quality</span><span>{quality === 'high' ? 'High' : 'Standard'}</span></div>
+          </div>
+        </div>
+      </div>
       </div>
 
       {message && <Alert type={message.type}>{message.text}</Alert>}
