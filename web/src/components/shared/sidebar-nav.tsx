@@ -110,8 +110,8 @@ export function AdminSidebar() {
   }
 
   return (
-    <Sidebar className="border-none">
-      <SidebarContent className="p-4">
+    <Sidebar className="border-none p-2 ml-2">
+      <SidebarContent className="p-4 bg-background rounded-t-2xl border-t border-l border-r">
         <SidebarGroup>
           <SidebarGroupLabel className="mb-4 h-10 px-1 flex gap-4">
             <img
@@ -139,7 +139,7 @@ export function AdminSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="p-4 pt-0">
+      <SidebarFooter className="p-4 pt-0 bg-background rounded-b-2xl border-b border-l border-r">
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu modal={false}>
