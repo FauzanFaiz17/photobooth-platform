@@ -20,6 +20,8 @@ class TemplateRequest extends FormRequest
             'preview_path' => ['nullable', 'string', 'max:255'],
             'thumbnail_path' => ['nullable', 'string', 'max:255'],
             'json_layout' => ['required', 'array'],
+            'json_layout.frames' => ['sometimes', 'array'],
+            'json_layout.frames.*.shot' => ['sometimes', 'integer', 'min:1'],
             'psd_path' => ['nullable', 'string', 'max:255'],
             // The PNG is uploaded as multipart data and stored by TemplateService.
             'image' => ['nullable', 'file', 'mimes:png', 'max:10240'],

@@ -75,7 +75,8 @@ export default function FilterPage(): JSX.Element | null {
         </p>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-auto md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-auto md:grid-cols-[0.8fr_1.2fr]">
+        <div className="grid content-start gap-3">
         {filters.map((item) => (
           <button
             type="button"
@@ -83,17 +84,16 @@ export default function FilterPage(): JSX.Element | null {
             onClick={() => setFilter(item)}
             className={`border-4 border-(--border) p-4 text-left shadow-(--shadow-neo) [transition:none] ${filter.id === item.id ? 'bg-(--primary)' : 'bg-(--surface)'}`}
           >
-            <div className="aspect-2/3 overflow-hidden border-4 border-(--border) bg-white">
-              <img
-                src={composedImage.dataUrl}
-                alt={`Preview print dengan filter ${item.name}`}
-                className="h-full w-full object-contain"
-                style={{ filter: item.cssFilter }}
-              />
-            </div>
+            <div className="aspect-video overflow-hidden border-4 border-(--border) bg-white"><img src={shots[0]?.dataUrl ?? composedImage.dataUrl} alt={`Foto dengan filter ${item.name}`} className="h-full w-full object-contain" style={{ filter: item.cssFilter }} /></div>
             <p className="mt-3 font-black">{item.name}</p>
           </button>
         ))}
+        </div>
+        <div className="flex min-h-0 flex-col border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo)">
+          <p className="mb-3 font-black uppercase tracking-wider">Preview template</p>
+          <div className="grid min-h-0 flex-1 place-items-center bg-white p-3"><img src={composedImage.dataUrl} alt="Preview template dengan filter" className="max-h-full max-w-full object-contain" style={{ filter: filter.cssFilter }} /></div>
+          <p className="mt-3 text-sm font-bold">Filter aktif: {filter.name}</p>
+        </div>
       </div>
 
       {error && <Alert type="error">{error}</Alert>}

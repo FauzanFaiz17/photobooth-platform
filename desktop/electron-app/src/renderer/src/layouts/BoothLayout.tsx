@@ -33,14 +33,19 @@ export default function BoothLayout(): JSX.Element {
       const now = Date.now()
       setCurrentTime(now)
       if (sessionDeadline <= now) {
-        resetTransaction()
-        navigate('/welcome', { replace: true })
+        const shots = useSessionStore.getState().shots
+        if (shots.length > 0 && location.pathname !== '/welcome') {
+          navigate('/preview', { replace: true })
+        } else {
+          resetTransaction()
+          navigate('/welcome', { replace: true })
+        }
       }
     }
 
     const interval = window.setInterval(update, 1000)
     return () => window.clearInterval(interval)
-  }, [navigate, resetTransaction, sessionDeadline])
+  }, [location.pathname, navigate, resetTransaction, sessionDeadline])
 
   const sessionSecondsLeft = sessionDeadline
     ? Math.max(0, Math.ceil((sessionDeadline - currentTime) / 1000))

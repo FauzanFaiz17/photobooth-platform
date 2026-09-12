@@ -24,7 +24,6 @@ export default function TemplatePage(): JSX.Element | null {
   const navigate = useNavigate()
   const configuration = useSessionStore((state) => state.eventConfiguration)
   const paperSize = useSessionStore((state) => state.paperSize)
-  const setPaperSize = useSessionStore((state) => state.setPaperSize)
   const setTemplate = useSessionStore((state) => state.setTemplate)
   const syncStatus = useSessionStore((state) => state.syncStatus)
   const syncError = useSessionStore((state) => state.syncError)
@@ -65,18 +64,6 @@ export default function TemplatePage(): JSX.Element | null {
         <p className="mt-2 font-semibold text-(--muted-foreground)">
           {configuration.event.event_name}
         </p>
-      </div>
-      <div className="flex flex-wrap gap-3">
-        {(['2r', '4r'] as const).map((size) => (
-          <NeoButton
-            key={size}
-            onClick={() => setPaperSize(size)}
-            variant={paperSize === size ? 'primary' : 'outlined'}
-            className="[transition:none]"
-          >
-            {size.toUpperCase()}
-          </NeoButton>
-        ))}
       </div>
       {templates.length === 0 ? (
         <Alert type="warning">Belum ada template {paperSize.toUpperCase()} untuk event ini.</Alert>

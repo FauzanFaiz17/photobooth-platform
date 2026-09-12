@@ -120,7 +120,8 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
     devices: webcamDevices,
     activeDeviceId,
     selectDevice,
-    retry: retryWebcam
+    retry: retryWebcam,
+    refreshDevices
   } = useWebcam()
   const [source, setSource] = useState<CameraSource>('canon')
   const [orientation, setOrientation] = useState<Orientation>('portrait')
@@ -375,7 +376,7 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
 
       <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="flex min-h-[320px] items-center justify-center overflow-hidden border-4 border-[var(--border)] bg-[#181818] shadow-[var(--shadow-neo)]">
-          <div
+      <div
             className={`relative flex h-full w-full items-center justify-center overflow-hidden ${
               orientation === 'portrait' ? 'mx-auto max-w-[58vh]' : ''
             }`}
@@ -411,7 +412,7 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
 
         <aside className="min-h-0 space-y-5 overflow-y-auto border-4 border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-neo)]">
           <div className="space-y-2">
-            <label className="text-sm font-black">Kamera</label>
+            <div className="flex items-center justify-between"><label className="text-sm font-black">Kamera</label><button type="button" className="text-xs font-black underline" onClick={() => void refreshDevices()}>Refresh</button></div>
             <select
               value={source}
               onChange={(event) => void selectSource(event.target.value as CameraSource)}

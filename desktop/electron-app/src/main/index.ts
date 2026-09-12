@@ -76,10 +76,15 @@ interface PrintImageOptions {
   copies: number
   paperSize: '2r' | '4r'
   orientation: string
+  mediaFormat?: '4x6' | '6x4'
 }
 
 function paperDimensions(paperSize: '2r' | '4r'): { width: number; height: number } {
-  return paperSize === '2r' ? { width: 60000, height: 90000 } : { width: 100000, height: 150000 }
+  return paperSize === '2r' ? { width: 50800, height: 152400 } : { width: 101600, height: 152400 }
+}
+function mediaDimensions(format?: '4x6' | '6x4'): { width: number; height: number } | null {
+  if (!format) return null
+  return format === '4x6' ? { width: 101600, height: 152400 } : { width: 152400, height: 101600 }
 }
 
 async function printDataUrl(options: PrintImageOptions): Promise<void> {
@@ -91,8 +96,10 @@ async function printDataUrl(options: PrintImageOptions): Promise<void> {
     show: false,
     webPreferences: { sandbox: true }
   })
-  const dimensions = paperDimensions(options.paperSize)
-  const landscape = options.orientation.toLowerCase() === 'landscape'
+  const dimensions = mediaDimensions(options.mediaFormat) ?? paperDimensions(options.paperSize)
+  const requestedLandscape = options.orientation.toLowerCase() === 'landscape'
+  const isDnpRx1 = /(?:DS-?RX1|DNP.*RX1)/i.test(options.deviceName)
+  const driverLandscape = isDnpRx1 ? !requestedLandscape : requestedLandscape
   // Printer foto (mis. DNP RX1HS) punya media fisik portrait; flag
   // `landscape: true` Chromium menimbulkan rotasi ganda sehingga hasil
   // menjadi portrait terpotong dengan pinggir kosong. Solusinya: halaman
@@ -102,9 +109,7 @@ async function printDataUrl(options: PrintImageOptions): Promise<void> {
   const height = dimensions.height
   const pageWidthMm = (width / 1000).toFixed(1)
   const pageHeightMm = (height / 1000).toFixed(1)
-  const imgStyle = landscape
-    ? `position:absolute;top:50%;left:50%;width:${pageHeightMm}mm;height:${pageWidthMm}mm;object-fit:fill;transform:translate(-50%,-50%) rotate(90deg)`
-    : 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:fill'
+  const imgStyle = 'position:absolute;inset:0;width:100%;height:100%;object-fit:fill;background:white'
   const html = `<!doctype html><html><head><meta charset="utf-8"><style>@page{margin:0;size:${pageWidthMm}mm ${pageHeightMm}mm}html,body{margin:0;width:${pageWidthMm}mm;height:${pageHeightMm}mm;overflow:hidden;position:relative}img{display:block;${imgStyle}}</style></head><body><img src="${options.dataUrl}" /></body></html>`
 
   try {
@@ -116,7 +121,7 @@ async function printDataUrl(options: PrintImageOptions): Promise<void> {
           printBackground: true,
           deviceName: options.deviceName,
           copies: Math.max(1, Math.min(20, Math.trunc(options.copies))),
-          landscape: false,
+          landscape: driverLandscape,
           margins: { marginType: 'none' },
           pageSize: { width, height }
         },
@@ -396,6 +401,7 @@ app.whenReady().then(() => {
         copies?: number
         sampleDataUrl?: string
         orientation?: 'portrait' | 'landscape'
+        mediaFormat?: '4x6' | '6x4'
       }
     ) => {
       const testImage =
@@ -408,7 +414,8 @@ app.whenReady().then(() => {
         deviceName,
         copies: options?.copies ?? 1,
         paperSize: options?.paperSize ?? '4r',
-        orientation: options?.orientation ?? 'portrait'
+        orientation: options?.orientation ?? 'portrait',
+        mediaFormat: options?.mediaFormat
       })
     }
   )

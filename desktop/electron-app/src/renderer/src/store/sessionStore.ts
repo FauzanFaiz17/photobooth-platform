@@ -118,13 +118,14 @@ export const useSessionStore = create<SessionState>((set) => ({
   sessionDeadline: null,
 
   beginEvent: (configuration) => {
-    const mappedTemplate = mapTemplateSnapshot(configuration.template)
+    const printOptions = configuration.print_options ?? configuration.event.print_options ?? []
+    const activePrintOption = printOptions.find((item) => item.is_active) ?? null
+    const eventPaperSize = activePrintOption?.paper_size ?? configuration.template.paper_size ?? '2r'
+    const availableTemplates = configuration.templates ?? [configuration.template]
+    const initialSnapshot = availableTemplates.find((item) => item.paper_size === eventPaperSize) ?? configuration.template
+    const mappedTemplate = mapTemplateSnapshot(initialSnapshot)
     const filter = mapFilterSnapshot(configuration.filter)
-    const frames = configuration.template.json_layout.frames
-    const requiredShots =
-      Array.isArray(frames) && frames.length > 0
-        ? frames.length
-        : Math.max(1, configuration.camera.burst_count)
+    const requiredShots = mappedTemplate.slots || Math.max(1, configuration.camera.burst_count)
     const template = {
       ...mappedTemplate,
       slots: requiredShots
@@ -134,9 +135,9 @@ export const useSessionStore = create<SessionState>((set) => ({
       eventConfiguration: configuration,
       template,
       filter,
-      paperSize: configuration.template.paper_size ?? '2r',
-      printOption: configuration.print_options?.find((item) => item.is_active) ?? null,
-      quantity: configuration.print_options?.find((item) => item.is_active)?.unit_quantity ?? 0,
+      paperSize: eventPaperSize,
+      printOption: activePrintOption,
+      quantity: activePrintOption?.unit_quantity ?? 0,
       paymentId: null,
       customerId: null,
       shots: [],

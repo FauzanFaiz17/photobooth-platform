@@ -56,6 +56,7 @@ const electron = {
         copies?: number
         sampleDataUrl?: string
         orientation?: 'portrait' | 'landscape'
+        mediaFormat?: '4x6' | '6x4'
       }
     ): Promise<void> => ipcRenderer.invoke('printer:test', deviceName, options)
   }
@@ -90,7 +91,7 @@ declare global {
         }): Promise<void>
         test(
           deviceName: string,
-          options?: { paperSize?: '2r' | '4r'; copies?: number; sampleDataUrl?: string }
+          options?: { paperSize?: '2r' | '4r'; copies?: number; sampleDataUrl?: string; orientation?: 'portrait' | 'landscape'; mediaFormat?: '4x6' | '6x4' }
         ): Promise<void>
       }
     }

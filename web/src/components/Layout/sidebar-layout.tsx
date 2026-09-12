@@ -157,7 +157,7 @@ export function SidebarLayout() {
   const breadcrumbItems = createBreadcrumbItems(pathname, searchParams);
 
   return (
-    <SidebarProvider style={{ "--sidebar-width": "14rem" } as CSSProperties}>
+    <SidebarProvider className="bg-sidebar flex gap-2" style={{ "--sidebar-width": "14rem" } as CSSProperties}>
       <AdminSidebar />
       <main className="w-full flex-1 p-2 h-screen flex flex-col overflow-y-hidden bg-sidebar">
         <div className="w-full bg-background rounded-2xl border">

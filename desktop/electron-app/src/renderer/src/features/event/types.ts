@@ -107,7 +107,8 @@ function recordValue(value: Record<string, unknown>, key: string): unknown {
 export function mapTemplateSnapshot(snapshot: TemplateSnapshot): PhotoTemplate {
   const frames = recordValue(snapshot.json_layout, 'frames')
   const configuredLayout = recordValue(snapshot.json_layout, 'layout')
-  const slots = Array.isArray(frames) && frames.length > 0 ? frames.length : 1
+  const shots = Array.isArray(frames) ? frames.map((frame) => recordValue(frame as Record<string, unknown>, 'shot')).filter((shot): shot is number => typeof shot === 'number' && shot > 0) : []
+  const slots = shots.length > 0 ? Math.max(...shots) : (Array.isArray(frames) && frames.length > 0 ? frames.length : 1)
 
   return {
     id: String(snapshot.id),

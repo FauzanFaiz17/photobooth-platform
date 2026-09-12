@@ -50,17 +50,16 @@ export default function CameraCapture({
     dataUrl: string
   } | null>(null)
 
-  // Guard: inisialisasi kamera hanya boleh dijalankan sekali agar tidak
-  // memicu loop reload webcam ketika daftar `devices` berubah.
   const cameraInitializedRef = useRef(false)
 
   useEffect(() => {
     if (cameraInitializedRef.current) return
-    cameraInitializedRef.current = true
 
     void getCameraSettings().then(async (settings) => {
       setCameraSettings(settings)
       if (settings.source === 'webcam') {
+        if (settings.deviceId && !devices.some((device) => device.deviceId === settings.deviceId)) return
+        cameraInitializedRef.current = true
         const available = settings.deviceId
           ? devices.find((device) => device.deviceId === settings.deviceId)
           : null
@@ -96,16 +95,17 @@ export default function CameraCapture({
       }
       await window.api?.request('/toggle_mirror', 'POST', { mirror: settings.mirror })
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [devices, selectDevice])
 
   // ---- Rekaman video pendek per shot (webcam, tanpa audio) ----
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recordChunksRef = useRef<Blob[]>([])
   const recordingPromiseRef = useRef<Promise<string | null> | null>(null)
   const recordingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const recordingStartedRef = useRef(false)
 
   const startRecording = useCallback((): void => {
+    if (recordingStartedRef.current || mediaRecorderRef.current) return
     const video = videoRef.current
     const stream = (video?.srcObject as MediaStream | null) ?? null
 
@@ -130,8 +130,9 @@ export default function CameraCapture({
       }
 
       recordingPromiseRef.current = new Promise<string | null>((resolve) => {
-        recorder.onstop = (): void => {
-          mediaRecorderRef.current = null
+      recorder.onstop = (): void => {
+        mediaRecorderRef.current = null
+        recordingStartedRef.current = false
 
           if (recordChunksRef.current.length === 0) {
             resolve(null)
@@ -149,9 +150,10 @@ export default function CameraCapture({
 
       recorder.start()
       mediaRecorderRef.current = recorder
+      recordingStartedRef.current = true
       recordingStopTimerRef.current = setTimeout(() => {
         if (recorder.state === 'recording') recorder.stop()
-      }, countdownSeconds * 1000)
+      }, Math.min(3, countdownSeconds) * 1000)
     } catch {
       recordingPromiseRef.current = null
     }
@@ -165,6 +167,7 @@ export default function CameraCapture({
     if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop()
     }
+    if (!mediaRecorderRef.current) recordingStartedRef.current = false
   }, [])
 
   const activeTemplateOverlay =
@@ -201,7 +204,10 @@ export default function CameraCapture({
         context.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2)
         const captured = canvas.toDataURL('image/png')
         stopRecording()
-        const videoDataUrl = await (recordingPromiseRef.current ?? Promise.resolve(null))
+        const videoDataUrl = await Promise.race([
+          recordingPromiseRef.current ?? Promise.resolve(null),
+          new Promise<string | null>((resolve) => window.setTimeout(() => resolve(null), 1200))
+        ])
         const shot: CapturedShot = {
           id: `${Date.now()}`,
           dataUrl: captured,
@@ -215,12 +221,13 @@ export default function CameraCapture({
           savedPath: capture.filePath ?? undefined
         }
         setLastCaptured(shot)
+        const priorShots = useSessionStore.getState().shots
         void composeTemplateImage({
-          shots: [shot],
+          shots: [...priorShots, shot],
           jsonLayout: template.jsonLayout,
           layout: template.layout,
           overlayPath: template.overlayPath,
-          frameIndex: shotIndex
+          frameIndex: undefined
         })
           .then((composed) => setReviewImage(composed.dataUrl))
           .catch(() => setReviewImage(captured))
@@ -264,12 +271,13 @@ export default function CameraCapture({
         mirror: settings.mirror
       }
       setLastCaptured(shot)
+      const priorShots = useSessionStore.getState().shots
       void composeTemplateImage({
-        shots: [shot],
+        shots: [...priorShots, shot],
         jsonLayout: template.jsonLayout,
         layout: template.layout,
         overlayPath: template.overlayPath,
-        frameIndex: shotIndex
+        frameIndex: undefined
       })
         .then((composed) => setReviewImage(composed.dataUrl))
         .catch(() => setReviewImage(dataUrl))
@@ -319,8 +327,8 @@ export default function CameraCapture({
 
   // Rekam mulai saat countdown berjalan (termasuk saat retake).
   useEffect(() => {
-    if (stage === 'countdown') startRecording()
-  }, [stage, startRecording])
+    if (stage === 'countdown' && countdown === Math.min(3, countdownSeconds)) startRecording()
+  }, [countdown, countdownSeconds, stage, startRecording])
 
   async function startFullscreenCapture(): Promise<void> {
     if (!document.fullscreenElement && stageRef.current) {
@@ -399,7 +407,7 @@ export default function CameraCapture({
               <img
                 src={activeTemplateOverlay}
                 alt=""
-                className="pointer-events-none absolute inset-0 h-full w-full object-fill"
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover"
               />
             )}
             <span className="relative text-8xl font-bold text-white drop-shadow-lg">
@@ -418,11 +426,9 @@ export default function CameraCapture({
       <canvas ref={canvasRef} className="hidden" />
 
       {stage === 'review' && lastCaptured && (
-        <div className="flex flex-col items-center gap-3 text-white">
-          <img
-            src={reviewImage ?? lastCaptured.dataUrl}
-            className="max-h-[60vh] max-w-full rounded-lg object-contain"
-          />
+        <div className="flex w-full max-w-5xl flex-col items-center gap-4 text-white md:flex-row md:items-start">
+          <div className="flex-1 text-center"><p className="mb-2 font-black">Foto asli</p><img src={lastCaptured.dataUrl} className="max-h-[65vh] w-full rounded-lg object-contain" /></div>
+          <div className="flex-1 text-center"><p className="mb-2 font-black">Dengan template</p><img src={reviewImage ?? lastCaptured.dataUrl} className="max-h-[65vh] w-full rounded-lg object-contain" /></div>
           <p>Foto {currentShotIndex + 1}: sudah sesuai?</p>
           <div className="flex gap-3">
             <NeoButton onClick={retakeCurrent} variant="outlined">

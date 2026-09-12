@@ -15,6 +15,7 @@ interface UseWebcamResult {
   activeDeviceId: string | null
   selectDevice: (deviceId: string) => void
   retry: () => void
+  refreshDevices: () => Promise<void>
   stream: MediaStream | null
 }
 
@@ -26,6 +27,7 @@ interface UseWebcamResult {
 export function useWebcam(): UseWebcamResult {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const startRequestRef = useRef(0)
 
   const [status, setStatus] = useState<WebcamStatus>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -34,13 +36,22 @@ export function useWebcam(): UseWebcamResult {
   const [retryToken, setRetryToken] = useState(0)
   const [stream, setStream] = useState<MediaStream | null>(null)
 
+  const refreshDevices = useCallback(async (): Promise<void> => {
+    const allDevices = await navigator.mediaDevices.enumerateDevices()
+    const videoInputs = allDevices.filter((d) => d.kind === 'videoinput').map((d, index) => ({ deviceId: d.deviceId, label: d.label || `Kamera ${index + 1}` }))
+    setDevices(videoInputs)
+  }, [])
+
   const stopStream = useCallback(() => {
+    startRequestRef.current += 1
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop())
 
       streamRef.current = null
       setStream(null)
     }
+    if (videoRef.current) videoRef.current.srcObject = null
+    setActiveDeviceId(null)
   }, [])
 
   const startStream = useCallback(
@@ -50,12 +61,18 @@ export function useWebcam(): UseWebcamResult {
       setError(null)
 
       stopStream()
+      const requestId = ++startRequestRef.current
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'user' },
           audio: false
         })
+
+        if (requestId !== startRequestRef.current) {
+          stream.getTracks().forEach((track) => track.stop())
+          return
+        }
 
         streamRef.current = stream
         setStream(stream)
@@ -72,13 +89,7 @@ export function useWebcam(): UseWebcamResult {
 
         // enumerateDevices baru dapat label lengkap setelah permission diberikan
         const allDevices = await navigator.mediaDevices.enumerateDevices()
-
-        const videoInputs = allDevices
-          .filter((d) => d.kind === 'videoinput')
-          .map((d, index) => ({
-            deviceId: d.deviceId,
-            label: d.label || `Kamera ${index + 1}`
-          }))
+        const videoInputs = allDevices.filter((d) => d.kind === 'videoinput').map((d, index) => ({ deviceId: d.deviceId, label: d.label || `Kamera ${index + 1}` }))
 
         // Hanya update state bila benar-benar berubah, agar tidak memicu
         // render/effect loop di komponen yang bergantung pada `devices`.
@@ -115,6 +126,11 @@ export function useWebcam(): UseWebcamResult {
           }
         }
 
+        if (err instanceof DOMException && (err.name === 'NotReadableError' || err.name === 'TrackStartError')) {
+          setStatus('error')
+          setError('Kamera sedang digunakan aplikasi lain atau driver belum melepas perangkat. Tutup DroidCam Client, tunggu beberapa detik, lalu tekan Refresh.')
+          return
+        }
         setStatus('error')
 
         setError(err instanceof Error ? err.message : 'Gagal mengakses webcam.')
@@ -122,6 +138,12 @@ export function useWebcam(): UseWebcamResult {
     },
     [stopStream]
   )
+
+  useEffect(() => {
+    const handler = (): void => { void refreshDevices() }
+    navigator.mediaDevices.addEventListener?.('devicechange', handler)
+    return () => navigator.mediaDevices.removeEventListener?.('devicechange', handler)
+  }, [refreshDevices])
 
   useEffect(() => {
     startStream(activeDeviceId ?? undefined)
@@ -165,6 +187,7 @@ export function useWebcam(): UseWebcamResult {
     activeDeviceId,
     selectDevice,
     retry,
+    refreshDevices,
     stream
   }
 }

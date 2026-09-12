@@ -253,10 +253,9 @@ export async function composeTemplateVideo({
     context.fillStyle = background
     context.fillRect(0, 0, canvas.width, canvas.height)
 
-    playable.forEach((entry) => {
-      const frame = frames[entry.index]
-      if (!frame) return
-      if (entry.video.readyState >= 2) {
+    frames.forEach((frame) => {
+      const entry = playable.find((candidate) => candidate.index === frame.shot - 1)
+      if (entry?.video.readyState && entry.video.readyState >= 2) {
         drawVideoCover(context, entry.video, frame, cssFilter, mirror)
       }
     })

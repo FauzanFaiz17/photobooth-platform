@@ -10,6 +10,7 @@ interface TemplateFrame {
   y: number
   width: number
   height: number
+  shot: number
 }
 
 interface ComposeTemplateOptions {
@@ -71,7 +72,8 @@ function createFallbackFrames(
     x: gap + (index % columns) * (frameWidth + gap),
     y: gap + Math.floor(index / columns) * (frameHeight + gap),
     width: frameWidth,
-    height: frameHeight
+    height: frameHeight,
+    shot: index + 1
   }))
 }
 
@@ -93,7 +95,8 @@ export function getFrames(
       x: finiteNumber(configured.x) ?? fallback.x,
       y: finiteNumber(configured.y) ?? fallback.y,
       width: positiveNumber(configured.width) ?? fallback.width,
-      height: positiveNumber(configured.height) ?? fallback.height
+      height: positiveNumber(configured.height) ?? fallback.height,
+      shot: positiveNumber(configured.shot) ? Math.trunc(positiveNumber(configured.shot) as number) : index + 1
     }
   })
 }
@@ -216,8 +219,7 @@ export async function composeTemplateImage({
   if (shots.length === 0) throw new Error('Tidak ada foto untuk dikomposisikan.')
 
   const canvasSize = getCanvasSize(jsonLayout)
-  const startFrame = frameIndex ?? 0
-  const frames = getFrames(jsonLayout, Math.max(shots.length + startFrame, 1), canvasSize, layout)
+  const frames = getFrames(jsonLayout, Math.max(shots.length, 1), canvasSize, layout)
   const canvas = document.createElement('canvas')
   canvas.width = canvasSize.width
   canvas.height = canvasSize.height
@@ -238,9 +240,11 @@ export async function composeTemplateImage({
     shots.map((shot, index) => loadImage(shot.dataUrl, `Foto ${index + 1}`))
   )
 
-  shotImages.forEach((image, index) =>
-    drawCover(context, image, frames[startFrame + index], cssFilter)
-  )
+  frames.forEach((frame) => {
+    const image = frameIndex === undefined ? shotImages[frame.shot - 1] : shotImages[0]
+    if (frameIndex !== undefined && frame.shot !== frameIndex + 1) return
+    if (image) drawCover(context, image, frame, cssFilter)
+  })
 
   if (overlayPath) {
     const overlay = await loadOverlay(overlayPath)
