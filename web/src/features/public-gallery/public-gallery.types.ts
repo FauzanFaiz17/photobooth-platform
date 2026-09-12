@@ -12,8 +12,8 @@ export interface PublicGalleryMedia {
 
 export interface PublicGalleryRecord {
   session_id: number
-  completed_at: string | null
-  expires_at: string | null
+  completed_at: string
+  expires_at: string
   media: ReadonlyArray<PublicGalleryMedia>
 }
 
