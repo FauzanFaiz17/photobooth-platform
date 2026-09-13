@@ -12,6 +12,11 @@ export interface CameraDeviceSettings {
   iso: { value: number; name: string } | null
   aperture: { value: number; name: string } | null
   shutter: { value: number; name: string } | null
+  whiteBalance: { value: number; name: string } | null
+  pictureStyle: { value: number; name: string } | null
+  exposure: { value: number; name: string } | null
+  contrast: { value: number; name: string } | null
+  saturation: { value: number; name: string } | null
 }
 
 export const DEFAULT_CAMERA_SETTINGS: CameraDeviceSettings = {
@@ -23,6 +28,7 @@ export const DEFAULT_CAMERA_SETTINGS: CameraDeviceSettings = {
   iso: null,
   aperture: null,
   shutter: null
+  , whiteBalance: null, pictureStyle: null, exposure: null, contrast: null, saturation: null
 }
 
 export async function getCameraSettings(): Promise<CameraDeviceSettings> {
@@ -39,6 +45,7 @@ export async function getCameraSettings(): Promise<CameraDeviceSettings> {
     iso: candidate.iso ?? null,
     aperture: candidate.aperture ?? null,
     shutter: candidate.shutter ?? null
+    , whiteBalance: candidate.whiteBalance ?? null, pictureStyle: candidate.pictureStyle ?? null, exposure: candidate.exposure ?? null, contrast: candidate.contrast ?? null, saturation: candidate.saturation ?? null
   }
 }
 

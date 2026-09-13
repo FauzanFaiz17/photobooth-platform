@@ -20,6 +20,11 @@ interface CameraOptions {
   iso: CameraOption[]
   aperture: CameraOption[]
   shutter: CameraOption[]
+  white_balance: CameraOption[]
+  picture_style: CameraOption[]
+  exposure: CameraOption[]
+  contrast: CameraOption[]
+  saturation: CameraOption[]
 }
 
 interface CameraApiResponse {
@@ -126,10 +131,15 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
   const [source, setSource] = useState<CameraSource>('canon')
   const [orientation, setOrientation] = useState<Orientation>('portrait')
   const [mirror, setMirror] = useState(false)
-  const [options, setOptions] = useState<CameraOptions>({ iso: [], aperture: [], shutter: [] })
+  const [options, setOptions] = useState<CameraOptions>({ iso: [], aperture: [], shutter: [], white_balance: [], picture_style: [], exposure: [], contrast: [], saturation: [] })
   const [iso, setIso] = useState<number | null>(null)
   const [aperture, setAperture] = useState<number | null>(null)
   const [shutter, setShutter] = useState<number | null>(null)
+  const [whiteBalance, setWhiteBalance] = useState<number | null>(null)
+  const [pictureStyle, setPictureStyle] = useState<number | null>(null)
+  const [exposure, setExposureValue] = useState<number | null>(null)
+  const [contrast, setContrast] = useState<number | null>(null)
+  const [saturation, setSaturation] = useState<number | null>(null)
   const [serviceReady, setServiceReady] = useState(false)
   const [busy, setBusy] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -158,7 +168,8 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
       const nextOptions: CameraOptions = {
         iso: data.options?.iso ?? [],
         aperture: data.options?.aperture ?? [],
-        shutter: data.options?.shutter ?? []
+      shutter: data.options?.shutter ?? []
+        , white_balance: data.options?.white_balance ?? [], picture_style: data.options?.picture_style ?? [], exposure: data.options?.exposure ?? [], contrast: data.options?.contrast ?? [], saturation: data.options?.saturation ?? []
       }
       setOptions(nextOptions)
       setIso(nextOptions.iso[0]?.value ?? null)
@@ -219,6 +230,11 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
         iso: options.iso.find((option) => option.value === iso) ?? null,
         aperture: options.aperture.find((option) => option.value === aperture) ?? null,
         shutter: options.shutter.find((option) => option.value === shutter) ?? null
+        , whiteBalance: options.white_balance.find((option) => option.value === whiteBalance) ?? null
+        , pictureStyle: options.picture_style.find((option) => option.value === pictureStyle) ?? null
+        , exposure: options.exposure.find((option) => option.value === exposure) ?? null
+        , contrast: options.contrast.find((option) => option.value === contrast) ?? null
+        , saturation: options.saturation.find((option) => option.value === saturation) ?? null
       })
       setMessage({ type: 'success', text: 'Pengaturan kamera berhasil disimpan.' })
     } catch (cause) {
@@ -474,6 +490,11 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
             disabled={canonControlsDisabled}
             onChange={(value) => void setExposure('shutter', value)}
           />
+          <ExposureControl label="White Balance" options={options.white_balance} value={whiteBalance} disabled={canonControlsDisabled} onChange={(value) => { setWhiteBalance(value); void updateCanonProperty('white_balance', value) }} />
+          <ExposureControl label="Picture Style" options={options.picture_style} value={pictureStyle} disabled={canonControlsDisabled} onChange={(value) => { setPictureStyle(value); void updateCanonProperty('picture_style', value) }} />
+          <ExposureControl label="Exposure" options={options.exposure} value={exposure} disabled={canonControlsDisabled} onChange={(value) => { setExposureValue(value); void updateCanonProperty('exposure', value) }} />
+          <ExposureControl label="Contrast" options={options.contrast} value={contrast} disabled={canonControlsDisabled} onChange={(value) => { setContrast(value); void updateCanonProperty('contrast', value) }} />
+          <ExposureControl label="Saturation" options={options.saturation} value={saturation} disabled={canonControlsDisabled} onChange={(value) => { setSaturation(value); void updateCanonProperty('saturation', value) }} />
 
           {message && <Alert type={message.type}>{message.text}</Alert>}
 
