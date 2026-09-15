@@ -44,8 +44,6 @@ function FramePreview({ frame, onExpired }: { readonly frame: TemplateRecord; re
   const previewUrl = frame.thumbnail_url ?? frame.preview_url ?? frame.png_url ?? resolveStorageUrl(frame.thumbnail_path ?? frame.preview_path ?? frame.png_path)
   const [broken, setBroken] = useState(false)
 
-  useEffect(() => setBroken(false), [previewUrl])
-
   return (
     <div className="relative aspect-[4/3] w-full overflow-hidden border-b bg-muted/40">
       {previewUrl && !broken ? (
@@ -74,7 +72,7 @@ function FramePreview({ frame, onExpired }: { readonly frame: TemplateRecord; re
 function FrameCard({ frame, onEdit, onDelete, onExpired }: { readonly frame: TemplateRecord; readonly onEdit?: () => void; readonly onDelete?: () => void; readonly onExpired: () => void }) {
   return (
     <Card className="overflow-hidden pt-0">
-      <FramePreview frame={frame} onExpired={onExpired} />
+      <FramePreview key={frame.thumbnail_url ?? frame.preview_url ?? frame.png_url ?? frame.thumbnail_path ?? frame.preview_path ?? frame.png_path ?? "missing"} frame={frame} onExpired={onExpired} />
       <CardHeader><div className="flex items-start justify-between gap-3"><div className="min-w-0"><CardTitle className="truncate">{frame.name}</CardTitle><CardDescription className="mt-1">{frame.is_global ? "Frame Global" : frame.partner?.company_name}</CardDescription></div><div className="flex flex-wrap justify-end gap-1">{frame.is_global && <Badge variant="outline">Global</Badge>}<Badge variant={frame.status === "published" ? "default" : "secondary"}>{statusLabels[frame.status]}</Badge></div></div></CardHeader>
       <CardContent><dl className="grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted-foreground">Versi</dt><dd className="mt-1 font-medium">{frame.version}</dd></div><div><dt className="text-xs text-muted-foreground">Layout items</dt><dd className="mt-1 font-medium">{layoutItemCount(frame)}</dd></div><div className="col-span-2"><dt className="text-xs text-muted-foreground">PNG path</dt><dd className="mt-1 truncate font-medium" title={frame.png_path ?? undefined}>{frame.png_path || "—"}</dd></div></dl></CardContent>
       {!frame.is_global && onEdit && onDelete && <CardFooter className="justify-end gap-2"><Button size="sm" variant="outline" onClick={onEdit}><Pencil aria-hidden="true" /> Edit</Button><Button size="sm" variant="destructive" onClick={onDelete}><Trash2 aria-hidden="true" /> Hapus</Button></CardFooter>}

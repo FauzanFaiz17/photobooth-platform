@@ -4,11 +4,11 @@ import { useNavigate } from 'react-router-dom'
 
 import { getApiErrorMessage } from '@/api/axios'
 import Alert from '@/components/ui/Alert'
-import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
 import Label from '@/components/ui/Label'
 import { activateDevice } from '@/features/devices/api/device'
 import { useDeviceStore } from '@/store/deviceStore'
+import { NeoInput } from '@/components/shared/input'
+import { NeoButton } from '@/components/shared/button'
 
 export default function DeviceActivationPage(): JSX.Element {
   const navigate = useNavigate()
@@ -51,7 +51,7 @@ export default function DeviceActivationPage(): JSX.Element {
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="activation-code">Kode Aktivasi</Label>
-        <Input
+        <NeoInput
           id="activation-code"
           value={activationCode}
           onChange={(event) => setActivationCode(event.target.value.toUpperCase())}
@@ -72,9 +72,9 @@ export default function DeviceActivationPage(): JSX.Element {
 
       {error && <Alert type="error">{error}</Alert>}
 
-      <Button type="submit" loading={loading} disabled={!activationCode.trim()}>
+      <NeoButton type="submit" loading={loading} disabled={!activationCode.trim()}>
         Aktifkan Device
-      </Button>
+      </NeoButton>
     </form>
   )
 }

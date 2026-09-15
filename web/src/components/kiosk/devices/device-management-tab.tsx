@@ -103,7 +103,12 @@ function DeviceFormDialog({ booth, device, onClose, onSaved, onUnauthorized, onF
     } catch (caught: unknown) {
       if (caught instanceof ApiError && caught.status === 401) return onUnauthorized()
       if (caught instanceof ApiError && caught.status === 403) return onForbidden()
-      setError(caught instanceof ApiError ? caught.validationErrors.device_name?.[0] ?? caught.message : "Tidak dapat terhubung ke server.")
+      if (caught instanceof ApiError) {
+        const validationMessage = Object.values(caught.validationErrors).flat()[0]
+        setError(validationMessage ?? caught.message)
+      } else {
+        setError("Tidak dapat terhubung ke server.")
+      }
     } finally {
       setPending(false)
     }

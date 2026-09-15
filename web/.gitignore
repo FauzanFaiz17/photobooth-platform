@@ -22,3 +22,5 @@ graphify-out
 *.njsproj
 *.sln
 *.sw?
+env
+.env

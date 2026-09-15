@@ -11,6 +11,7 @@ import {
   Trash2,
 } from "lucide-react";
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -72,6 +73,7 @@ const FRAME_SIZES = {
 } as const;
 
 type FrameSize = keyof typeof FRAME_SIZES;
+type SlotShape = "rectangle" | "rounded" | "circle";
 
 interface PhotoSlot {
   id: number;
@@ -79,6 +81,8 @@ interface PhotoSlot {
   y: number;
   width: number;
   height: number;
+  shot: number;
+  shape: SlotShape;
 }
 
 interface FormErrors {
@@ -116,6 +120,24 @@ function positiveNumber(value: unknown): number | null {
 
 function finiteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function positiveInteger(value: unknown): number | null {
+  const parsed = finiteNumber(value);
+  return parsed !== null && parsed >= 1 ? Math.trunc(parsed) : null;
+}
+
+function slotShape(value: unknown): SlotShape {
+  return value === "rounded" || value === "circle" ? value : "rectangle";
+}
+
+function slotRadii(shape: SlotShape, width: number, height: number): { rx: number; ry: number } {
+  if (shape === "circle") return { rx: width / 2, ry: height / 2 };
+  if (shape === "rounded") {
+    const radius = Math.min(width, height) * 0.12;
+    return { rx: radius, ry: radius };
+  }
+  return { rx: 0, ry: 0 };
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {
@@ -301,11 +323,13 @@ function FrameCanvas({
     );
 
     slots.forEach((slot) => {
+      const radii = slotRadii(slot.shape, slot.width, slot.height);
       const values = {
         left: slot.x,
         top: slot.y,
         width: slot.width,
         height: slot.height,
+        ...radii,
       };
       const existing = current.get(slot.id);
       if (existing) {
@@ -365,12 +389,25 @@ function FrameCanvas({
 
   return (
     <div
-      ref={containerRef}
       role="application"
       aria-label="Editor slot foto"
-      className="overflow-hidden bg-transparent [&_.canvas-container]:shadow-2xl"
+      className="relative overflow-hidden bg-transparent [&_.canvas-container]:shadow-2xl"
       style={{ width: displayWidth, height: displayHeight }}
-    />
+    >
+      <div ref={containerRef} className="size-full" />
+      {slots.map((slot) => (
+        <span
+          key={slot.id}
+          className="pointer-events-none absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-black/65 px-2 py-1 text-sm font-bold text-white"
+          style={{
+            left: `${((slot.x + slot.width / 2) / canvasWidth) * 100}%`,
+            top: `${((slot.y + slot.height / 2) / canvasHeight) * 100}%`,
+          }}
+        >
+          {slot.shot}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -436,7 +473,7 @@ function readFrameLayout(frame: TemplateRecord): {
     const scaledHeight = clamp(rawHeight * scaleY, 10, target.height);
     const x = clamp(rawX * scaleX, 0, target.width - scaledWidth);
     const y = clamp(rawY * scaleY, 0, target.height - scaledHeight);
-    return [{ id: index + 1, x, y, width: scaledWidth, height: scaledHeight }];
+    return [{ id: index + 1, x, y, width: scaledWidth, height: scaledHeight, shot: positiveInteger(item.shot) ?? index + 1, shape: slotShape(item.shape) }];
   });
   return { size, slots, slotsInFront };
 }
@@ -464,6 +501,7 @@ export function FrameCreatePage(): ReactElement {
   const frameId = Number(frameIdParam);
   const editing = Number.isInteger(frameId) && frameId > 0;
   const nextSlotId = useRef(1);
+  const copiedSlotRef = useRef<PhotoSlot | null>(null);
   const overlayInputRef = useRef<HTMLInputElement>(null);
   const overlayUrlRef = useRef<string | null>(null);
   const [overlayUrl, setOverlayUrl] = useState<string | null>(null);
@@ -595,6 +633,8 @@ export function FrameCreatePage(): ReactElement {
       ),
       width: slotWidth,
       height: slotHeight,
+      shot: Math.max(0, ...slots.map((item) => item.shot)) + 1,
+      shape: "rectangle",
     };
     setSlots((current) => [...current, slot]);
     setSelectedSlotId(slot.id);
@@ -620,7 +660,7 @@ export function FrameCreatePage(): ReactElement {
   }
 
   /** Salinan digeser sedikit supaya slot aslinya masih bisa diklik di canvas. */
-  function duplicateSlot(source: PhotoSlot) {
+  const duplicateSlot = useCallback((source: PhotoSlot): void => {
     const step = Math.round(
       Math.min(canvasSize.width, canvasSize.height) * 0.03,
     );
@@ -628,12 +668,42 @@ export function FrameCreatePage(): ReactElement {
       id: nextSlotId.current++,
       width: source.width,
       height: source.height,
+      shot: source.shot,
+      shape: source.shape,
       x: clamp(source.x + step, 0, canvasSize.width - source.width),
       y: clamp(source.y + step, 0, canvasSize.height - source.height),
     };
     setSlots((current) => [...current, slot]);
     setSelectedSlotId(slot.id);
-  }
+  }, [canvasSize.height, canvasSize.width]);
+
+  useEffect(() => {
+    function handleClipboardShortcut(event: KeyboardEvent): void {
+      if (mode !== "edit") return;
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT")
+      )
+        return;
+
+      const key = event.key.toLowerCase();
+      if (key === "c" && selectedSlot) {
+        event.preventDefault();
+        copiedSlotRef.current = { ...selectedSlot };
+      } else if (key === "v" && copiedSlotRef.current) {
+        event.preventDefault();
+        duplicateSlot(copiedSlotRef.current);
+      }
+    }
+
+    window.addEventListener("keydown", handleClipboardShortcut);
+    return () => window.removeEventListener("keydown", handleClipboardShortcut);
+  }, [duplicateSlot, mode, selectedSlot]);
 
   function removeSlot(slotId: number) {
     setSlots((current) => current.filter((slot) => slot.id !== slotId));
@@ -641,12 +711,16 @@ export function FrameCreatePage(): ReactElement {
   }
 
   function changeSlotNumber(
-    field: "x" | "y" | "width" | "height",
+    field: "shot" | "x" | "y" | "width" | "height",
     value: string,
   ) {
     if (!selectedSlot) return;
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return;
+    if (field === "shot") {
+      updateSlot(selectedSlot.id, { shot: Math.max(1, Math.round(parsed)) });
+      return;
+    }
     const maximum =
       field === "x"
         ? canvasSize.width - selectedSlot.width
@@ -658,6 +732,11 @@ export function FrameCreatePage(): ReactElement {
     updateSlot(selectedSlot.id, {
       [field]: clamp(parsed, field === "x" || field === "y" ? 0 : 10, maximum),
     });
+  }
+
+  function changeSlotShape(value: string | null): void {
+    if (!selectedSlot || !value) return;
+    updateSlot(selectedSlot.id, { shape: slotShape(value) });
   }
 
   function changeFrameSize(nextSize: FrameSize) {
@@ -752,6 +831,8 @@ export function FrameCreatePage(): ReactElement {
             y: Math.round(slot.y),
             width: Math.round(slot.width),
             height: Math.round(slot.height),
+            shot: Math.max(1, Math.round(slot.shot)),
+            shape: slot.shape,
           })),
         },
       };
@@ -978,12 +1059,12 @@ export function FrameCreatePage(): ReactElement {
                     onOverlayError={() => setOverlayBroken(true)}
                   />
                   {(!overlayUrl || overlayBroken) && (
-                    <button
-                      type="button"
-                      onClick={() => overlayInputRef.current?.click()}
-                      className="absolute inset-3 grid place-items-center rounded-md border-2 border-dashed border-muted-foreground/40 bg-white/70 text-center transition-colors hover:border-primary hover:bg-primary/5"
-                    >
-                      <span className="grid gap-1 px-6">
+                    <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center p-3">
+                      <button
+                        type="button"
+                        onClick={() => overlayInputRef.current?.click()}
+                        className="pointer-events-auto grid max-w-[90%] gap-1 rounded-md border-2 border-dashed border-muted-foreground/40 bg-white/90 px-5 py-3 text-center transition-colors hover:border-primary hover:bg-primary/5"
+                      >
                         <ImageUp
                           className="mx-auto size-8 text-muted-foreground"
                           aria-hidden="true"
@@ -995,11 +1076,11 @@ export function FrameCreatePage(): ReactElement {
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {overlayBroken
-                            ? "File tersimpan di server, tapi belum bisa diambil kembali. Klik untuk mengunggah ulang."
-                            : "Klik untuk memilih PNG frame. Slot foto bisa ditambahkan setelah gambar tampil di canvas."}
+                            ? "Klik untuk mengunggah ulang PNG. Slot tetap bisa diedit."
+                            : "Klik untuk memilih PNG frame."}
                         </span>
-                      </span>
-                    </button>
+                      </button>
+                    </div>
                   )}
                 </div>
               ) : (
@@ -1019,7 +1100,11 @@ export function FrameCreatePage(): ReactElement {
                     {slots.map((slot, index) => (
                       <div
                         key={slot.id}
-                        className="absolute overflow-hidden bg-muted ring-1 ring-black/10"
+                        className={cn(
+                          "absolute overflow-hidden bg-muted ring-1 ring-black/10",
+                          slot.shape === "rounded" && "rounded-[12%]",
+                          slot.shape === "circle" && "rounded-full",
+                        )}
                         style={{
                           left: `${(slot.x / canvasSize.width) * 100}%`,
                           top: `${(slot.y / canvasSize.height) * 100}%`,
@@ -1037,8 +1122,8 @@ export function FrameCreatePage(): ReactElement {
                               index % 2 === 0 ? "center 25%" : "center 65%",
                           }}
                         />
-                        <span className="absolute left-2 top-2 grid size-6 place-items-center rounded-full bg-black/70 text-xs font-medium text-white">
-                          {index + 1}
+                        <span className="absolute left-1/2 top-1/2 grid size-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-black/70 text-sm font-bold text-white">
+                          {slot.shot}
                         </span>
                       </div>
                     ))}
@@ -1304,7 +1389,7 @@ export function FrameCreatePage(): ReactElement {
                   <div>
                     <CardTitle>Slot Foto</CardTitle>
                     <CardDescription>
-                      {slots.length} slot dibuat
+                      {slots.length} slot dibuat · {new Set(slots.map((slot) => slot.shot)).size} foto
                     </CardDescription>
                   </div>
                   {selectedSlot && (
@@ -1340,11 +1425,13 @@ export function FrameCreatePage(): ReactElement {
                 )}
                 {selectedSlot && (
                   <div className="grid grid-cols-2 gap-3">
-                    {(["x", "y", "width", "height"] as const).map((field) => (
+                    {(["shot", "x", "y", "width", "height"] as const).map((field) => (
                       <div key={field} className="grid gap-2">
                         <Label htmlFor={`slot-${field}`}>
-                          {field === "x"
-                            ? "Posisi X (px)"
+                          {field === "shot"
+                            ? "Foto ke"
+                            : field === "x"
+                              ? "Posisi X (px)"
                             : field === "y"
                               ? "Posisi Y (px)"
                               : field === "width"
@@ -1354,9 +1441,11 @@ export function FrameCreatePage(): ReactElement {
                         <Input
                           id={`slot-${field}`}
                           type="number"
-                          min={field === "x" || field === "y" ? 0 : 10}
+                          min={field === "shot" ? 1 : field === "x" || field === "y" ? 0 : 10}
                           max={
-                            field === "x"
+                            field === "shot"
+                              ? undefined
+                              : field === "x"
                               ? canvasSize.width - selectedSlot.width
                               : field === "y"
                                 ? canvasSize.height - selectedSlot.height
@@ -1372,6 +1461,19 @@ export function FrameCreatePage(): ReactElement {
                         />
                       </div>
                     ))}
+                    <div className="col-span-2 grid gap-2">
+                      <Label htmlFor="slot-shape">Bentuk slot</Label>
+                      <Select value={selectedSlot.shape} onValueChange={changeSlotShape}>
+                        <SelectTrigger id="slot-shape" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="rectangle">Kotak</SelectItem>
+                          <SelectItem value="rounded">Rounded</SelectItem>
+                          <SelectItem value="circle">Bulat</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 )}
               </CardContent>

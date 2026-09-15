@@ -109,8 +109,8 @@ export function PublicGalleryPage(): ReactElement {
           {gallery && (
             <p className="mt-2 text-sm text-muted-foreground">
               Sesi #{gallery.session_id} · selesai{" "}
-              {formatDate(gallery.completed_at) ?? "Guest"} · berlaku sampai{" "}
-              {formatDate(gallery.expires_at)}
+              {gallery.completed_at ? formatDate(gallery.completed_at) : "Guest"} · berlaku sampai{" "}
+              {gallery.expires_at ? formatDate(gallery.expires_at) : "-"}
             </p>
           )}
         </header>
