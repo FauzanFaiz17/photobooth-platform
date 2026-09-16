@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { fetchGalleryMediaUrl } from "@/features/galleries/gallery-service";
 import { getPublicGallery } from "@/features/public-gallery/public-gallery-service";
 import type {
   PublicGalleryMedia,
@@ -41,6 +42,74 @@ function mediaIcon(media: PublicGalleryMedia): ReactElement {
     <FileVideo className="size-8" aria-hidden="true" />
   ) : (
     <FileImage className="size-8" aria-hidden="true" />
+  );
+}
+
+/**
+ * Route media publik mengirim berkas sebagai attachment, jadi <img src> langsung tidak
+ * andal — pakai objectURL dari fetch, sama seperti dialog "Lihat media".
+ */
+function GalleryMediaPreview({
+  token,
+  media,
+}: {
+  readonly token: string;
+  readonly media: PublicGalleryMedia;
+}): ReactElement {
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const isVideo = media.mime_type.startsWith("video/");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let created: string | null = null;
+
+    fetchGalleryMediaUrl(token, media.id, controller.signal)
+      .then((objectUrl) => {
+        if (controller.signal.aborted) {
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+        created = objectUrl;
+        setUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setFailed(true);
+      });
+
+    return () => {
+      controller.abort();
+      if (created) URL.revokeObjectURL(created);
+    };
+  }, [media.id, token]);
+
+  return (
+    <div className="relative aspect-[4/3] w-full overflow-hidden border-b bg-muted/40">
+      {url && !isVideo && (
+        <img
+          src={url}
+          alt={media.filename}
+          className="absolute inset-0 size-full object-contain p-2"
+        />
+      )}
+      {url && isVideo && (
+        <video
+          src={url}
+          controls
+          className="absolute inset-0 size-full object-contain"
+        />
+      )}
+      {!url && (
+        <div className="absolute inset-0 grid place-items-center gap-1 text-center">
+          {mediaIcon(media)}
+          {failed && (
+            <span className="px-3 text-[11px] leading-tight text-muted-foreground">
+              Media belum bisa dimuat
+            </span>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -145,22 +214,20 @@ export function PublicGalleryPage(): ReactElement {
                 aria-label="Media Public Gallery"
               >
                 {gallery.media.map((media) => (
-                  <Card key={media.id}>
+                  <Card key={media.id} className="overflow-hidden pt-0">
+                    <GalleryMediaPreview token={validToken} media={media} />
                     <CardHeader>
                       <div className="flex items-start justify-between gap-3">
-                        <div className="grid size-12 place-items-center rounded-md bg-muted">
-                          {mediaIcon(media)}
-                        </div>
-                        <span className="text-xs text-muted-foreground">
+                        <CardTitle
+                          className="truncate text-base"
+                          title={media.filename}
+                        >
+                          {media.filename}
+                        </CardTitle>
+                        <span className="shrink-0 text-xs text-muted-foreground">
                           {formatSize(media.size_bytes)}
                         </span>
                       </div>
-                      <CardTitle
-                        className="truncate text-base"
-                        title={media.filename}
-                      >
-                        {media.filename}
-                      </CardTitle>
                       <CardDescription>
                         {media.type} · {media.mime_type}
                       </CardDescription>

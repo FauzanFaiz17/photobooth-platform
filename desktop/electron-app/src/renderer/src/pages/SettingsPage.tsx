@@ -198,7 +198,7 @@ function AppSettingsPanel({ onBack }: { onBack: () => void }): JSX.Element {
   }
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-5 bg-[var(--background)] p-5 text-[var(--foreground)] md:p-8">
+    <div className="mx-auto flex h-full w-full max-w-5xl flex-col gap-5 bg-[var(--background)] p-5 text-[var(--foreground)] md:p-4">
       <div>
         <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--danger)]">
           App setup
@@ -206,7 +206,7 @@ function AppSettingsPanel({ onBack }: { onBack: () => void }): JSX.Element {
         <h1 className="text-4xl font-black">Setting App</h1>
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto lg:grid-cols-2">
+      <div className="grid p-4 min-h-[80vh] flex-1 gap-5 overflow-y-auto lg:grid-cols-2">
         <section className="space-y-4 border-4 border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-neo)]">
           <h2 className="text-xl font-black">Tampilan Home</h2>
           <div className="flex flex-wrap items-center gap-4">
@@ -300,7 +300,7 @@ function AppSettingsPanel({ onBack }: { onBack: () => void }): JSX.Element {
       </div>
 
       {saved && <Alert type="success">Setting aplikasi berhasil disimpan.</Alert>}
-      <div className="flex justify-between gap-3">
+      <div className="flex justify-between gap-3 pb-5">
         <NeoButton variant="outlined" onClick={onBack}>
           Kembali
         </NeoButton>
@@ -327,7 +327,11 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
-    void Promise.all([window.electron.printer.list(), getPrinterSettings(), getPrintSampleSettings()])
+    void Promise.all([
+      window.electron.printer.list(),
+      getPrinterSettings(),
+      getPrintSampleSettings()
+    ])
       .then(([available, stored, sample]) => {
         setPrinters(available)
         setDeviceName(
@@ -361,7 +365,16 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
     setTesting(true)
     setMessage(null)
     try {
-      await savePrinterSettings({ deviceName: selected.name, displayName: selected.displayName, quality, scale, horizontalPosition, verticalPosition, paperSize, orientation })
+      await savePrinterSettings({
+        deviceName: selected.name,
+        displayName: selected.displayName,
+        quality,
+        scale,
+        horizontalPosition,
+        verticalPosition,
+        paperSize,
+        orientation
+      })
       await window.electron.printer.test(selected.name, { paperSize, orientation })
       setMessage({ type: 'success', text: 'Test print dikirim ke printer.' })
     } catch (cause) {
@@ -376,7 +389,11 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
 
   async function refreshPrinters(): Promise<void> {
     setLoading(true)
-    try { setPrinters(await window.electron.printer.list()) } finally { setLoading(false) }
+    try {
+      setPrinters(await window.electron.printer.list())
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function chooseSample(): Promise<void> {
@@ -419,45 +436,133 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
           </option>
         ))}
       </select>
-      <NeoButton variant="outlined" disabled={loading} onClick={() => void refreshPrinters()}>Refresh daftar printer</NeoButton>
+      <NeoButton variant="outlined" disabled={loading} onClick={() => void refreshPrinters()}>
+        Refresh daftar printer
+      </NeoButton>
 
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-      <div className="grid gap-4 border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo) lg:w-[360px] lg:shrink-0">
-        <label className="grid gap-2 font-bold">Print quality<select value={quality} onChange={(e) => setQuality(e.target.value as 'standard' | 'high')} className="border-2 border-(--border) bg-(--background) p-2"><option value="standard">Standard</option><option value="high">High</option></select></label>
-        <label className="grid gap-2 font-bold">Ukuran kertas<select value={paperSize} onChange={(e) => void changePaperSize(e.target.value as '2r' | '4r')} className="border-2 border-(--border) bg-(--background) p-2"><option value="4r">4R</option><option value="2r">2R</option></select></label>
-        <label className="grid gap-2 font-bold">Orientasi cetak<select value={orientation} onChange={(e) => setOrientation(e.target.value as 'portrait' | 'landscape')} className="border-2 border-(--border) bg-(--background) p-2"><option value="portrait">Portrait (tinggi)</option><option value="landscape">Landscape (mendatar)</option></select></label>
-        {([['Scale', scale, setScale, 80, 120], ['Horizontal position', horizontalPosition, setHorizontalPosition, -100, 100], ['Vertical position', verticalPosition, setVerticalPosition, -100, 100]] as const).map(([label, value, setter, min, max]) => <label key={label} className="grid gap-2 font-bold">{label}<div className="flex gap-2"><input className="w-full" type="range" min={min} max={max} value={value} onChange={(e) => setter(Number(e.target.value))} /><input className="w-20 border-2 border-(--border) p-2" type="number" min={min} max={max} value={value} onChange={(e) => setter(Number(e.target.value))} /></div></label>)}
-      </div>
+        <div className="grid gap-4 border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo) lg:w-[360px] lg:shrink-0">
+          <label className="grid gap-2 font-bold">
+            Print quality
+            <select
+              value={quality}
+              onChange={(e) => setQuality(e.target.value as 'standard' | 'high')}
+              className="border-2 border-(--border) bg-(--background) p-2"
+            >
+              <option value="standard">Standard</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+          <label className="grid gap-2 font-bold">
+            Ukuran kertas
+            <select
+              value={paperSize}
+              onChange={(e) => void changePaperSize(e.target.value as '2r' | '4r')}
+              className="border-2 border-(--border) bg-(--background) p-2"
+            >
+              <option value="4r">4R</option>
+              <option value="2r">2R</option>
+            </select>
+          </label>
+          <label className="grid gap-2 font-bold">
+            Orientasi cetak
+            <select
+              value={orientation}
+              onChange={(e) => setOrientation(e.target.value as 'portrait' | 'landscape')}
+              className="border-2 border-(--border) bg-(--background) p-2"
+            >
+              <option value="portrait">Portrait (tinggi)</option>
+              <option value="landscape">Landscape (mendatar)</option>
+            </select>
+          </label>
+          {(
+            [
+              ['Scale', scale, setScale, 80, 120],
+              ['Horizontal position', horizontalPosition, setHorizontalPosition, -100, 100],
+              ['Vertical position', verticalPosition, setVerticalPosition, -100, 100]
+            ] as const
+          ).map(([label, value, setter, min, max]) => (
+            <label key={label} className="grid gap-2 font-bold">
+              {label}
+              <div className="flex gap-2">
+                <input
+                  className="w-full"
+                  type="range"
+                  min={min}
+                  max={max}
+                  value={value}
+                  onChange={(e) => setter(Number(e.target.value))}
+                />
+                <input
+                  className="w-20 border-2 border-(--border) p-2"
+                  type="number"
+                  min={min}
+                  max={max}
+                  value={value}
+                  onChange={(e) => setter(Number(e.target.value))}
+                />
+              </div>
+            </label>
+          ))}
+        </div>
 
-      <div className="grid min-w-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.38fr)]">
-        <div className="grid gap-3 border-4 border-(--border) bg-[#202020] p-4 text-white shadow-(--shadow-neo)">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="font-black uppercase tracking-wider">
-              Preview {paperSize === '2r' ? '2R' : '4R'} — {orientation === 'landscape' ? 'Landscape' : 'Portrait'}
+        <div className="grid min-w-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.38fr)]">
+          <div className="grid gap-3 border-4 border-(--border) bg-[#202020] p-4 text-white shadow-(--shadow-neo)">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="font-black uppercase tracking-wider">
+                Preview {paperSize === '2r' ? '2R' : '4R'} —{' '}
+                {orientation === 'landscape' ? 'Landscape' : 'Portrait'}
+              </p>
+              <NeoButton variant="outlined" onClick={() => void chooseSample()}>
+                {sampleImage ? 'Ganti foto sample' : 'Pilih foto sample'}
+              </NeoButton>
+            </div>
+            <div className="grid min-h-72 place-items-center border-2 border-white/15 bg-[#111111] p-5">
+              <PaperPreview
+                paperSize={paperSize}
+                orientation={orientation}
+                sampleImage={sampleImage}
+                scale={scale}
+                horizontalPosition={horizontalPosition}
+                verticalPosition={verticalPosition}
+                quality={quality}
+              />
+            </div>
+            <p className="text-xs text-white/70">
+              {sampleImage
+                ? `Sample: ${sampleImage.name}`
+                : 'Belum ada foto sample. Preview menampilkan ukuran media.'}{' '}
+              Ukuran media {paperSize === '2r' ? '60 x 90 mm' : '100 x 150 mm'}.
             </p>
-            <NeoButton variant="outlined" onClick={() => void chooseSample()}>
-              {sampleImage ? 'Ganti foto sample' : 'Pilih foto sample'}
-            </NeoButton>
           </div>
-          <div className="grid min-h-72 place-items-center border-2 border-white/15 bg-[#111111] p-5">
-            <PaperPreview paperSize={paperSize} orientation={orientation} sampleImage={sampleImage} scale={scale} horizontalPosition={horizontalPosition} verticalPosition={verticalPosition} quality={quality} />
-          </div>
-          <p className="text-xs text-white/70">
-            {sampleImage ? `Sample: ${sampleImage.name}` : 'Belum ada foto sample. Preview menampilkan ukuran media.'}
-            {' '}Ukuran media {paperSize === '2r' ? '60 x 90 mm' : '100 x 150 mm'}.
-          </p>
-        </div>
 
-        <div className="grid content-start gap-3 border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo)">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-(--danger)">Ringkasan cetak</p>
-          <div className="grid gap-2 text-sm font-bold">
-            <div className="flex justify-between gap-3 border-b-2 border-(--border) pb-2"><span>Printer</span><span className="max-w-44 truncate text-right">{printers.find((printer) => printer.name === deviceName)?.displayName ?? 'Belum dipilih'}</span></div>
-            <div className="flex justify-between gap-3 border-b-2 border-(--border) pb-2"><span>Media</span><span>{paperSize.toUpperCase()}</span></div>
-            <div className="flex justify-between gap-3 border-b-2 border-(--border) pb-2"><span>Orientasi</span><span>{orientation === 'landscape' ? 'Landscape' : 'Portrait'}</span></div>
-            <div className="flex justify-between gap-3"><span>Quality</span><span>{quality === 'high' ? 'High' : 'Standard'}</span></div>
+          <div className="grid content-start gap-3 border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo)">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-(--danger)">
+              Ringkasan cetak
+            </p>
+            <div className="grid gap-2 text-sm font-bold">
+              <div className="flex justify-between gap-3 border-b-2 border-(--border) pb-2">
+                <span>Printer</span>
+                <span className="max-w-44 truncate text-right">
+                  {printers.find((printer) => printer.name === deviceName)?.displayName ??
+                    'Belum dipilih'}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3 border-b-2 border-(--border) pb-2">
+                <span>Media</span>
+                <span>{paperSize.toUpperCase()}</span>
+              </div>
+              <div className="flex justify-between gap-3 border-b-2 border-(--border) pb-2">
+                <span>Orientasi</span>
+                <span>{orientation === 'landscape' ? 'Landscape' : 'Portrait'}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span>Quality</span>
+                <span>{quality === 'high' ? 'High' : 'Standard'}</span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
       </div>
 
       {message && <Alert type={message.type}>{message.text}</Alert>}
@@ -511,38 +616,66 @@ function DnpPresetTest({ onBack }: { onBack: () => void }): JSX.Element {
   }
 
   const presets = [
-    { id: '4x6-portrait', label: '4x6 Portrait', orientation: 'portrait' as const, mediaFormat: '4x6' as const },
-    { id: '4x6-landscape', label: '4x6 Landscape', orientation: 'landscape' as const, mediaFormat: '4x6' as const },
-    { id: '6x4-portrait', label: '6x4 Portrait', orientation: 'portrait' as const, mediaFormat: '6x4' as const },
-    { id: '6x4-landscape', label: '6x4 Landscape', orientation: 'landscape' as const, mediaFormat: '6x4' as const }
+    {
+      id: '4x6-portrait',
+      label: '4x6 Portrait',
+      orientation: 'portrait' as const,
+      mediaFormat: '4x6' as const
+    },
+    {
+      id: '4x6-landscape',
+      label: '4x6 Landscape',
+      orientation: 'landscape' as const,
+      mediaFormat: '4x6' as const
+    },
+    {
+      id: '6x4-portrait',
+      label: '6x4 Portrait',
+      orientation: 'portrait' as const,
+      mediaFormat: '6x4' as const
+    },
+    {
+      id: '6x4-landscape',
+      label: '6x4 Landscape',
+      orientation: 'landscape' as const,
+      mediaFormat: '6x4' as const
+    }
   ]
 
   async function test(preset: (typeof presets)[number]): Promise<void> {
     const printer = await getPrinterSettings()
-    if (!printer) { setMessage('Pilih printer terlebih dahulu di Test Printer.'); return }
+    if (!printer) {
+      setMessage('Pilih printer terlebih dahulu di Test Printer.')
+      return
+    }
     const sample = samples['4r']
-    if (!sample) { setMessage('Pilih foto sample 4R terlebih dahulu.'); return }
-    setTesting(true); setMessage(null)
+    if (!sample) {
+      setMessage('Pilih foto sample 4R terlebih dahulu.')
+      return
+    }
+    setTesting(true)
+    setMessage(null)
     try {
       await window.electron.printer.test(printer.deviceName, {
         paperSize: '4r',
         copies: 1,
         sampleDataUrl: sample.dataUrl,
-        orientation: preset.orientation
-        , mediaFormat: preset.mediaFormat
+        orientation: preset.orientation,
+        mediaFormat: preset.mediaFormat
       })
-      setMessage(`Test 4R ${preset.label} dikirim memakai sample "${sample.name}" pada media 101,6 x 152,4 mm.`)
-    } catch (cause) { setMessage(cause instanceof Error ? cause.message : 'Test print gagal.') }
-    finally { setTesting(false) }
+      setMessage(
+        `Test 4R ${preset.label} dikirim memakai sample "${sample.name}" pada media 101,6 x 152,4 mm.`
+      )
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : 'Test print gagal.')
+    } finally {
+      setTesting(false)
+    }
   }
 
   return (
     <div className="flex min-h-screen flex-col gap-4 p-6">
-      <NeoButton
-        variant="outlined"
-        className="self-start"
-        onClick={onBack}
-      >
+      <NeoButton variant="outlined" className="self-start" onClick={onBack}>
         Kembali
       </NeoButton>
       <div>
@@ -563,7 +696,7 @@ function DnpPresetTest({ onBack }: { onBack: () => void }): JSX.Element {
         {presets.map((preset) => (
           <NeoButton
             key={preset.id}
-            variant="secondary"
+            variant="outlined"
             disabled={testing}
             onClick={() => void test(preset)}
           >
@@ -581,7 +714,12 @@ function DnpPresetTest({ onBack }: { onBack: () => void }): JSX.Element {
   )
 }
 
-function SamplePicker({ paperSize, sample, onChoose, onRemove }: {
+function SamplePicker({
+  paperSize,
+  sample,
+  onChoose,
+  onRemove
+}: {
   paperSize: '2r' | '4r'
   sample: PrintSampleImage | null
   onChoose: (paperSize: '2r' | '4r') => void
@@ -589,41 +727,41 @@ function SamplePicker({ paperSize, sample, onChoose, onRemove }: {
 }): JSX.Element {
   const label = paperSize === '2r' ? '2R' : '4R'
   return (
-      <div className="border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo)">
-        <div className="flex items-center justify-between gap-3">
-          <p className="font-black uppercase tracking-wider">Sample {label}</p>
-          {sample && (
-            <NeoButton variant="secondary" onClick={() => onRemove(paperSize)}>
-              Hapus
-            </NeoButton>
+    <div className="border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo)">
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-black uppercase tracking-wider">Sample {label}</p>
+        {sample && (
+          <NeoButton variant="secondary" onClick={() => onRemove(paperSize)}>
+            Hapus
+          </NeoButton>
+        )}
+      </div>
+      <div className="mt-3 flex items-center gap-4">
+        <div className="grid h-28 w-20 shrink-0 place-items-center overflow-hidden border-2 border-(--border) bg-white">
+          {sample ? (
+            <img
+              src={sample.dataUrl}
+              alt={`Sample ${label}`}
+              className="h-full w-full object-contain"
+            />
+          ) : (
+            <span className="text-xs font-black text-(--muted-foreground)">{label}</span>
           )}
         </div>
-        <div className="mt-3 flex items-center gap-4">
-          <div className="grid h-28 w-20 shrink-0 place-items-center overflow-hidden border-2 border-(--border) bg-white">
-            {sample ? (
-              <img src={sample.dataUrl} alt={`Sample ${label}`} className="h-full w-full object-contain" />
-            ) : (
-              <span className="text-xs font-black text-(--muted-foreground)">{label}</span>
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="break-all text-sm font-bold">
-              {sample ? sample.name : 'Belum ada foto sample'}
-            </p>
-            <p className="mt-1 text-xs font-semibold text-(--muted-foreground)">
-              Foto ini yang akan dicetak saat test print {label}.
-            </p>
-            <NeoButton
-              variant="outlined"
-              className="mt-2"
-              onClick={() => onChoose(paperSize)}
-            >
-              {sample ? 'Ganti Foto' : 'Pilih Foto'}
-            </NeoButton>
-          </div>
+        <div className="min-w-0 flex-1">
+          <p className="break-all text-sm font-bold">
+            {sample ? sample.name : 'Belum ada foto sample'}
+          </p>
+          <p className="mt-1 text-xs font-semibold text-(--muted-foreground)">
+            Foto ini yang akan dicetak saat test print {label}.
+          </p>
+          <NeoButton variant="outlined" className="mt-2" onClick={() => onChoose(paperSize)}>
+            {sample ? 'Ganti Foto' : 'Pilih Foto'}
+          </NeoButton>
         </div>
       </div>
-    )
+    </div>
+  )
 }
 
 export default function SettingsPage(): JSX.Element {
@@ -694,7 +832,7 @@ export default function SettingsPage(): JSX.Element {
   if (screen === 'dnp') return <DnpPresetTest onBack={() => setScreen('menu')} />
   if (screen === 'app') return <AppSettingsPanel onBack={() => setScreen('menu')} />
   return (
-    <div className="flex h-full flex-col gap-6 bg-[var(--background)] p-5 text-[var(--foreground)] md:p-8">
+    <div className="flex h-full flex-col gap-4 bg-[--background] p-5 text-[var(--foreground)] md:p-4">
       <div>
         <p className="mb-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--danger)]">
           Control room
@@ -705,47 +843,61 @@ export default function SettingsPage(): JSX.Element {
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <button
+        <NeoButton
           type="button"
+          variant="outlined"
           onClick={() => setScreen('app')}
-          className="border-4 border-[var(--border)] bg-[var(--surface)] p-7 text-left shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--primary)]"
+          className="border-4 border-[var(--border)] bg-[var(--surface)] px-4 py-6 text-left shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--primary)]"
         >
           <span className="text-xl font-black">Setting App</span>
           <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">
             Atur tampilan home, timer sesi, QR, countdown, dan folder foto.
           </p>
-        </button>
-        <button type="button" onClick={() => setScreen('dnp')} className="border-4 border-[var(--border)] bg-[var(--surface)] p-7 text-left shadow-[var(--shadow-neo)] hover:bg-[var(--primary)]"><span className="text-xl font-black">Uji Preset DNP</span><p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">Uji 4R dan 2R.</p></button>
-        <button
+        </NeoButton>
+        <NeoButton
           type="button"
+          variant="outlined"
+          onClick={() => setScreen('dnp')}
+          className="border-4 border-[var(--border)] bg-[var(--surface)] p-7 text-left shadow-[var(--shadow-neo)] hover:bg-[var(--primary)]"
+        >
+          <span className="text-xl font-black">Uji Preset DNP</span>
+          <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">
+            Uji 4R dan 2R.
+          </p>
+        </NeoButton>
+        <NeoButton
+          type="button"
+          variant="outlined"
           onClick={() => setScreen('app')}
-          className="border-[var(--border)] bg-[var(--surface)] p-7 text-left shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--accent)]"
+          className="border-(--border) bg-(--surface) p-7 text-left shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--accent)]"
         >
           <span className="text-xl font-black">Edit Home</span>
           <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">
             Ubah logo, judul, dan keterangan halaman Start (ada di dalam Setting App).
           </p>
-        </button>
-        <button
+        </NeoButton>
+        <NeoButton
           type="button"
+          variant="outlined"
           onClick={() => setScreen('camera')}
-          className="border-4 border-[var(--border)] bg-[var(--surface)] p-7 text-left shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--secondary)]"
+          className="border-4 border-[var(--border)] bg-[var(--surface)] px-4 py-6 text-left shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--secondary)]"
         >
           <span className="text-xl font-black">Test Kamera</span>
           <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">
             Lihat preview dan periksa kamera yang terhubung.
           </p>
-        </button>
-        <button
+        </NeoButton>
+        <NeoButton
+          variant="outlined"
           type="button"
           onClick={() => setScreen('printer')}
-          className="border-[var(--border)] bg-[var(--surface)] p-7 text-left shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--primary)]"
+          className="border-[var(--border)] bg-[var(--surface)] px-4 py-6 text-left shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--primary)]"
         >
           <span className="text-xl font-black">Test Printer</span>
           <p className="mt-2 text-sm font-semibold text-(--muted-foreground)">
             Pilih driver DNP RX1HS dan kirim satu lembar test print 4R.
           </p>
-        </button>
+        </NeoButton>
       </div>
       <div className="mt-auto flex justify-between">
         <NeoButton

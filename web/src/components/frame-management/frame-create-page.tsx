@@ -7,7 +7,10 @@ import {
   LoaderCircle,
   Pencil,
   Plus,
+  RectangleHorizontal,
+  RectangleVertical,
   Save,
+  Square,
   Trash2,
 } from "lucide-react";
 import {
@@ -73,7 +76,15 @@ const FRAME_SIZES = {
 } as const;
 
 type FrameSize = keyof typeof FRAME_SIZES;
-type SlotShape = "rectangle" | "rounded" | "circle";
+
+/** Rasio awal slot; hanya dipakai saat ukuran diterapkan, resize tetap bebas. */
+const SLOT_RATIOS = {
+  "3:2": { value: 3 / 2, label: "Persegi panjang 3:2 (mendatar)" },
+  "2:3": { value: 2 / 3, label: "Persegi panjang 2:3 (tegak)" },
+  "1:1": { value: 1, label: "Persegi 1:1" },
+} as const;
+
+type SlotRatio = keyof typeof SLOT_RATIOS;
 
 interface PhotoSlot {
   id: number;
@@ -82,7 +93,6 @@ interface PhotoSlot {
   width: number;
   height: number;
   shot: number;
-  shape: SlotShape;
 }
 
 interface FormErrors {
@@ -127,25 +137,23 @@ function positiveInteger(value: unknown): number | null {
   return parsed !== null && parsed >= 1 ? Math.trunc(parsed) : null;
 }
 
-function slotShape(value: unknown): SlotShape {
-  return value === "rounded" || value === "circle" ? value : "rectangle";
-}
-
-function slotRadii(shape: SlotShape, width: number, height: number): { rx: number; ry: number } {
-  if (shape === "circle") return { rx: width / 2, ry: height / 2 };
-  if (shape === "rounded") {
-    const radius = Math.min(width, height) * 0.12;
-    return { rx: radius, ry: radius };
-  }
-  return { rx: 0, ry: 0 };
-}
-
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), maximum);
 }
 
 function isSlotRect(object: object): object is SlotRect {
   return typeof (object as SlotRect).slotId === "number";
+}
+
+function slotRatioOf(slot: Pick<PhotoSlot, "width" | "height">): SlotRatio | null {
+  if (slot.height <= 0) return null;
+  const ratio = slot.width / slot.height;
+  const options = Object.keys(SLOT_RATIOS) as SlotRatio[];
+  return (
+    options.find(
+      (key) => Math.abs(ratio - SLOT_RATIOS[key].value) < 0.02,
+    ) ?? null
+  );
 }
 
 function FrameCanvas({
@@ -323,13 +331,11 @@ function FrameCanvas({
     );
 
     slots.forEach((slot) => {
-      const radii = slotRadii(slot.shape, slot.width, slot.height);
       const values = {
         left: slot.x,
         top: slot.y,
         width: slot.width,
         height: slot.height,
-        ...radii,
       };
       const existing = current.get(slot.id);
       if (existing) {
@@ -473,7 +479,7 @@ function readFrameLayout(frame: TemplateRecord): {
     const scaledHeight = clamp(rawHeight * scaleY, 10, target.height);
     const x = clamp(rawX * scaleX, 0, target.width - scaledWidth);
     const y = clamp(rawY * scaleY, 0, target.height - scaledHeight);
-    return [{ id: index + 1, x, y, width: scaledWidth, height: scaledHeight, shot: positiveInteger(item.shot) ?? index + 1, shape: slotShape(item.shape) }];
+    return [{ id: index + 1, x, y, width: scaledWidth, height: scaledHeight, shot: positiveInteger(item.shot) ?? index + 1 }];
   });
   return { size, slots, slotsInFront };
 }
@@ -612,10 +618,23 @@ export function FrameCreatePage(): ReactElement {
   const displayWidth = Math.round(
     (displayHeight * canvasSize.width) / canvasSize.height,
   );
+  const selectedRatio = selectedSlot ? slotRatioOf(selectedSlot) : null;
+
+  /** Terapkan rasio sebagai ukuran awal; posisi digeser otomatis agar tetap di kanvas. */
+  function applySlotRatio(ratio: SlotRatio): void {
+    if (!selectedSlot) return;
+    let width = selectedSlot.width;
+    let height = Math.round(width / SLOT_RATIOS[ratio].value);
+    if (height > canvasSize.height) {
+      height = canvasSize.height;
+      width = Math.round(height * SLOT_RATIOS[ratio].value);
+    }
+    updateSlot(selectedSlot.id, { width, height });
+  }
 
   function addSlot() {
     const slotWidth = Math.round(canvasSize.width * 0.8);
-    const slotHeight = Math.round(canvasSize.height * 0.35);
+    const slotHeight = Math.round(slotWidth / SLOT_RATIOS["3:2"].value);
     const offset =
       (slots.length % 4) *
       Math.round(Math.min(canvasSize.width, canvasSize.height) * 0.025);
@@ -634,7 +653,6 @@ export function FrameCreatePage(): ReactElement {
       width: slotWidth,
       height: slotHeight,
       shot: Math.max(0, ...slots.map((item) => item.shot)) + 1,
-      shape: "rectangle",
     };
     setSlots((current) => [...current, slot]);
     setSelectedSlotId(slot.id);
@@ -669,7 +687,6 @@ export function FrameCreatePage(): ReactElement {
       width: source.width,
       height: source.height,
       shot: source.shot,
-      shape: source.shape,
       x: clamp(source.x + step, 0, canvasSize.width - source.width),
       y: clamp(source.y + step, 0, canvasSize.height - source.height),
     };
@@ -732,11 +749,6 @@ export function FrameCreatePage(): ReactElement {
     updateSlot(selectedSlot.id, {
       [field]: clamp(parsed, field === "x" || field === "y" ? 0 : 10, maximum),
     });
-  }
-
-  function changeSlotShape(value: string | null): void {
-    if (!selectedSlot || !value) return;
-    updateSlot(selectedSlot.id, { shape: slotShape(value) });
   }
 
   function changeFrameSize(nextSize: FrameSize) {
@@ -832,7 +844,6 @@ export function FrameCreatePage(): ReactElement {
             width: Math.round(slot.width),
             height: Math.round(slot.height),
             shot: Math.max(1, Math.round(slot.shot)),
-            shape: slot.shape,
           })),
         },
       };
@@ -1018,8 +1029,15 @@ export function FrameCreatePage(): ReactElement {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
+          <CardContent
+            className={cn(
+              "grid gap-4",
+              mode === "edit" &&
+                selectedSlot &&
+                "lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start",
+            )}
+          >
+            <div className="col-span-full flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{size}</Badge>
                 <span className="text-xs text-muted-foreground">
@@ -1100,11 +1118,7 @@ export function FrameCreatePage(): ReactElement {
                     {slots.map((slot, index) => (
                       <div
                         key={slot.id}
-                        className={cn(
-                          "absolute overflow-hidden bg-muted ring-1 ring-black/10",
-                          slot.shape === "rounded" && "rounded-[12%]",
-                          slot.shape === "circle" && "rounded-full",
-                        )}
+                        className="absolute overflow-hidden bg-muted ring-1 ring-black/10"
                         style={{
                           left: `${(slot.x / canvasSize.width) * 100}%`,
                           top: `${(slot.y / canvasSize.height) * 100}%`,
@@ -1153,8 +1167,119 @@ export function FrameCreatePage(): ReactElement {
                 </div>
               )}
             </div>
+            {mode === "edit" && selectedSlot && (
+              <div className="grid content-start gap-4 rounded-md border bg-muted/20 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium">Slot Foto</p>
+                    <p className="text-xs text-muted-foreground">
+                      {slots.length} slot ·{" "}
+                      {new Set(slots.map((slot) => slot.shot)).size} foto
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      aria-label="Duplikat slot terpilih"
+                      title="Duplikat slot (ukuran sama)"
+                      onClick={() => duplicateSlot(selectedSlot)}
+                    >
+                      <Copy aria-hidden="true" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="destructive"
+                      aria-label="Hapus slot terpilih"
+                      onClick={() => removeSlot(selectedSlot.id)}
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-3">
+                  <div className="grid gap-2">
+                    <Label>Rasio slot</Label>
+                    <div className="flex rounded-md border p-1">
+                      {(Object.keys(SLOT_RATIOS) as SlotRatio[]).map((ratio) => (
+                        <Button
+                          key={ratio}
+                          type="button"
+                          size="sm"
+                          variant={selectedRatio === ratio ? "secondary" : "ghost"}
+                          className="flex-1"
+                          title={`Ukuran awal ${SLOT_RATIOS[ratio].label}`}
+                          onClick={() => applySlotRatio(ratio)}
+                        >
+                          {ratio === "1:1" ? (
+                            <Square aria-hidden="true" />
+                          ) : ratio === "2:3" ? (
+                            <RectangleVertical aria-hidden="true" />
+                          ) : (
+                            <RectangleHorizontal aria-hidden="true" />
+                          )}{" "}
+                          {ratio}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Menyusun ukuran awal slot. Setelah itu tetap bisa ditarik
+                      bebas.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(["shot", "x", "y", "width", "height"] as const).map((field) => (
+                      <div key={field} className="grid gap-2">
+                        <Label htmlFor={`slot-${field}`}>
+                          {field === "shot"
+                            ? "Foto ke"
+                            : field === "x"
+                              ? "Posisi X (px)"
+                              : field === "y"
+                                ? "Posisi Y (px)"
+                                : field === "width"
+                                  ? "Lebar (px)"
+                                  : "Tinggi (px)"}
+                        </Label>
+                        <Input
+                          id={`slot-${field}`}
+                          type="number"
+                          min={
+                            field === "shot"
+                              ? 1
+                              : field === "x" || field === "y"
+                                ? 0
+                                : 10
+                          }
+                          max={
+                            field === "shot"
+                              ? undefined
+                              : field === "x"
+                                ? canvasSize.width - selectedSlot.width
+                                : field === "y"
+                                  ? canvasSize.height - selectedSlot.height
+                                  : field === "width"
+                                    ? canvasSize.width - selectedSlot.x
+                                    : canvasSize.height - selectedSlot.y
+                          }
+                          step={1}
+                          value={Math.round(selectedSlot[field])}
+                          onChange={(event) =>
+                            changeSlotNumber(field, event.target.value)
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
             {errors.slots && (
-              <p className="mt-2 text-sm text-destructive">{errors.slots}</p>
+              <p className="col-span-full text-sm text-destructive">
+                {errors.slots}
+              </p>
             )}
           </CardContent>
         </Card>
@@ -1380,102 +1505,6 @@ export function FrameCreatePage(): ReactElement {
                 </fieldset>
 
                 
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <CardTitle>Slot Foto</CardTitle>
-                    <CardDescription>
-                      {slots.length} slot dibuat · {new Set(slots.map((slot) => slot.shot)).size} foto
-                    </CardDescription>
-                  </div>
-                  {selectedSlot && (
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="outline"
-                        aria-label="Duplikat slot terpilih"
-                        title="Duplikat slot (ukuran sama)"
-                        onClick={() => duplicateSlot(selectedSlot)}
-                      >
-                        <Copy aria-hidden="true" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="destructive"
-                        aria-label="Hapus slot terpilih"
-                        onClick={() => removeSlot(selectedSlot.id)}
-                      >
-                        <Trash2 aria-hidden="true" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {!selectedSlot && (
-                  <p className="text-sm text-muted-foreground">
-                    Pilih slot pada canvas untuk mengatur ukuran dan posisinya.
-                  </p>
-                )}
-                {selectedSlot && (
-                  <div className="grid grid-cols-2 gap-3">
-                    {(["shot", "x", "y", "width", "height"] as const).map((field) => (
-                      <div key={field} className="grid gap-2">
-                        <Label htmlFor={`slot-${field}`}>
-                          {field === "shot"
-                            ? "Foto ke"
-                            : field === "x"
-                              ? "Posisi X (px)"
-                            : field === "y"
-                              ? "Posisi Y (px)"
-                              : field === "width"
-                                ? "Lebar (px)"
-                                : "Tinggi (px)"}
-                        </Label>
-                        <Input
-                          id={`slot-${field}`}
-                          type="number"
-                          min={field === "shot" ? 1 : field === "x" || field === "y" ? 0 : 10}
-                          max={
-                            field === "shot"
-                              ? undefined
-                              : field === "x"
-                              ? canvasSize.width - selectedSlot.width
-                              : field === "y"
-                                ? canvasSize.height - selectedSlot.height
-                                : field === "width"
-                                  ? canvasSize.width - selectedSlot.x
-                                  : canvasSize.height - selectedSlot.y
-                          }
-                          step={1}
-                          value={Math.round(selectedSlot[field])}
-                          onChange={(event) =>
-                            changeSlotNumber(field, event.target.value)
-                          }
-                        />
-                      </div>
-                    ))}
-                    <div className="col-span-2 grid gap-2">
-                      <Label htmlFor="slot-shape">Bentuk slot</Label>
-                      <Select value={selectedSlot.shape} onValueChange={changeSlotShape}>
-                        <SelectTrigger id="slot-shape" className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="rectangle">Kotak</SelectItem>
-                          <SelectItem value="rounded">Rounded</SelectItem>
-                          <SelectItem value="circle">Bulat</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                )}
               </CardContent>
             </Card>
 
