@@ -33,5 +33,5 @@
 .camera-stage:fullscreen > div:first-child img {
   width: 100vw;
   height: 100vh;
-  object-fit: contain;
+  object-fit: cover;
 }

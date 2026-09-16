@@ -39,7 +39,10 @@ export function useCaptureSequence({
   const [countdown, setCountdown] = useState(countdownSeconds)
   const [currentShotIndex, setCurrentShotIndex] = useState(0)
   const currentShotIndexRef = useRef(0)
-  currentShotIndexRef.current = currentShotIndex
+
+  useEffect(() => {
+    currentShotIndexRef.current = currentShotIndex
+  }, [currentShotIndex])
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -61,6 +64,9 @@ export function useCaptureSequence({
         void Promise.resolve(onCapture(currentShotIndexRef.current))
           .then((captured) => {
             if (!captured) {
+              // Capture gagal (mis. kamera tidak menghasilkan file). Kembali
+              // ke idle agar operator bisa mencoba lagi — index shot tidak
+              // direset sehingga tidak mengulang dari foto pertama.
               setStage('idle')
               return
             }
@@ -83,12 +89,17 @@ export function useCaptureSequence({
   const start = useCallback((): void => {
     clearPendingTimeout()
 
-    setCurrentShotIndex(0)
-
-    setStage('countdown')
-
-    tickRef.current(countdownSeconds)
-  }, [clearPendingTimeout, countdownSeconds])
+    // Lanjutkan dari shot berikutnya yang belum diambil. Memanggil start() lagi
+    // (mis. setelah capture gagal dan stage kembali ke idle) tidak boleh
+    // mengembalikan urutan ke foto pertama.
+    setCurrentShotIndex((currentIndex) => {
+      setStage('countdown')
+      timeoutRef.current = setTimeout(() => {
+        tickRef.current(countdownSeconds)
+      }, 0)
+      return Math.min(currentIndex, Math.max(0, totalShots - 1))
+    })
+  }, [clearPendingTimeout, countdownSeconds, totalShots])
 
   const continueAfterReview = useCallback((): void => {
     setCurrentShotIndex((currentIndex) => {

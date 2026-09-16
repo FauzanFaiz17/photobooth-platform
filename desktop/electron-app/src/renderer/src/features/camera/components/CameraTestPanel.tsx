@@ -118,6 +118,11 @@ function ExposureControl({
 }
 
 export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX.Element {
+  const [source, setSource] = useState<CameraSource>('canon')
+  // Stream webcam renderer hanya hidup saat sumber webcam dipilih. Saat Canon,
+  // stream dimatikan supaya LED webcam padam dan EDSDK/OpenCV bebas membuka
+  // kamera Canon tanpa konflik perangkat.
+  const isWebcamSource = source.startsWith('webcam:')
   const {
     videoRef,
     status: webcamStatus,
@@ -127,8 +132,7 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
     selectDevice,
     retry: retryWebcam,
     refreshDevices
-  } = useWebcam()
-  const [source, setSource] = useState<CameraSource>('canon')
+  } = useWebcam({ enabled: isWebcamSource })
   const [orientation, setOrientation] = useState<Orientation>('portrait')
   const [mirror, setMirror] = useState(false)
   const [options, setOptions] = useState<CameraOptions>({ iso: [], aperture: [], shutter: [], white_balance: [], picture_style: [], exposure: [], contrast: [], saturation: [] })
@@ -145,7 +149,6 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [testPhoto, setTestPhoto] = useState<string | null>(null)
-
   const isCanon = source === 'canon'
   const selectedWebcamId = source.startsWith('webcam:') ? source.slice(7) : null
   const cameraOptions = useMemo(

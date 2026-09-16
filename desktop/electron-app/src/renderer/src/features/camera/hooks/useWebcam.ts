@@ -19,15 +19,26 @@ interface UseWebcamResult {
   stream: MediaStream | null
 }
 
+interface UseWebcamOptions {
+  /**
+   * Bila false, hook tidak membuka getUserMedia dan mematikan stream yang
+   * sedang berjalan. Dipakai agar webcam benar-benar mati (LED padam) saat
+   * sumber kamera adalah Canon/EDSDK.
+   */
+  enabled?: boolean
+}
+
 /**
  * Mengelola akses webcam (bukan kamera Canon/DSLR - itu ditangani lewat
  * cameraAPI/EDSDK di backend lokal FastAPI). Dipakai sebagai pengganti
  * sementara saat kamera DSLR tidak tersedia.
  */
-export function useWebcam(): UseWebcamResult {
+export function useWebcam(options?: UseWebcamOptions): UseWebcamResult {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const startRequestRef = useRef(0)
+
+  const enabled = options?.enabled ?? true
 
   const [status, setStatus] = useState<WebcamStatus>('idle')
   const [error, setError] = useState<string | null>(null)
@@ -38,7 +49,9 @@ export function useWebcam(): UseWebcamResult {
 
   const refreshDevices = useCallback(async (): Promise<void> => {
     const allDevices = await navigator.mediaDevices.enumerateDevices()
-    const videoInputs = allDevices.filter((d) => d.kind === 'videoinput').map((d, index) => ({ deviceId: d.deviceId, label: d.label || `Kamera ${index + 1}` }))
+    const videoInputs = allDevices
+      .filter((d) => d.kind === 'videoinput')
+      .map((d, index) => ({ deviceId: d.deviceId, label: d.label || `Kamera ${index + 1}` }))
     setDevices(videoInputs)
   }, [])
 
@@ -56,6 +69,8 @@ export function useWebcam(): UseWebcamResult {
 
   const startStream = useCallback(
     async (deviceId?: string) => {
+      if (!enabled) return
+
       setStatus('requesting')
 
       setError(null)
@@ -89,7 +104,9 @@ export function useWebcam(): UseWebcamResult {
 
         // enumerateDevices baru dapat label lengkap setelah permission diberikan
         const allDevices = await navigator.mediaDevices.enumerateDevices()
-        const videoInputs = allDevices.filter((d) => d.kind === 'videoinput').map((d, index) => ({ deviceId: d.deviceId, label: d.label || `Kamera ${index + 1}` }))
+        const videoInputs = allDevices
+          .filter((d) => d.kind === 'videoinput')
+          .map((d, index) => ({ deviceId: d.deviceId, label: d.label || `Kamera ${index + 1}` }))
 
         // Hanya update state bila benar-benar berubah, agar tidak memicu
         // render/effect loop di komponen yang bergantung pada `devices`.
@@ -126,9 +143,14 @@ export function useWebcam(): UseWebcamResult {
           }
         }
 
-        if (err instanceof DOMException && (err.name === 'NotReadableError' || err.name === 'TrackStartError')) {
+        if (
+          err instanceof DOMException &&
+          (err.name === 'NotReadableError' || err.name === 'TrackStartError')
+        ) {
           setStatus('error')
-          setError('Kamera sedang digunakan aplikasi lain atau driver belum melepas perangkat. Tutup DroidCam Client, tunggu beberapa detik, lalu tekan Refresh.')
+          setError(
+            'Kamera sedang digunakan aplikasi lain atau driver belum melepas perangkat. Tutup DroidCam Client, tunggu beberapa detik, lalu tekan Refresh.'
+          )
           return
         }
         setStatus('error')
@@ -136,24 +158,42 @@ export function useWebcam(): UseWebcamResult {
         setError(err instanceof Error ? err.message : 'Gagal mengakses webcam.')
       }
     },
-    [stopStream]
+    [stopStream, enabled]
   )
 
   useEffect(() => {
-    const handler = (): void => { void refreshDevices() }
+    const handler = (): void => {
+      void refreshDevices()
+    }
     navigator.mediaDevices.addEventListener?.('devicechange', handler)
     return () => navigator.mediaDevices.removeEventListener?.('devicechange', handler)
   }, [refreshDevices])
 
   useEffect(() => {
-    startStream(activeDeviceId ?? undefined)
+    if (!enabled) {
+      // Matikan stream saat webcam tidak diaktifkan (mis. sumber Canon).
+      // Dibungkus timeout agar setState tidak dipanggil sinkron di body effect.
+      const timer = setTimeout(() => {
+        stopStream()
+        setStatus('idle')
+        setError(null)
+      }, 0)
+      return () => clearTimeout(timer)
+    }
+
+    // startStream memanggil setState; jalankan asinkron supaya effect body
+    // tidak memicu cascading render (react-hooks/set-state-in-effect).
+    const timer = setTimeout(() => {
+      if (enabled) startStream(activeDeviceId ?? undefined)
+    }, 0)
 
     return () => {
+      clearTimeout(timer)
       stopStream()
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [retryToken])
+  }, [enabled, retryToken])
 
   useEffect(() => {
     if (status === 'ready' && videoRef.current && streamRef.current) {

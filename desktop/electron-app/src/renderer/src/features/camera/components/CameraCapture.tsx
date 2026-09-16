@@ -37,7 +37,13 @@ export default function CameraCapture({
   onShotCaptured,
   onAllShotsDone
 }: CameraCaptureProps): JSX.Element {
-  const { videoRef, status, error, devices, selectDevice, retry } = useWebcam()
+  // Webcam renderer hanya dibuka saat sumber kamera memang webcam; saat Canon
+  // dipilih stream ini dimatikan supaya perangkat tidak dipakai dua proses
+  // (LED webcam padam dan OpenCV/EDSDK bebas membuka kameranya).
+  const [cameraSource, setCameraSource] = useState<'canon' | 'webcam' | null>(null)
+  const { videoRef, status, error, devices, selectDevice, retry } = useWebcam({
+    enabled: cameraSource !== 'canon'
+  })
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
@@ -57,6 +63,7 @@ export default function CameraCapture({
 
     void getCameraSettings().then(async (settings) => {
       setCameraSettings(settings)
+      setCameraSource(settings.source)
       if (settings.source === 'webcam') {
         if (settings.deviceId && !devices.some((device) => device.deviceId === settings.deviceId)) return
         cameraInitializedRef.current = true
