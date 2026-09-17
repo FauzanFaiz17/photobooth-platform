@@ -223,11 +223,7 @@ export default function CameraCapture({
       recorder.start()
       mediaRecorderRef.current = recorder
       recordingStartedRef.current = true
-      console.log(`[Recording] startRecording called, countdownSeconds=${countdownSeconds}, timer=${countdownSeconds * 1000}ms`)
-      recordingStopTimerRef.current = setTimeout(() => {
-        console.log(`[Recording] auto-stop timer fired at countdownSeconds=${countdownSeconds}`)
-        if (recorder.state === 'recording') recorder.stop()
-      }, countdownSeconds * 1000)
+      console.log(`[Recording] startRecording called, countdownSeconds=${countdownSeconds}`)
     } catch {
       recordingPromiseRef.current = null
     }
@@ -519,7 +515,10 @@ export default function CameraCapture({
       </div>
 
       <canvas ref={canvasRef} className="hidden" />
-      <canvas ref={recordingCanvasRef} className="hidden" />
+      <canvas
+        ref={recordingCanvasRef}
+        className="pointer-events-none absolute -left-[9999px] top-0 h-px w-px opacity-0"
+      />
 
       {stage === 'review' && lastCaptured && (
         <div className="flex w-full max-w-5xl flex-col items-center gap-4 text-white md:flex-row md:items-start">

@@ -57,6 +57,11 @@ export function getCanvasSize(jsonLayout: Record<string, unknown>): CanvasSize {
   }
 }
 
+export function getFrameCount(jsonLayout: Record<string, unknown>): number {
+  const frames = Array.isArray(jsonLayout.frames) ? jsonLayout.frames : []
+  return frames.length > 0 ? frames.length : 1
+}
+
 function createFallbackFrames(
   count: number,
   canvas: CanvasSize,
@@ -219,7 +224,8 @@ export async function composeTemplateImage({
   if (shots.length === 0) throw new Error('Tidak ada foto untuk dikomposisikan.')
 
   const canvasSize = getCanvasSize(jsonLayout)
-  const frames = getFrames(jsonLayout, Math.max(shots.length, 1), canvasSize, layout)
+  const frameCount = getFrameCount(jsonLayout)
+  const frames = getFrames(jsonLayout, frameCount, canvasSize, layout)
   const canvas = document.createElement('canvas')
   canvas.width = canvasSize.width
   canvas.height = canvasSize.height

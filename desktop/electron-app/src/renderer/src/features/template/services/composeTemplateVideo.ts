@@ -1,6 +1,6 @@
 import type { CapturedShot } from '@/store/sessionStore'
 
-import { getCanvasSize, getFrames, loadTemplateOverlayDataUrl } from './composeTemplate'
+import { getCanvasSize, getFrameCount, getFrames, loadTemplateOverlayDataUrl } from './composeTemplate'
 
 interface CanvasSize {
   width: number
@@ -200,7 +200,8 @@ export async function composeTemplateVideo({
   if (playable.length === 0) return null
 
   const canvasSize = getCanvasSize(jsonLayout)
-  const frames = getFrames(jsonLayout, shots.length, canvasSize as CanvasSize, layout)
+  const frameCount = getFrameCount(jsonLayout)
+  const frames = getFrames(jsonLayout, frameCount, canvasSize as CanvasSize, layout)
 
   const canvas = document.createElement('canvas')
   canvas.width = canvasSize.width
