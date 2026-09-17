@@ -4,7 +4,7 @@ export type CaptureStage = 'idle' | 'countdown' | 'flash' | 'review' | 'done'
 
 interface UseCaptureSequenceOptions {
   totalShots: number
-  countdownSeconds?: number
+  countdownSeconds: number
   reviewPauseMs?: number
   onCapture: (shotIndex: number) => string | null | Promise<string | null>
   onComplete?: () => void
@@ -30,7 +30,7 @@ interface UseCaptureSequenceResult {
  */
 export function useCaptureSequence({
   totalShots,
-  countdownSeconds = 3,
+  countdownSeconds,
   reviewPauseMs = 900,
   onCapture,
   onComplete
@@ -56,6 +56,7 @@ export function useCaptureSequence({
 
   useEffect(() => {
     tickRef.current = (secondsLeft: number): void => {
+      console.log(`[Countdown] tick: secondsLeft=${secondsLeft}`)
       setCountdown(secondsLeft)
 
       if (secondsLeft <= 0) {

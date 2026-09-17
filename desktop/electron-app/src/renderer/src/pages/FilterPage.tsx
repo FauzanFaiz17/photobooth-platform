@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -20,6 +20,9 @@ export default function FilterPage(): JSX.Element | null {
   const stopSessionTimer = useSessionStore((state) => state.stopSessionTimer)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [filteredPreview, setFilteredPreview] = useState<string | null>(null)
+  const [generatingPreview, setGeneratingPreview] = useState(false)
+  const previewAbortRef = useRef<AbortController | null>(null)
 
   const filters = useMemo(
     () =>
@@ -28,6 +31,50 @@ export default function FilterPage(): JSX.Element | null {
       ),
     [configuration]
   )
+
+  // Generate filtered preview using composeTemplateImage (filter only on photos, not overlay)
+  useEffect(() => {
+    if (!template || shots.length === 0 || !filter) return
+
+    // Cancel any in-progress preview generation
+    if (previewAbortRef.current) {
+      previewAbortRef.current.abort()
+    }
+    const controller = new AbortController()
+    previewAbortRef.current = controller
+
+    let cancelled = false
+    const updateState = <T,>(setter: (v: T) => void, value: T): void => {
+      if (!cancelled) setter(value)
+    }
+
+    void composeTemplateImage({
+      shots,
+      jsonLayout: template.jsonLayout,
+      layout: template.layout,
+      overlayPath: template.overlayPath,
+      cssFilter: filter.cssFilter
+    })
+      .then((result) => {
+        updateState(setFilteredPreview, result.dataUrl)
+      })
+      .catch(() => {
+        updateState(setFilteredPreview, null)
+      })
+      .finally(() => {
+        updateState(setGeneratingPreview, false)
+      })
+
+    // Set loading state in microtask to avoid synchronous setState in effect
+    queueMicrotask(() => {
+      if (!cancelled) setGeneratingPreview(true)
+    })
+
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [filter, shots, template])
 
   useEffect(() => {
     if (!configuration || !template || shots.length === 0 || !composedImage) {
@@ -63,6 +110,8 @@ export default function FilterPage(): JSX.Element | null {
     return null
   }
 
+  const previewSrc = filteredPreview ?? composedImage.dataUrl
+
   return (
     <main className="flex h-full flex-col gap-5 bg-(--background) p-5 text-(--foreground) md:p-8">
       <div>
@@ -75,23 +124,43 @@ export default function FilterPage(): JSX.Element | null {
         </p>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-auto md:grid-cols-[0.8fr_1.2fr]">
+      <div className="grid min-h0 flex-1 grid-cols-1 gap-6 overflow-auto md:grid-cols-[0.8fr_1.2fr]">
         <div className="grid content-start gap-3">
-        {filters.map((item) => (
-          <button
-            type="button"
-            key={item.id}
-            onClick={() => setFilter(item)}
-            className={`border-4 border-(--border) p-4 text-left shadow-(--shadow-neo) [transition:none] ${filter.id === item.id ? 'bg-(--primary)' : 'bg-(--surface)'}`}
-          >
-            <div className="aspect-video overflow-hidden border-4 border-(--border) bg-white"><img src={shots[0]?.dataUrl ?? composedImage.dataUrl} alt={`Foto dengan filter ${item.name}`} className="h-full w-full object-contain" style={{ filter: item.cssFilter }} /></div>
-            <p className="mt-3 font-black">{item.name}</p>
-          </button>
-        ))}
+          {filters.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              onClick={() => setFilter(item)}
+              className={`border-4 border-(--border) p-4 text-left shadow-(--shadow-neo) [transition:none] ${filter.id === item.id ? 'bg-(--primary)' : 'bg-(--surface)'}`}
+            >
+              <div className="aspect-video overflow-hidden border-4 border-(--border) bg-white">
+                <img
+                  src={shots[0]?.dataUrl ?? composedImage.dataUrl}
+                  alt={`Foto dengan filter ${item.name}`}
+                  className="h-full w-full object-contain"
+                  style={{ filter: item.cssFilter }}
+                />
+              </div>
+              <p className="mt-3 font-black">{item.name}</p>
+            </button>
+          ))}
         </div>
         <div className="flex min-h-0 flex-col border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo)">
           <p className="mb-3 font-black uppercase tracking-wider">Preview template</p>
-          <div className="grid min-h-0 flex-1 place-items-center bg-white p-3"><img src={composedImage.dataUrl} alt="Preview template dengan filter" className="max-h-full max-w-full object-contain" style={{ filter: filter.cssFilter }} /></div>
+          <div className="grid min-h-0 flex-1 place-items-center bg-white p-3">
+            {generatingPreview ? (
+              <div className="flex items-center gap-2 text-sm text-(--muted-foreground)">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-(--border) border-t-transparent" />
+                Memproses filter...
+              </div>
+            ) : (
+              <img
+                src={previewSrc}
+                alt="Preview template dengan filter"
+                className="max-h-full max-w-full object-contain"
+              />
+            )}
+          </div>
           <p className="mt-3 text-sm font-bold">Filter aktif: {filter.name}</p>
         </div>
       </div>

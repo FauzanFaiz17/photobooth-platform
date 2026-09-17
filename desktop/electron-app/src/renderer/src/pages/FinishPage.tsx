@@ -76,10 +76,9 @@ export default function FinishPage(): JSX.Element {
       !composedImage ||
       !printImage ||
       !paperSize ||
-      !animatedGif ||
-      !composedVideo
+      !animatedGif
     ) {
-      setSyncStatus('failed', 'Video template belum berhasil dibuat. Silakan coba lagi.')
+      setSyncStatus('failed', 'Template belum berhasil dibuat. Silakan coba lagi.')
       setProcessing(false)
       return
     }

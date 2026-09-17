@@ -3,6 +3,7 @@ import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { createSessionGif } from '@/features/gif/services/createSessionGif'
+import { getCountdownSeconds } from '@/features/settings/deviceSettings'
 import { composeTemplateImage } from '@/features/template/services/composeTemplate'
 import { composeTemplateVideo } from '@/features/template/services/composeTemplateVideo'
 
@@ -30,9 +31,16 @@ export default function PreviewPage(): JSX.Element | null {
   const setComposedVideo = useSessionStore((state) => state.setComposedVideo)
   const [composing, setComposing] = useState(false)
   const [compositionError, setCompositionError] = useState<string | null>(null)
+  const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (configuration) {
+      void getCountdownSeconds(configuration.camera.countdown_seconds).then(setCountdownSeconds)
+    }
+  }, [configuration])
 
   const compose = useCallback(async (): Promise<void> => {
-    if (!template || shots.length === 0) return
+    if (!template || shots.length === 0 || countdownSeconds === null) return
 
     setComposing(true)
     setCompositionError(null)
@@ -51,7 +59,7 @@ export default function PreviewPage(): JSX.Element | null {
           jsonLayout: template.jsonLayout,
           layout: template.layout,
           overlayPath: template.overlayPath,
-          shotDurationSeconds: configuration?.camera.countdown_seconds
+          shotDurationSeconds: countdownSeconds ?? configuration?.camera.countdown_seconds
         })
       ])
       setComposedImage(composedResult)
@@ -67,7 +75,7 @@ export default function PreviewPage(): JSX.Element | null {
     } finally {
       setComposing(false)
     }
-  }, [setAnimatedGif, setComposedImage, setComposedVideo, shots, template])
+  }, [setAnimatedGif, setComposedImage, setComposedVideo, shots, template, countdownSeconds, configuration])
 
   useEffect(() => {
     if (!configuration || !template || shots.length === 0) {
@@ -82,7 +90,7 @@ export default function PreviewPage(): JSX.Element | null {
     }
 
     return undefined
-  }, [animatedGif, compose, composedImage, shots.length, template])
+  }, [animatedGif, compose, composedImage, countdownSeconds, shots.length, template])
 
   function handleRetake(): void {
     resetShots()

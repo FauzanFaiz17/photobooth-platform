@@ -27,8 +27,12 @@ export const DEFAULT_CAMERA_SETTINGS: CameraDeviceSettings = {
   mirror: true,
   iso: null,
   aperture: null,
-  shutter: null
-  , whiteBalance: null, pictureStyle: null, exposure: null, contrast: null, saturation: null
+  shutter: null,
+  whiteBalance: null,
+  pictureStyle: null,
+  exposure: null,
+  contrast: null,
+  saturation: null
 }
 
 export async function getCameraSettings(): Promise<CameraDeviceSettings> {
@@ -44,8 +48,12 @@ export async function getCameraSettings(): Promise<CameraDeviceSettings> {
     mirror: typeof candidate.mirror === 'boolean' ? candidate.mirror : true,
     iso: candidate.iso ?? null,
     aperture: candidate.aperture ?? null,
-    shutter: candidate.shutter ?? null
-    , whiteBalance: candidate.whiteBalance ?? null, pictureStyle: candidate.pictureStyle ?? null, exposure: candidate.exposure ?? null, contrast: candidate.contrast ?? null, saturation: candidate.saturation ?? null
+    shutter: candidate.shutter ?? null,
+    whiteBalance: candidate.whiteBalance ?? null,
+    pictureStyle: candidate.pictureStyle ?? null,
+    exposure: candidate.exposure ?? null,
+    contrast: candidate.contrast ?? null,
+    saturation: candidate.saturation ?? null
   }
 }
 
@@ -144,8 +152,14 @@ export async function getPrinterSettings(): Promise<PrinterSettings | null> {
         : candidate.deviceName,
     quality: candidate.quality === 'high' ? 'high' : 'standard',
     scale: typeof candidate.scale === 'number' ? Math.min(120, Math.max(80, candidate.scale)) : 100,
-    horizontalPosition: typeof candidate.horizontalPosition === 'number' ? Math.min(100, Math.max(-100, candidate.horizontalPosition)) : 0,
-    verticalPosition: typeof candidate.verticalPosition === 'number' ? Math.min(100, Math.max(-100, candidate.verticalPosition)) : 0,
+    horizontalPosition:
+      typeof candidate.horizontalPosition === 'number'
+        ? Math.min(100, Math.max(-100, candidate.horizontalPosition))
+        : 0,
+    verticalPosition:
+      typeof candidate.verticalPosition === 'number'
+        ? Math.min(100, Math.max(-100, candidate.verticalPosition))
+        : 0,
     paperSize: candidate.paperSize === '2r' ? '2r' : '4r',
     orientation: candidate.orientation === 'landscape' ? 'landscape' : 'portrait'
   }

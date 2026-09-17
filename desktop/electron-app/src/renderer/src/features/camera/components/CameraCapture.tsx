@@ -65,7 +65,8 @@ export default function CameraCapture({
       setCameraSettings(settings)
       setCameraSource(settings.source)
       if (settings.source === 'webcam') {
-        if (settings.deviceId && !devices.some((device) => device.deviceId === settings.deviceId)) return
+        if (settings.deviceId && !devices.some((device) => device.deviceId === settings.deviceId))
+          return
         cameraInitializedRef.current = true
         const available = settings.deviceId
           ? devices.find((device) => device.deviceId === settings.deviceId)
@@ -81,6 +82,7 @@ export default function CameraCapture({
       } else {
         // Arahkan cameraAPI menyimpan JPEG asli ke folder sesi yang sama
         // dengan hasil webcam (Pictures/Photobooth/<timestamp>).
+        cameraInitializedRef.current = true
         try {
           const appSettings = await getAppSettings()
           const { directory } = await window.session.prepareDirectory(appSettings.storageDirectory)
@@ -104,19 +106,70 @@ export default function CameraCapture({
     })
   }, [devices, selectDevice])
 
-  // ---- Rekaman video pendek per shot (webcam, tanpa audio) ----
+  // ---- Rekaman video pendek per shot (webcam atau Canon MJPEG, tanpa audio) ----
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recordChunksRef = useRef<Blob[]>([])
   const recordingPromiseRef = useRef<Promise<string | null> | null>(null)
   const recordingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const recordingStartedRef = useRef(false)
+  const rafIdRef = useRef<number | null>(null)
+  const mjpegImgRef = useRef<HTMLImageElement | null>(null)
+  const recordingCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   const startRecording = useCallback((): void => {
     if (recordingStartedRef.current || mediaRecorderRef.current) return
-    const video = videoRef.current
-    const stream = (video?.srcObject as MediaStream | null) ?? null
+    if (typeof MediaRecorder === 'undefined') {
+      recordingPromiseRef.current = null
+      return
+    }
 
-    if (!stream || typeof MediaRecorder === 'undefined') {
+    const isCanon = cameraSettings?.source === 'canon'
+
+    let stream: MediaStream | null = null
+
+    if (isCanon) {
+      // Canon: ambil frame dari MJPEG stream via <img> element,
+      // gambar ke canvas tersembunyi, lalu rekam dari canvas stream.
+      const img = mjpegImgRef.current
+      const canvas = recordingCanvasRef.current
+      if (!img || !canvas) {
+        recordingPromiseRef.current = null
+        return
+      }
+
+      canvas.width = img.naturalWidth || 640
+      canvas.height = img.naturalHeight || 480
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        recordingPromiseRef.current = null
+        return
+      }
+
+      let drawing = true
+      const drawFrame = (): void => {
+        if (!drawing) return
+        try {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        } catch {
+          // gambar mungkin belum siap
+        }
+        rafIdRef.current = requestAnimationFrame(drawFrame)
+      }
+      drawFrame()
+
+      // Simpan flag agar stopRecording bisa menghentikan loop gambar
+      ;(window as unknown as Record<string, unknown>).__canonDrawStop = (): void => {
+        drawing = false
+      }
+
+      stream = canvas.captureStream(30) as unknown as MediaStream
+    } else {
+      // Webcam: gunakan MediaStream dari <video> element
+      const video = videoRef.current
+      stream = (video?.srcObject as MediaStream | null) ?? null
+    }
+
+    if (!stream) {
       recordingPromiseRef.current = null
       return
     }
@@ -137,9 +190,21 @@ export default function CameraCapture({
       }
 
       recordingPromiseRef.current = new Promise<string | null>((resolve) => {
-      recorder.onstop = (): void => {
-        mediaRecorderRef.current = null
-        recordingStartedRef.current = false
+        recorder.onstop = (): void => {
+          mediaRecorderRef.current = null
+          recordingStartedRef.current = false
+
+          // Hentikan loop gambar Canon jika aktif
+          if (rafIdRef.current != null) {
+            cancelAnimationFrame(rafIdRef.current)
+            rafIdRef.current = null
+          }
+          const stopDraw = (window as unknown as Record<string, unknown>).__canonDrawStop as
+            (() => void) | undefined
+          if (stopDraw) {
+            stopDraw()
+            delete (window as unknown as Record<string, unknown>).__canonDrawStop
+          }
 
           if (recordChunksRef.current.length === 0) {
             resolve(null)
@@ -158,21 +223,34 @@ export default function CameraCapture({
       recorder.start()
       mediaRecorderRef.current = recorder
       recordingStartedRef.current = true
+      console.log(`[Recording] startRecording called, countdownSeconds=${countdownSeconds}, timer=${countdownSeconds * 1000}ms`)
       recordingStopTimerRef.current = setTimeout(() => {
+        console.log(`[Recording] auto-stop timer fired at countdownSeconds=${countdownSeconds}`)
         if (recorder.state === 'recording') recorder.stop()
-      }, Math.min(3, countdownSeconds) * 1000)
+      }, countdownSeconds * 1000)
     } catch {
       recordingPromiseRef.current = null
     }
-  }, [countdownSeconds, videoRef])
+  }, [countdownSeconds, videoRef, cameraSettings])
 
   const stopRecording = useCallback((): void => {
+    console.log(`[Recording] stopRecording called, mediaRecorder state=${mediaRecorderRef.current?.state}`)
     if (recordingStopTimerRef.current) {
       clearTimeout(recordingStopTimerRef.current)
       recordingStopTimerRef.current = null
     }
     if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop()
+    }
+    if (rafIdRef.current != null) {
+      cancelAnimationFrame(rafIdRef.current)
+      rafIdRef.current = null
+    }
+    const stopDraw = (window as unknown as Record<string, unknown>).__canonDrawStop as
+      (() => void) | undefined
+    if (stopDraw) {
+      stopDraw()
+      delete (window as unknown as Record<string, unknown>).__canonDrawStop
     }
     if (!mediaRecorderRef.current) recordingStartedRef.current = false
   }, [])
@@ -182,6 +260,7 @@ export default function CameraCapture({
 
   const captureFrame = useCallback(
     async (shotIndex: number): Promise<string | null> => {
+      console.log(`[Recording] captureFrame called at shotIndex=${shotIndex}`)
       const settings = cameraSettings ?? DEFAULT_CAMERA_SETTINGS
 
       if (settings.source === 'canon') {
@@ -210,6 +289,8 @@ export default function CameraCapture({
         context.scale(settings.mirror ? -1 : 1, 1)
         context.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2)
         const captured = canvas.toDataURL('image/png')
+        // Tahan frame terakhir ~350ms agar video memiliki hold pada shot terakhir
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 350))
         stopRecording()
         const videoDataUrl = await Promise.race([
           recordingPromiseRef.current ?? Promise.resolve(null),
@@ -266,6 +347,8 @@ export default function CameraCapture({
 
       const dataUrl = canvas.toDataURL('image/png')
 
+      // Tahan frame terakhir ~350ms agar video memiliki hold pada shot terakhir
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 350))
       stopRecording()
       const videoDataUrl = await (recordingPromiseRef.current ?? Promise.resolve(null))
 
@@ -332,9 +415,13 @@ export default function CameraCapture({
     }
   }, [currentShotIndex, template.jsonLayout, template.layout, templateOverlayPath])
 
-  // Rekam mulai saat countdown berjalan (termasuk saat retake).
+  // Rekam mulai saat countdown dimulai (termasuk saat retake).
   useEffect(() => {
-    if (stage === 'countdown' && countdown === Math.min(3, countdownSeconds)) startRecording()
+    console.log(`[Recording] effect check: stage=${stage}, countdown=${countdown}, countdownSeconds=${countdownSeconds}`)
+    if (stage === 'countdown' && countdown === countdownSeconds) {
+      console.log(`[Recording] TRIGGER startRecording at countdown=${countdown}`)
+      startRecording()
+    }
   }, [countdown, countdownSeconds, stage, startRecording])
 
   async function startFullscreenCapture(): Promise<void> {
@@ -394,6 +481,7 @@ export default function CameraCapture({
       >
         {cameraSettings.source === 'canon' ? (
           <img
+            ref={mjpegImgRef}
             src={`${CAMERA_API_URL}/video_feed`}
             alt="Live preview Canon"
             className={`absolute inset-0 h-full w-full object-cover ${cameraSettings.mirror ? '-scale-x-100' : ''}`}
@@ -431,11 +519,24 @@ export default function CameraCapture({
       </div>
 
       <canvas ref={canvasRef} className="hidden" />
+      <canvas ref={recordingCanvasRef} className="hidden" />
 
       {stage === 'review' && lastCaptured && (
         <div className="flex w-full max-w-5xl flex-col items-center gap-4 text-white md:flex-row md:items-start">
-          <div className="flex-1 text-center"><p className="mb-2 font-black">Foto asli</p><img src={lastCaptured.dataUrl} className="max-h-[65vh] w-full rounded-lg object-contain" /></div>
-          <div className="flex-1 text-center"><p className="mb-2 font-black">Dengan template</p><img src={reviewImage ?? lastCaptured.dataUrl} className="max-h-[65vh] w-full rounded-lg object-contain" /></div>
+          <div className="flex-1 text-center">
+            <p className="mb-2 font-black">Foto asli</p>
+            <img
+              src={lastCaptured.dataUrl}
+              className="max-h-[65vh] w-full rounded-lg object-contain"
+            />
+          </div>
+          <div className="flex-1 text-center">
+            <p className="mb-2 font-black">Dengan template</p>
+            <img
+              src={reviewImage ?? lastCaptured.dataUrl}
+              className="max-h-[65vh] w-full rounded-lg object-contain"
+            />
+          </div>
           <p>Foto {currentShotIndex + 1}: sudah sesuai?</p>
           <div className="flex gap-3">
             <NeoButton onClick={retakeCurrent} variant="outlined">
