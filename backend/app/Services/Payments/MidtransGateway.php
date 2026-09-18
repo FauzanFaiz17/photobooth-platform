@@ -38,6 +38,7 @@ class MidtransGateway implements PaymentGateway
                         'order_id' => $payment->reference,
                         'gross_amount' => (int) round((float) $payment->amount),
                     ],
+                    'qris' => ['acquirer' => 'gopay'],
                     'custom_field1' => (string) $payment->partner_id,
                 ]);
         } catch (ConnectionException $exception) {
@@ -49,17 +50,17 @@ class MidtransGateway implements PaymentGateway
             abort(502, 'Payment gateway is unavailable.');
         }
 
-        if ($response->failed()) {
+        $payload = $response->json() ?? [];
+
+        if ($response->failed() || (int) ($payload['status_code'] ?? 0) >= 400) {
             Log::warning('Midtrans QRIS request failed.', [
                 'payment_id' => $payment->id,
                 'status' => $response->status(),
-                'response' => $response->json(),
+                'response' => $payload,
             ]);
 
-            abort(502, 'Payment gateway rejected the transaction.');
+            abort(502, 'Payment gateway rejected the transaction: '.($payload['status_message'] ?? 'unknown reason'));
         }
-
-        $payload = $response->json();
 
         return [
             'environment' => $config['production'] ? 'production' : 'sandbox',
@@ -88,11 +89,19 @@ class MidtransGateway implements PaymentGateway
             abort(502, 'Payment gateway is unavailable.');
         }
 
-        if ($response->failed()) {
-            abort(502, 'Payment gateway status could not be retrieved.');
+        $payload = $response->json() ?? [];
+
+        if ($response->failed() || (int) ($payload['status_code'] ?? 0) >= 400) {
+            Log::warning('Midtrans status check failed.', [
+                'payment_id' => $payment->id,
+                'status' => $response->status(),
+                'response' => $payload,
+            ]);
+
+            abort(422, 'Midtrans: '.($payload['status_message'] ?? 'status transaksi tidak dapat dibaca.'));
         }
 
-        return $response->json();
+        return $payload;
     }
 
     public function verifyNotification(array $payload): bool

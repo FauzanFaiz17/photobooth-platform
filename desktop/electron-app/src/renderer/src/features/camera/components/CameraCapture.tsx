@@ -521,15 +521,15 @@ export default function CameraCapture({
       />
 
       {stage === 'review' && lastCaptured && (
-        <div className="flex w-full max-w-5xl flex-col items-center gap-4 text-white md:flex-row md:items-start">
-          <div className="flex-1 text-center">
+        <div className="w-full max-w-5xl grid grid-cols-4 items-center gap-4 text-white ">
+          <div className="col-span-3 text-center">
             <p className="mb-2 font-black">Foto asli</p>
             <img
               src={lastCaptured.dataUrl}
               className="max-h-[65vh] w-full rounded-lg object-contain"
             />
           </div>
-          <div className="flex-1 text-center">
+          <div className="col-span-1 text-center">
             <p className="mb-2 font-black">Dengan template</p>
             <img
               src={reviewImage ?? lastCaptured.dataUrl}

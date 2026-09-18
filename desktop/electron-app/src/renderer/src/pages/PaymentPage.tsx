@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
+import QRCode from 'qrcode'
 
 import { NeoButton } from '@/components/shared/button'
 import { useSessionStore } from '@/store/sessionStore'
@@ -23,6 +24,35 @@ export default function PaymentPage(): JSX.Element | null {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [qrisPayment, setQrisPayment] = useState<Payment | null>(null)
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+  const qrString =
+    typeof qrisPayment?.gateway_response?.qr_string === 'string'
+      ? qrisPayment.gateway_response.qr_string
+      : null
+  const qrUrl =
+    typeof qrisPayment?.gateway_response?.qr_url === 'string'
+      ? qrisPayment.gateway_response.qr_url
+      : null
+  useEffect(() => {
+    if (!qrString) {
+      setQrDataUrl(null)
+      return
+    }
+
+    let cancelled = false
+
+    QRCode.toDataURL(qrString, { width: 320, margin: 1, errorCorrectionLevel: 'M' })
+      .then((dataUrl) => {
+        if (!cancelled) setQrDataUrl(dataUrl)
+      })
+      .catch(() => {
+        if (!cancelled) setQrDataUrl(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [qrString])
   useEffect(() => {
     if (!qrisPayment || qrisPayment.status !== 'pending') return
     const timer = window.setInterval(() => {
@@ -44,19 +74,26 @@ export default function PaymentPage(): JSX.Element | null {
       ),
     [configuration, paperSize]
   )
-  const option = selectedOption?.paper_size === paperSize ? selectedOption : options[0] ?? (configuration ? {
-    id: 0,
-    paper_size: paperSize,
-    unit_quantity: 1,
-    quantity_step: 1,
-    price: configuration.event.price,
-    is_active: true
-  } : undefined)
+  const option =
+    selectedOption?.paper_size === paperSize
+      ? selectedOption
+      : (options[0] ??
+        (configuration
+          ? {
+              id: 0,
+              paper_size: paperSize,
+              unit_quantity: 1,
+              quantity_step: 1,
+              price: configuration.event.price,
+              is_active: true
+            }
+          : undefined))
 
   if (!configuration || !paperSize || !option) return null
 
-  const currentQuantity = quantity || option.unit_quantity
-  const multiplier = Math.max(1, currentQuantity / option.unit_quantity)
+  const hasPrintOption = option.id > 0
+  const currentQuantity = hasPrintOption ? quantity || option.unit_quantity : 1
+  const multiplier = hasPrintOption ? Math.max(1, currentQuantity / option.unit_quantity) : 1
   const total = Number(option.price) * multiplier
 
   return (
@@ -68,30 +105,36 @@ export default function PaymentPage(): JSX.Element | null {
         <h1 className="text-4xl font-black tracking-[-0.04em]">
           Jumlah Cetak {paperSize.toUpperCase()}
         </h1>
-        <div className="mt-8 flex items-center justify-center gap-5">
-          <NeoButton
-            onClick={() =>
-              setPrintSelection(
-                option,
-                Math.max(option.unit_quantity, currentQuantity - option.quantity_step)
-              )
-            }
-            variant="outlined"
-            className="h-14 w-14 flex text-center p-0 text-2xl [transition:none]"
-          >
-            -
-          </NeoButton>
-          <div className="min-w-32 text-center">
-            <p className="text-6xl font-black tracking-tighter">{currentQuantity}</p>
-            <p className="font-bold text-(--muted-foreground)">lembar</p>
+        {hasPrintOption ? (
+          <div className="mt-8 flex items-center justify-center gap-5">
+            <NeoButton
+              onClick={() =>
+                setPrintSelection(
+                  option,
+                  Math.max(option.unit_quantity, currentQuantity - option.quantity_step)
+                )
+              }
+              variant="outlined"
+              className="h-14 w-14 flex text-center p-0 text-2xl [transition:none]"
+            >
+              -
+            </NeoButton>
+            <div className="min-w-32 text-center">
+              <p className="text-6xl font-black tracking-tighter">{currentQuantity}</p>
+              <p className="font-bold text-(--muted-foreground)">lembar</p>
+            </div>
+            <NeoButton
+              onClick={() => setPrintSelection(option, currentQuantity + option.quantity_step)}
+              className="h-14 w-14 flex text-center p-0 text-2xl [transition:none]"
+            >
+              +
+            </NeoButton>
           </div>
-          <NeoButton
-            onClick={() => setPrintSelection(option, currentQuantity + option.quantity_step)}
-            className="h-14 w-14 flex text-center p-0 text-2xl [transition:none]"
-          >
-            +
-          </NeoButton>
-        </div>
+        ) : (
+          <p className="mt-8 text-sm font-semibold text-(--muted-foreground)">
+            Paket cetak belum tersedia untuk Event ini, harga mengikuti harga Event.
+          </p>
+        )}
         <p className="mt-6 text-3xl font-black">Rp {total.toLocaleString('id-ID')}</p>
         <div className="mt-6 flex justify-center gap-3">
           <NeoButton
@@ -132,10 +175,23 @@ export default function PaymentPage(): JSX.Element | null {
                 {String(qrisPayment.gateway_response?.transaction_id ?? '-')}
               </span>
             </p>
-            {Boolean(qrisPayment.gateway_response?.qr_url) && (
+            {qrDataUrl ? (
+              <img
+                src={qrDataUrl}
+                alt="Kode QRIS"
+                className="mx-auto h-64 w-64 border-4 border-(--border) bg-white object-contain"
+              />
+            ) : (
+              <p className="text-sm font-semibold text-red-700">
+                {qrUrl
+                  ? 'QR tidak dapat ditampilkan di aplikasi. Gunakan tautan Buka QRIS.'
+                  : 'QR belum tersedia dari Midtrans. Tekan Periksa Status untuk mencoba lagi.'}
+              </p>
+            )}
+            {qrUrl && (
               <a
-                className="break-all text-sm text-blue-700 underline"
-                href={String(qrisPayment.gateway_response?.qr_url)}
+                className="block break-all text-sm text-blue-700 underline"
+                href={qrUrl}
                 target="_blank"
                 rel="noreferrer"
               >
@@ -203,7 +259,13 @@ export default function PaymentPage(): JSX.Element | null {
             }}
             className="[transition:none]"
           >
-            {loading ? 'Memproses...' : qrisPayment ? 'Periksa Status' : 'Buat QRIS'}
+            {loading
+              ? 'Memproses...'
+              : method === 'voucher'
+                ? 'Next'
+                : qrisPayment
+                  ? 'Periksa Status'
+                  : 'Buat QRIS'}
           </NeoButton>
         </div>
       </div>

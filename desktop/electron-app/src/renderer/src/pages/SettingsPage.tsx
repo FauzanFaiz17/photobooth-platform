@@ -436,7 +436,7 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
           value={value}
           disabled={loading || printers.length === 0}
           onChange={(event) => onChange(event.target.value)}
-          className="border-2 border-(--border) bg-(--background) p-2"
+          className="border-2 border-(--border) bg-(--background) shadow-[4px_4px_0px_0px] p-2"
         >
           {printers.length === 0 && <option value="">Printer tidak ditemukan</option>}
           {printers.map((printer) => (
@@ -903,17 +903,6 @@ export default function SettingsPage(): JSX.Element {
           <span className="text-xl font-black">Uji Preset DNP</span>
           <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">
             Uji 4R dan 2R.
-          </p>
-        </NeoButton>
-        <NeoButton
-          type="button"
-          variant="outlined"
-          onClick={() => setScreen('app')}
-          className="border-(--border) bg-(--surface) p-7 text-left shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--accent)]"
-        >
-          <span className="text-xl font-black">Edit Home</span>
-          <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">
-            Ubah logo, judul, dan keterangan halaman Start (ada di dalam Setting App).
           </p>
         </NeoButton>
         <NeoButton

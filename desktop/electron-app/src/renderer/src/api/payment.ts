@@ -23,7 +23,7 @@ export async function createQrisPayment(
   const response = await api.post<ApiEnvelope<Payment>>('/v1/desktop/payments', {
     event_id: eventId,
     amount,
-    print_option_id: option?.id,
+    print_option_id: option && option.id > 0 ? option.id : undefined,
     paper_size: option?.paper_size,
     quantity: option?.quantity,
     gateway: 'midtrans_qris',

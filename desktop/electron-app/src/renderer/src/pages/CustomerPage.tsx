@@ -61,26 +61,26 @@ export default function CustomerPage(): JSX.Element | null {
   const inputClass = 'p-4 text-lg [transition:none] focus:translate-x-0 focus:translate-y-0'
 
   return (
-    <main className="flex  w-full items-center justify-center bg-[#f4f0e8] px-5 py-2 text-[#111111]">
-      <section className="relative grid w-full max-w-5xl overflow-hidden border-4 border-black bg-[#fffdf7] shadow-[12px_12px_0_0_#111111] md:grid-cols-[1.05fr_0.95fr]">
+    <main className="space-y-5 max-h-[90vh] h-full w-full items-center justify-center bg-[#f4f0e8] px-5 py-2 text-[#111111]">
+      <section className="relative grid w-full max-w-5xl mx-auto overflow-hidden border-4 border-black bg-[#fffdf7] shadow-[12px_12px_0_0_#111111] md:grid-cols-[1.05fr_0.95fr]">
         <div
           className="absolute left-0 top-0 h-4 w-32 border-b-4 border-r-4 border-black bg-[#ffdc3e]"
           aria-hidden="true"
         />
 
-        <div className="flex flex-col justify-between border-b-4 border-black p-7 pt-12 md:border-b-0 md:border-r-4 md:p-10 md:pt-10">
+        <div className="flex flex-col justify-between border-b-4 border-black p-7 pt-12 md:border-b-0 md:border-r-4 md:p-10 md:pt-6">
           <div>
-            <p className="mb-3 text-sm font-bold uppercase tracking-[0.16em] text-[#e34b31]">
+            <p className="mb-2 text-sm font-bold uppercase tracking-[0.16em] text-[#e34b31]">
               {configuration.event.event_name}
             </p>
             <h1 className="text-4xl font-black leading-[0.92] tracking-[-0.04em] sm:text-5xl">
               Data Customer
             </h1>
-            <p className="mt-4 max-w-md text-base font-semibold leading-7 text-black/65">
+            <p className="mt-2 max-w-md text-base font-semibold leading-7 text-black/65">
               Data ini opsional. Kosongkan saja bila tamu tidak ingin mengisi.
             </p>
 
-            <div className="mt-8 grid gap-5">
+            <div className="mt-2 grid gap-2">
               <NeoInput
                 label="Nama"
                 value={name}
@@ -116,7 +116,7 @@ export default function CustomerPage(): JSX.Element | null {
           </div>
         </div>
 
-        <div className="flex flex-col justify-between bg-[#ffdc3e] p-7 md:p-10">
+        <div className="flex flex-col justify-between bg-[#ffdc3e] p-7 md:p-4">
           <div className="space-y-5">
             <div className="flex flex-wrap gap-3 text-xs font-black uppercase tracking-wider">
               <span className="border-2 border-black bg-[#b7eff0] px-3 py-2">Opsional</span>
@@ -137,26 +137,19 @@ export default function CustomerPage(): JSX.Element | null {
             >
               Lanjut Foto <span aria-hidden="true">→</span>
             </NeoButton>
-            <div className="grid grid-cols-2 gap-4">
-              <NeoButton
-                onClick={() => navigate('/payment')}
-                variant="outlined"
-                className="w-full px-6 py-4 text-base shadow-[7px_7px_0_0_#111111] [transition:none]"
-              >
-                Kembali
-              </NeoButton>
-              <NeoButton
-                loading={loading}
-                onClick={() => void submit(true)}
-                variant="secondary"
-                className="w-full px-6 py-4 text-base shadow-[7px_7px_0_0_#111111] [transition:none]"
-              >
-                Lewati
-              </NeoButton>
-            </div>
           </div>
         </div>
       </section>
+      <div className="w-full max-w-5xl  mx-auto flex justify-end gap-4">
+        <NeoButton
+          loading={loading}
+          onClick={() => void submit(true)}
+          variant="secondary"
+          className=" px-6 py-4 text-base shadow-[7px_7px_0_0_#111111] [transition:none]"
+        >
+          Lewati
+        </NeoButton>
+      </div>
     </main>
   )
 }

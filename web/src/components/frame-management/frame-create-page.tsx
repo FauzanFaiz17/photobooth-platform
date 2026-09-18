@@ -24,7 +24,7 @@ import {
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
-import samplePhoto from "@/assets/login-photobooth.webp";
+import samplePhoto from "@/assets/preview.webp";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,10 +72,22 @@ const FRAME_SIZES = {
     height: 1800,
     label: "2R strip (cetak 4R, potong jadi 2)",
   },
-  "4R": { width: 1200, height: 1800, label: "4R (1200 x 1800 px)" },
+  "4R": { width: 1200, height: 1800, label: "4R (10 x 15 cm)" },
 } as const;
 
 type FrameSize = keyof typeof FRAME_SIZES;
+type FrameOrientation = "portrait" | "landscape";
+
+/** 2R selalu portrait (strip); hanya 4R yang bisa ditukar orientasinya. */
+function frameDimensions(
+  size: FrameSize,
+  orientation: FrameOrientation,
+): { width: number; height: number } {
+  const base = FRAME_SIZES[size];
+  return size === "4R" && orientation === "landscape"
+    ? { width: base.height, height: base.width }
+    : { width: base.width, height: base.height };
+}
 
 /** Rasio awal slot; hanya dipakai saat ukuran diterapkan, resize tetap bebas. */
 const SLOT_RATIOS = {
@@ -439,23 +451,34 @@ function paperSizeForFrame(size: FrameSize): TemplatePaperSize {
 
 function readFrameLayout(frame: TemplateRecord): {
   size: FrameSize;
+  orientation: FrameOrientation;
   slots: ReadonlyArray<PhotoSlot>;
   slotsInFront: boolean;
 } {
   const preferredSize = readFrameSize(frame);
+  const size = preferredSize ?? "4R";
   if (!isRecord(frame.json_layout))
-    return { size: preferredSize ?? "4R", slots: [], slotsInFront: false };
+    return { size, orientation: "portrait", slots: [], slotsInFront: false };
   const slotsInFront = frame.json_layout.slots_on_top === true;
 
   const canvas = isRecord(frame.json_layout.canvas)
     ? frame.json_layout.canvas
     : null;
-  const sourceWidth =
-    positiveNumber(canvas?.width) ?? FRAME_SIZES[preferredSize ?? "4R"].width;
-  const sourceHeight =
-    positiveNumber(canvas?.height) ?? FRAME_SIZES[preferredSize ?? "4R"].height;
-  const size = preferredSize ?? "4R";
-  const target = FRAME_SIZES[size];
+  const fallback = FRAME_SIZES[size];
+  const sourceWidth = positiveNumber(canvas?.width) ?? fallback.width;
+  const sourceHeight = positiveNumber(canvas?.height) ?? fallback.height;
+  const storedOrientation =
+    frame.json_layout.orientation === "landscape"
+      ? "landscape"
+      : frame.json_layout.orientation === "portrait"
+        ? "portrait"
+        : null;
+  const orientation: FrameOrientation =
+    size === "2R"
+      ? "portrait"
+      : (storedOrientation ??
+        (sourceWidth > sourceHeight ? "landscape" : "portrait"));
+  const target = frameDimensions(size, orientation);
   const scaleX = target.width / sourceWidth;
   const scaleY = target.height / sourceHeight;
   const frames = Array.isArray(frame.json_layout.frames)
@@ -481,7 +504,7 @@ function readFrameLayout(frame: TemplateRecord): {
     const y = clamp(rawY * scaleY, 0, target.height - scaledHeight);
     return [{ id: index + 1, x, y, width: scaledWidth, height: scaledHeight, shot: positiveInteger(item.shot) ?? index + 1 }];
   });
-  return { size, slots, slotsInFront };
+  return { size, orientation, slots, slotsInFront };
 }
 
 function determineLayout(slots: ReadonlyArray<PhotoSlot>): "grid" | "strip" {
@@ -520,6 +543,7 @@ export function FrameCreatePage(): ReactElement {
   const [name, setName] = useState("");
   const [status, setStatus] = useState<TemplateStatus>("draft");
   const [size, setSize] = useState<FrameSize>("4R");
+  const [orientation, setOrientation] = useState<FrameOrientation>("portrait");
   const [slots, setSlots] = useState<ReadonlyArray<PhotoSlot>>([]);
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -530,6 +554,8 @@ export function FrameCreatePage(): ReactElement {
   const [loadState, setLoadState] = useState<"loading" | "ready" | "error">(
     editing ? "loading" : "ready",
   );
+  const canvasAreaRef = useRef<HTMLDivElement>(null);
+  const [availableWidth, setAvailableWidth] = useState<number | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -557,6 +583,7 @@ export function FrameCreatePage(): ReactElement {
           setName(loadedFrame.name);
           setStatus(loadedFrame.status);
           setSize(layout.size);
+          setOrientation(layout.orientation);
           setSlots(layout.slots);
           setSlotsInFront(layout.slotsInFront);
           setOverlayUrl(loadedFrame.png_url ?? resolveStorageUrl(loadedFrame.png_path));
@@ -598,6 +625,18 @@ export function FrameCreatePage(): ReactElement {
     [],
   );
 
+  /** Kanvas diskalakan mengikuti lebar area editor agar landscape tidak terpotong. */
+  useEffect(() => {
+    const element = canvasAreaRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width) setAvailableWidth(width);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   /**
    * PNG ditampilkan dari objectURL lokal, bukan dari png_path hasil unggah — backend
    * belum punya endpoint penyaji asset, jadi URL storage-nya selalu gagal dimuat.
@@ -613,11 +652,18 @@ export function FrameCreatePage(): ReactElement {
   }
 
   const selectedSlot = slots.find((slot) => slot.id === selectedSlotId) ?? null;
-  const canvasSize = FRAME_SIZES[size];
-  const displayHeight = 560;
+  const canvasSize = frameDimensions(size, orientation);
+  const canvasWidth = canvasSize.width;
+  const canvasHeight = canvasSize.height;
+  const canvasAspect = canvasWidth / canvasHeight;
+  // Sisakan ruang untuk border-8 + ring pada bingkai kanvas.
+  const maxDisplayWidth = availableWidth
+    ? Math.max(160, Math.floor(availableWidth) - 24)
+    : 620;
   const displayWidth = Math.round(
-    (displayHeight * canvasSize.width) / canvasSize.height,
+    Math.min(maxDisplayWidth, 560 * canvasAspect),
   );
+  const displayHeight = Math.round(displayWidth / canvasAspect);
   const selectedRatio = selectedSlot ? slotRatioOf(selectedSlot) : null;
 
   /** Terapkan rasio sebagai ukuran awal; posisi digeser otomatis agar tetap di kanvas. */
@@ -679,20 +725,18 @@ export function FrameCreatePage(): ReactElement {
 
   /** Salinan digeser sedikit supaya slot aslinya masih bisa diklik di canvas. */
   const duplicateSlot = useCallback((source: PhotoSlot): void => {
-    const step = Math.round(
-      Math.min(canvasSize.width, canvasSize.height) * 0.03,
-    );
+    const step = Math.round(Math.min(canvasWidth, canvasHeight) * 0.03);
     const slot: PhotoSlot = {
       id: nextSlotId.current++,
       width: source.width,
       height: source.height,
       shot: source.shot,
-      x: clamp(source.x + step, 0, canvasSize.width - source.width),
-      y: clamp(source.y + step, 0, canvasSize.height - source.height),
+      x: clamp(source.x + step, 0, canvasWidth - source.width),
+      y: clamp(source.y + step, 0, canvasHeight - source.height),
     };
     setSlots((current) => [...current, slot]);
     setSelectedSlotId(slot.id);
-  }, [canvasSize.height, canvasSize.width]);
+  }, [canvasHeight, canvasWidth]);
 
   useEffect(() => {
     function handleClipboardShortcut(event: KeyboardEvent): void {
@@ -753,38 +797,56 @@ export function FrameCreatePage(): ReactElement {
 
   function changeFrameSize(nextSize: FrameSize) {
     if (nextSize === size) return;
-    const previous = FRAME_SIZES[size];
-    const next = FRAME_SIZES[nextSize];
-    setSlots((current) =>
-      current.map((slot) => {
-        const width = clamp(
-          Math.round((slot.width * next.width) / previous.width),
-          10,
-          next.width,
-        );
-        const height = clamp(
-          Math.round((slot.height * next.height) / previous.height),
-          10,
-          next.height,
-        );
-        return {
-          ...slot,
-          x: clamp(
-            Math.round((slot.x * next.width) / previous.width),
-            0,
-            next.width - width,
-          ),
-          y: clamp(
-            Math.round((slot.y * next.height) / previous.height),
-            0,
-            next.height - height,
-          ),
-          width,
-          height,
-        };
-      }),
-    );
+    const nextOrientation = nextSize === "4R" ? orientation : "portrait";
+    const previous = frameDimensions(size, orientation);
+    const next = frameDimensions(nextSize, nextOrientation);
+
+    // 2R tidak punya orientasi, jadi pindah ke sana otomatis mengosongkan slot.
+    if (nextOrientation !== orientation) {
+      setSlots([]);
+      setSelectedSlotId(null);
+    } else {
+      setSlots((current) =>
+        current.map((slot) => {
+          const width = clamp(
+            Math.round((slot.width * next.width) / previous.width),
+            10,
+            next.width,
+          );
+          const height = clamp(
+            Math.round((slot.height * next.height) / previous.height),
+            10,
+            next.height,
+          );
+          return {
+            ...slot,
+            x: clamp(
+              Math.round((slot.x * next.width) / previous.width),
+              0,
+              next.width - width,
+            ),
+            y: clamp(
+              Math.round((slot.y * next.height) / previous.height),
+              0,
+              next.height - height,
+            ),
+            width,
+            height,
+          };
+        }),
+      );
+    }
+
     setSize(nextSize);
+    setOrientation(nextOrientation);
+  }
+
+  /** Menukar orientasi mengubah dimensi kanvas, jadi slot dikosongkan. */
+  function changeOrientation(nextOrientation: FrameOrientation) {
+    if (nextOrientation === orientation) return;
+    setOrientation(nextOrientation);
+    setSlots([]);
+    setSelectedSlotId(null);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -836,6 +898,7 @@ export function FrameCreatePage(): ReactElement {
                 : "#ffffff",
           },
           paper_size: paperSizeForFrame(size),
+          orientation,
           slots_on_top: slotsInFront,
           layout: determineLayout(slots),
           frames: slots.map((slot) => ({
@@ -1029,15 +1092,8 @@ export function FrameCreatePage(): ReactElement {
               </div>
             </div>
           </CardHeader>
-          <CardContent
-            className={cn(
-              "grid gap-4",
-              mode === "edit" &&
-                selectedSlot &&
-                "lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start",
-            )}
-          >
-            <div className="col-span-full flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">{size}</Badge>
                 <span className="text-xs text-muted-foreground">
@@ -1055,7 +1111,11 @@ export function FrameCreatePage(): ReactElement {
                 )}
               </div>
             </div>
-            <div className="grid min-h-136 place-items-center overflow-auto rounded-md border bg-zinc-100 p-5 dark:bg-zinc-950 sm:p-10">
+            <div className="grid min-h-136 place-items-center overflow-hidden rounded-md border bg-zinc-100 p-5 dark:bg-zinc-950 sm:p-10">
+              <div
+                ref={canvasAreaRef}
+                className="grid w-full place-items-center"
+              >
               {mode === "edit" ? (
                 <div
                   className={cn(
@@ -1166,120 +1226,10 @@ export function FrameCreatePage(): ReactElement {
                   </div>
                 </div>
               )}
-            </div>
-            {mode === "edit" && selectedSlot && (
-              <div className="grid content-start gap-4 rounded-md border bg-muted/20 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium">Slot Foto</p>
-                    <p className="text-xs text-muted-foreground">
-                      {slots.length} slot ·{" "}
-                      {new Set(slots.map((slot) => slot.shot)).size} foto
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="outline"
-                      aria-label="Duplikat slot terpilih"
-                      title="Duplikat slot (ukuran sama)"
-                      onClick={() => duplicateSlot(selectedSlot)}
-                    >
-                      <Copy aria-hidden="true" />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="destructive"
-                      aria-label="Hapus slot terpilih"
-                      onClick={() => removeSlot(selectedSlot.id)}
-                    >
-                      <Trash2 aria-hidden="true" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="grid gap-3">
-                  <div className="grid gap-2">
-                    <Label>Rasio slot</Label>
-                    <div className="flex rounded-md border p-1">
-                      {(Object.keys(SLOT_RATIOS) as SlotRatio[]).map((ratio) => (
-                        <Button
-                          key={ratio}
-                          type="button"
-                          size="sm"
-                          variant={selectedRatio === ratio ? "secondary" : "ghost"}
-                          className="flex-1"
-                          title={`Ukuran awal ${SLOT_RATIOS[ratio].label}`}
-                          onClick={() => applySlotRatio(ratio)}
-                        >
-                          {ratio === "1:1" ? (
-                            <Square aria-hidden="true" />
-                          ) : ratio === "2:3" ? (
-                            <RectangleVertical aria-hidden="true" />
-                          ) : (
-                            <RectangleHorizontal aria-hidden="true" />
-                          )}{" "}
-                          {ratio}
-                        </Button>
-                      ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Menyusun ukuran awal slot. Setelah itu tetap bisa ditarik
-                      bebas.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {(["shot", "x", "y", "width", "height"] as const).map((field) => (
-                      <div key={field} className="grid gap-2">
-                        <Label htmlFor={`slot-${field}`}>
-                          {field === "shot"
-                            ? "Foto ke"
-                            : field === "x"
-                              ? "Posisi X (px)"
-                              : field === "y"
-                                ? "Posisi Y (px)"
-                                : field === "width"
-                                  ? "Lebar (px)"
-                                  : "Tinggi (px)"}
-                        </Label>
-                        <Input
-                          id={`slot-${field}`}
-                          type="number"
-                          min={
-                            field === "shot"
-                              ? 1
-                              : field === "x" || field === "y"
-                                ? 0
-                                : 10
-                          }
-                          max={
-                            field === "shot"
-                              ? undefined
-                              : field === "x"
-                                ? canvasSize.width - selectedSlot.width
-                                : field === "y"
-                                  ? canvasSize.height - selectedSlot.height
-                                  : field === "width"
-                                    ? canvasSize.width - selectedSlot.x
-                                    : canvasSize.height - selectedSlot.y
-                          }
-                          step={1}
-                          value={Math.round(selectedSlot[field])}
-                          onChange={(event) =>
-                            changeSlotNumber(field, event.target.value)
-                          }
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
-            )}
+            </div>
             {errors.slots && (
-              <p className="col-span-full text-sm text-destructive">
-                {errors.slots}
-              </p>
+              <p className="text-sm text-destructive">{errors.slots}</p>
             )}
           </CardContent>
         </Card>
@@ -1375,6 +1325,38 @@ export function FrameCreatePage(): ReactElement {
                     tampilan editor diperkecil otomatis.
                   </p>
                 </div>
+                {size === "4R" && (
+                  <div className="grid gap-2">
+                    <Label>Orientasi</Label>
+                    <div className="flex rounded-md border p-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={
+                          orientation === "portrait" ? "secondary" : "ghost"
+                        }
+                        className="flex-1"
+                        onClick={() => changeOrientation("portrait")}
+                      >
+                        <RectangleVertical aria-hidden="true" /> Portrait
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={
+                          orientation === "landscape" ? "secondary" : "ghost"
+                        }
+                        className="flex-1"
+                        onClick={() => changeOrientation("landscape")}
+                      >
+                        <RectangleHorizontal aria-hidden="true" /> Landscape
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Menukar orientasi mengosongkan slot yang sudah dibuat.
+                    </p>
+                  </div>
+                )}
                 <div className="grid gap-2">
                   <Label htmlFor="create-frame-status">Status</Label>
                   <Select<TemplateStatus>
@@ -1393,6 +1375,127 @@ export function FrameCreatePage(): ReactElement {
                     </SelectContent>
                   </Select>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <CardTitle>Slot Foto</CardTitle>
+                    <CardDescription>
+                      {slots.length} slot ·{" "}
+                      {new Set(slots.map((slot) => slot.shot)).size} foto
+                    </CardDescription>
+                  </div>
+                  {selectedSlot && (
+                    <div className="flex shrink-0 gap-2">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="outline"
+                        aria-label="Duplikat slot terpilih"
+                        title="Duplikat slot (ukuran sama)"
+                        onClick={() => duplicateSlot(selectedSlot)}
+                      >
+                        <Copy aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="destructive"
+                        aria-label="Hapus slot terpilih"
+                        onClick={() => removeSlot(selectedSlot.id)}
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {!selectedSlot && (
+                  <p className="text-sm text-muted-foreground">
+                    Pilih slot pada canvas untuk mengatur ukuran dan posisinya.
+                  </p>
+                )}
+                {selectedSlot && (
+                  <div className="grid gap-3">
+                    <div className="grid gap-2">
+                      <Label>Rasio slot</Label>
+                      <div className="flex rounded-md border p-1">
+                        {(Object.keys(SLOT_RATIOS) as SlotRatio[]).map((ratio) => (
+                          <Button
+                            key={ratio}
+                            type="button"
+                            size="sm"
+                            variant={selectedRatio === ratio ? "secondary" : "ghost"}
+                            className="flex-1"
+                            title={`Ukuran awal ${SLOT_RATIOS[ratio].label}`}
+                            onClick={() => applySlotRatio(ratio)}
+                          >
+                            {ratio === "1:1" ? (
+                              <Square aria-hidden="true" />
+                            ) : ratio === "2:3" ? (
+                              <RectangleVertical aria-hidden="true" />
+                            ) : (
+                              <RectangleHorizontal aria-hidden="true" />
+                            )}{" "}
+                            {ratio}
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Menyusun ukuran awal slot. Setelah itu tetap bisa ditarik
+                        bebas.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {(["shot", "x", "y", "width", "height"] as const).map((field) => (
+                        <div key={field} className="grid gap-2">
+                          <Label htmlFor={`slot-${field}`}>
+                            {field === "shot"
+                              ? "Foto ke"
+                              : field === "x"
+                                ? "Posisi X (px)"
+                                : field === "y"
+                                  ? "Posisi Y (px)"
+                                  : field === "width"
+                                    ? "Lebar (px)"
+                                    : "Tinggi (px)"}
+                          </Label>
+                          <Input
+                            id={`slot-${field}`}
+                            type="number"
+                            min={
+                              field === "shot"
+                                ? 1
+                                : field === "x" || field === "y"
+                                  ? 0
+                                  : 10
+                            }
+                            max={
+                              field === "shot"
+                                ? undefined
+                                : field === "x"
+                                  ? canvasSize.width - selectedSlot.width
+                                  : field === "y"
+                                    ? canvasSize.height - selectedSlot.height
+                                    : field === "width"
+                                      ? canvasSize.width - selectedSlot.x
+                                      : canvasSize.height - selectedSlot.y
+                            }
+                            step={1}
+                            value={Math.round(selectedSlot[field])}
+                            onChange={(event) =>
+                              changeSlotNumber(field, event.target.value)
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

@@ -6,7 +6,11 @@ import QRCode from 'qrcode'
 import { getApiErrorMessage } from '@/api/axios'
 import { completePhotoSession, createPhotoSession, uploadSessionMedia } from '@/api/media'
 import { NeoButton } from '@/components/shared/button'
-import { getAppSettings, getPrinterSettings, getDeviceNameForPaperSize } from '@/features/settings/deviceSettings'
+import {
+  getAppSettings,
+  getPrinterSettings,
+  getDeviceNameForPaperSize
+} from '@/features/settings/deviceSettings'
 import { composeTemplateImage } from '@/features/template/services/composeTemplate'
 import { createSessionGif } from '@/features/gif/services/createSessionGif'
 import { useSessionStore } from '@/store/sessionStore'
@@ -77,7 +81,6 @@ export default function FinishPage(): JSX.Element {
   const setComposedImage = useSessionStore((state) => state.setComposedImage)
   const setAnimatedGif = useSessionStore((state) => state.setAnimatedGif)
   const setPrintImage = useSessionStore((state) => state.setPrintImage)
-  const setComposedVideo = useSessionStore((state) => state.setComposedVideo)
 
   useEffect(() => {
     if (composingRef.current) return
@@ -110,7 +113,17 @@ export default function FinishPage(): JSX.Element {
         if (!printImage) setPrintImage(filtered ?? composed)
       })
       .catch(() => {})
-  }, [composedImage, printImage, animatedGif, template, shots, filter, setComposedImage, setAnimatedGif, setPrintImage])
+  }, [
+    composedImage,
+    printImage,
+    animatedGif,
+    template,
+    shots,
+    filter,
+    setComposedImage,
+    setAnimatedGif,
+    setPrintImage
+  ])
 
   const finalizeSession = useCallback(async (): Promise<void> => {
     if (

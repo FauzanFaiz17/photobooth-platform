@@ -124,8 +124,8 @@ export default function FilterPage(): JSX.Element | null {
         </p>
       </div>
 
-      <div className="grid min-h0 flex-1 grid-cols-1 gap-6 overflow-auto md:grid-cols-[0.8fr_1.2fr]">
-        <div className="grid content-start gap-3">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-auto md:grid-cols-3">
+        <div className="grid grid-cols-3 col-span-2 overflow-y-auto content-start gap-3">
           {filters.map((item) => (
             <button
               type="button"
@@ -145,9 +145,9 @@ export default function FilterPage(): JSX.Element | null {
             </button>
           ))}
         </div>
-        <div className="flex min-h-0 flex-col border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo)">
+        <div className="flex min-h-0  flex-col  p-4 shadow-(--shadow-neo)">
           <p className="mb-3 font-black uppercase tracking-wider">Preview template</p>
-          <div className="grid min-h-0 flex-1 place-items-center bg-white p-3">
+          <div className="grid min-h-0 flex-1 place-items-center  p-3">
             {generatingPreview ? (
               <div className="flex items-center gap-2 text-sm text-(--muted-foreground)">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-(--border) border-t-transparent" />
@@ -157,7 +157,7 @@ export default function FilterPage(): JSX.Element | null {
               <img
                 src={previewSrc}
                 alt="Preview template dengan filter"
-                className="max-h-full max-w-full object-contain"
+                className="h-72 max-w-full object-contain"
               />
             )}
           </div>
