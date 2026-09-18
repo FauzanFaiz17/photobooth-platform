@@ -35,7 +35,7 @@ export default function BoothLayout(): JSX.Element {
       if (sessionDeadline <= now) {
         const shots = useSessionStore.getState().shots
         if (shots.length > 0 && location.pathname !== '/welcome') {
-          navigate('/preview', { replace: true })
+          navigate('/finish', { replace: true })
         } else {
           resetTransaction()
           navigate('/welcome', { replace: true })

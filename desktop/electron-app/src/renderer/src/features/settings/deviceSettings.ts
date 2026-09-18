@@ -128,6 +128,10 @@ export async function getCountdownSeconds(fallback: number): Promise<number> {
 export interface PrinterSettings {
   deviceName: string
   displayName: string
+  deviceName2r: string
+  displayName2r: string
+  deviceName4r: string
+  displayName4r: string
   quality: 'standard' | 'high'
   scale: number
   horizontalPosition: number
@@ -142,14 +146,37 @@ export async function getPrinterSettings(): Promise<PrinterSettings | null> {
   if (!stored || typeof stored !== 'object') return null
 
   const candidate = stored as Partial<PrinterSettings>
-  if (typeof candidate.deviceName !== 'string' || !candidate.deviceName) return null
+
+  const deviceName4r =
+    typeof candidate.deviceName4r === 'string' && candidate.deviceName4r
+      ? candidate.deviceName4r
+      : typeof candidate.deviceName === 'string' && candidate.deviceName
+        ? candidate.deviceName
+        : ''
+  const displayName4r =
+    typeof candidate.displayName4r === 'string' && candidate.displayName4r
+      ? candidate.displayName4r
+      : typeof candidate.displayName === 'string' && candidate.displayName
+        ? candidate.displayName
+        : deviceName4r
+  const deviceName2r =
+    typeof candidate.deviceName2r === 'string' && candidate.deviceName2r
+      ? candidate.deviceName2r
+      : deviceName4r
+  const displayName2r =
+    typeof candidate.displayName2r === 'string' && candidate.displayName2r
+      ? candidate.displayName2r
+      : displayName4r
+
+  if (!deviceName4r && !deviceName2r) return null
 
   return {
-    deviceName: candidate.deviceName,
-    displayName:
-      typeof candidate.displayName === 'string' && candidate.displayName
-        ? candidate.displayName
-        : candidate.deviceName,
+    deviceName: deviceName4r,
+    displayName: displayName4r,
+    deviceName2r,
+    displayName2r,
+    deviceName4r,
+    displayName4r,
     quality: candidate.quality === 'high' ? 'high' : 'standard',
     scale: typeof candidate.scale === 'number' ? Math.min(120, Math.max(80, candidate.scale)) : 100,
     horizontalPosition:
@@ -163,6 +190,13 @@ export async function getPrinterSettings(): Promise<PrinterSettings | null> {
     paperSize: candidate.paperSize === '2r' ? '2r' : '4r',
     orientation: candidate.orientation === 'landscape' ? 'landscape' : 'portrait'
   }
+}
+
+export function getDeviceNameForPaperSize(
+  settings: PrinterSettings,
+  paperSize: '2r' | '4r'
+): string {
+  return paperSize === '2r' ? settings.deviceName2r : settings.deviceName4r
 }
 
 export async function savePrinterSettings(value: PrinterSettings): Promise<void> {

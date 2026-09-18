@@ -6,7 +6,9 @@ import QRCode from 'qrcode'
 import { getApiErrorMessage } from '@/api/axios'
 import { completePhotoSession, createPhotoSession, uploadSessionMedia } from '@/api/media'
 import { NeoButton } from '@/components/shared/button'
-import { getAppSettings, getPrinterSettings } from '@/features/settings/deviceSettings'
+import { getAppSettings, getPrinterSettings, getDeviceNameForPaperSize } from '@/features/settings/deviceSettings'
+import { composeTemplateImage } from '@/features/template/services/composeTemplate'
+import { createSessionGif } from '@/features/gif/services/createSessionGif'
 import { useSessionStore } from '@/store/sessionStore'
 
 const focusRing =
@@ -68,6 +70,47 @@ export default function FinishPage(): JSX.Element {
   const [processing, setProcessing] = useState(true)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const startedRef = useRef(false)
+  const composingRef = useRef(false)
+
+  const template = useSessionStore((state) => state.template)
+  const filter = useSessionStore((state) => state.filter)
+  const setComposedImage = useSessionStore((state) => state.setComposedImage)
+  const setAnimatedGif = useSessionStore((state) => state.setAnimatedGif)
+  const setPrintImage = useSessionStore((state) => state.setPrintImage)
+  const setComposedVideo = useSessionStore((state) => state.setComposedVideo)
+
+  useEffect(() => {
+    if (composingRef.current) return
+    if (composedImage && printImage && animatedGif) return
+    if (!template || shots.length === 0) return
+
+    composingRef.current = true
+
+    void Promise.all([
+      composeTemplateImage({
+        shots,
+        jsonLayout: template.jsonLayout,
+        layout: template.layout,
+        overlayPath: template.overlayPath
+      }),
+      createSessionGif(shots),
+      filter
+        ? composeTemplateImage({
+            shots,
+            jsonLayout: template.jsonLayout,
+            layout: template.layout,
+            overlayPath: template.overlayPath,
+            cssFilter: filter.cssFilter
+          })
+        : null
+    ])
+      .then(([composed, gif, filtered]) => {
+        if (!composedImage && composed) setComposedImage(composed)
+        if (!animatedGif && gif) setAnimatedGif(gif)
+        if (!printImage) setPrintImage(filtered ?? composed)
+      })
+      .catch(() => {})
+  }, [composedImage, printImage, animatedGif, template, shots, filter, setComposedImage, setAnimatedGif, setPrintImage])
 
   const finalizeSession = useCallback(async (): Promise<void> => {
     if (
@@ -207,7 +250,7 @@ export default function FinishPage(): JSX.Element {
             )
             await window.electron.printer.printImage({
               dataUrl: printDataUrl,
-              deviceName: printer.deviceName,
+              deviceName: getDeviceNameForPaperSize(printer, paperSize),
               copies: Math.max(1, quantity),
               paperSize,
               orientation: eventConfiguration.printer.orientation
@@ -261,9 +304,10 @@ export default function FinishPage(): JSX.Element {
 
   useEffect(() => {
     if (startedRef.current) return
+    if (!composedImage || !printImage || !animatedGif) return
     startedRef.current = true
     void finalizeSession()
-  }, [finalizeSession])
+  }, [composedImage, printImage, animatedGif, finalizeSession])
 
   useEffect(() => {
     void getAppSettings().then((settings) => setQrTimerSeconds(settings.qrTimerSeconds))

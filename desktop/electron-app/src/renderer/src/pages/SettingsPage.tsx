@@ -18,11 +18,12 @@ import {
   getPrintSampleSettings,
   savePrintSampleSettings,
   type PrintSampleImage,
-  type PrintSampleSettings
+  type PrintSampleSettings,
+  getDeviceNameForPaperSize
 } from '@/features/settings/deviceSettings'
 
 const PAPER_DIMENSIONS_MM: Record<'2r' | '4r', { width: number; height: number }> = {
-  '2r': { width: 60, height: 90 },
+  '2r': { width: 100, height: 150 },
   '4r': { width: 100, height: 150 }
 }
 
@@ -314,7 +315,8 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
   const [printers, setPrinters] = useState<
     Array<{ name: string; displayName: string; isDefault: boolean }>
   >([])
-  const [deviceName, setDeviceName] = useState('')
+  const [deviceName4r, setDeviceName4r] = useState('')
+  const [deviceName2r, setDeviceName2r] = useState('')
   const [quality, setQuality] = useState<'standard' | 'high'>('standard')
   const [scale, setScale] = useState(100)
   const [horizontalPosition, setHorizontalPosition] = useState(0)
@@ -334,12 +336,14 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
     ])
       .then(([available, stored, sample]) => {
         setPrinters(available)
-        setDeviceName(
+        const defaultPrinter =
+          stored?.deviceName4r ??
           stored?.deviceName ??
-            available.find((printer) => printer.isDefault)?.name ??
-            available[0]?.name ??
-            ''
-        )
+          available.find((printer) => printer.isDefault)?.name ??
+          available[0]?.name ??
+          ''
+        setDeviceName4r(stored?.deviceName4r ?? defaultPrinter)
+        setDeviceName2r(stored?.deviceName2r ?? defaultPrinter)
         setQuality(stored?.quality ?? 'standard')
         setScale(stored?.scale ?? 100)
         setHorizontalPosition(stored?.horizontalPosition ?? 0)
@@ -359,23 +363,29 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
   }, [])
 
   async function saveAndTest(): Promise<void> {
-    const selected = printers.find((printer) => printer.name === deviceName)
+    const activePaperSize = paperSize
+    const activeDeviceName = activePaperSize === '2r' ? deviceName2r : deviceName4r
+    const selected = printers.find((printer) => printer.name === activeDeviceName)
     if (!selected) return
 
     setTesting(true)
     setMessage(null)
     try {
       await savePrinterSettings({
-        deviceName: selected.name,
-        displayName: selected.displayName,
+        deviceName: deviceName4r,
+        displayName: printers.find((p) => p.name === deviceName4r)?.displayName ?? deviceName4r,
+        deviceName2r,
+        displayName2r: printers.find((p) => p.name === deviceName2r)?.displayName ?? deviceName2r,
+        deviceName4r,
+        displayName4r: printers.find((p) => p.name === deviceName4r)?.displayName ?? deviceName4r,
         quality,
         scale,
         horizontalPosition,
         verticalPosition,
-        paperSize,
+        paperSize: activePaperSize,
         orientation
       })
-      await window.electron.printer.test(selected.name, { paperSize, orientation })
+      await window.electron.printer.test(selected.name, { paperSize: activePaperSize, orientation })
       setMessage({ type: 'success', text: 'Test print dikirim ke printer.' })
     } catch (cause) {
       setMessage({
@@ -410,6 +420,36 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
     setSampleImage(samples[next])
   }
 
+  function PrinterSelect({
+    label,
+    value,
+    onChange
+  }: {
+    label: string
+    value: string
+    onChange: (name: string) => void
+  }): JSX.Element {
+    return (
+      <label className="grid gap-2 font-bold">
+        {label}
+        <select
+          value={value}
+          disabled={loading || printers.length === 0}
+          onChange={(event) => onChange(event.target.value)}
+          className="border-2 border-(--border) bg-(--background) p-2"
+        >
+          {printers.length === 0 && <option value="">Printer tidak ditemukan</option>}
+          {printers.map((printer) => (
+            <option key={printer.name} value={printer.name}>
+              {printer.displayName}
+              {printer.isDefault ? ' (Default)' : ''}
+            </option>
+          ))}
+        </select>
+      </label>
+    )
+  }
+
   return (
     <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-6 overflow-y-auto bg-(--background) p-5 text-(--foreground) md:p-8">
       <div>
@@ -422,20 +462,10 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
         </p>
       </div>
 
-      <select
-        value={deviceName}
-        disabled={loading || printers.length === 0}
-        onChange={(event) => setDeviceName(event.target.value)}
-        className="border-4 border-(--border) bg-(--surface) px-4 py-3 font-bold shadow-(--shadow-neo)"
-      >
-        {printers.length === 0 && <option value="">Printer tidak ditemukan</option>}
-        {printers.map((printer) => (
-          <option key={printer.name} value={printer.name}>
-            {printer.displayName}
-            {printer.isDefault ? ' (Default)' : ''}
-          </option>
-        ))}
-      </select>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <PrinterSelect label="Printer untuk 4R" value={deviceName4r} onChange={setDeviceName4r} />
+        <PrinterSelect label="Printer untuk 2R" value={deviceName2r} onChange={setDeviceName2r} />
+      </div>
       <NeoButton variant="outlined" disabled={loading} onClick={() => void refreshPrinters()}>
         Refresh daftar printer
       </NeoButton>
@@ -532,7 +562,7 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
               {sampleImage
                 ? `Sample: ${sampleImage.name}`
                 : 'Belum ada foto sample. Preview menampilkan ukuran media.'}{' '}
-              Ukuran media {paperSize === '2r' ? '60 x 90 mm' : '100 x 150 mm'}.
+              Ukuran media 100 x 150 mm (4R).
             </p>
           </div>
 
@@ -542,14 +572,21 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
             </p>
             <div className="grid gap-2 text-sm font-bold">
               <div className="flex justify-between gap-3 border-b-2 border-(--border) pb-2">
-                <span>Printer</span>
+                <span>Printer 4R</span>
                 <span className="max-w-44 truncate text-right">
-                  {printers.find((printer) => printer.name === deviceName)?.displayName ??
+                  {printers.find((printer) => printer.name === deviceName4r)?.displayName ??
                     'Belum dipilih'}
                 </span>
               </div>
               <div className="flex justify-between gap-3 border-b-2 border-(--border) pb-2">
-                <span>Media</span>
+                <span>Printer 2R</span>
+                <span className="max-w-44 truncate text-right">
+                  {printers.find((printer) => printer.name === deviceName2r)?.displayName ??
+                    'Belum dipilih'}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3 border-b-2 border-(--border) pb-2">
+                <span>Media aktif</span>
                 <span>{paperSize.toUpperCase()}</span>
               </div>
               <div className="flex justify-between gap-3 border-b-2 border-(--border) pb-2">
@@ -571,7 +608,10 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
         <NeoButton variant="outlined" onClick={onBack}>
           Kembali
         </NeoButton>
-        <NeoButton disabled={!deviceName || testing} onClick={() => void saveAndTest()}>
+        <NeoButton
+          disabled={!(paperSize === '2r' ? deviceName2r : deviceName4r) || testing}
+          onClick={() => void saveAndTest()}
+        >
           {testing ? 'Mengirim...' : 'Simpan dan Test Print'}
         </NeoButton>
       </div>
@@ -656,7 +696,7 @@ function DnpPresetTest({ onBack }: { onBack: () => void }): JSX.Element {
     setTesting(true)
     setMessage(null)
     try {
-      await window.electron.printer.test(printer.deviceName, {
+      await window.electron.printer.test(getDeviceNameForPaperSize(printer, '4r'), {
         paperSize: '4r',
         copies: 1,
         sampleDataUrl: sample.dataUrl,
