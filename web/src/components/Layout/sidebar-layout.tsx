@@ -91,6 +91,22 @@ function createBreadcrumbItems(
     ];
   }
 
+  if (section === "events" && detail === "create") {
+    return [
+      root,
+      { label: "Events", href: "/admin/events" },
+      { label: "Tambah Event" },
+    ];
+  }
+
+  if (section === "events" && action === "edit") {
+    return [
+      root,
+      { label: "Events", href: "/admin/events" },
+      { label: "Edit Event" },
+    ];
+  }
+
   if (section === "events" && detail) {
     return [
       root,

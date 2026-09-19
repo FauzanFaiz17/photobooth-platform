@@ -1,9 +1,7 @@
 import { CalendarDays, ChevronLeft, ChevronRight, Eye, Plus, RefreshCw, Search } from "lucide-react"
 import { useCallback, useEffect, useState, type FormEvent } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
-import { toast } from "sonner"
 
-import { EventFormDialog } from "@/components/events/event-form-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,7 +9,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Toaster } from "@/components/ui/sonner"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useAuth } from "@/features/auth/auth-context"
 import { getBooths } from "@/features/booths/booth-service"
@@ -57,7 +54,6 @@ export function EventListPage() {
   const [loadState, setLoadState] = useState<"loading" | "success" | "error">("loading")
   const [errorMessage, setErrorMessage] = useState("")
   const [retryKey, setRetryKey] = useState(0)
-  const [createOpen, setCreateOpen] = useState(false)
 
   const updateQuery = useCallback((updates: Readonly<Record<string, string | null>>) => {
     setSearchParams((current) => {
@@ -138,7 +134,7 @@ export function EventListPage() {
     <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div><h1 className="text-2xl font-semibold tracking-tight">Events</h1><p className="mt-1 text-sm text-muted-foreground">Kelola jadwal dan konfigurasi Event setiap Booth.</p></div>
-        <Button onClick={() => setCreateOpen(true)} disabled={loadState !== "success"}><Plus aria-hidden="true" /> Tambah Event</Button>
+        <Button render={<Link to="/admin/events/create" />}><Plus aria-hidden="true" /> Tambah Event</Button>
       </header>
 
       <Card>
@@ -167,8 +163,6 @@ export function EventListPage() {
         </CardContent>
       </Card>
 
-      {createOpen && <EventFormDialog event={null} booths={booths} open onOpenChange={setCreateOpen} onSaved={(saved) => { toast.success(`Event ${saved.event_name} ditambahkan.`); navigate(`/admin/events/${saved.id}`) }} onUnauthorized={() => void handleUnauthorized()} onForbidden={handleForbidden} />}
-      <Toaster position="top-right" />
     </div>
   )
 }
