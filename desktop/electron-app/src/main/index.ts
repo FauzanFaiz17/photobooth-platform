@@ -3,7 +3,7 @@ import { join, dirname } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { spawn, ChildProcess } from 'node:child_process'
 import http from 'node:http'
-import { mkdir, writeFile, readFile, readdir, stat, rename } from 'node:fs/promises'
+import { mkdir, writeFile, readFile, readdir, stat, rename, unlink } from 'node:fs/promises'
 import Store from 'electron-store'
 import icon from '../../resources/icon.png?asset'
 import { registerDeviceIpc } from './ipc/device'
@@ -28,6 +28,22 @@ async function cameraServiceRequest(
     body: body === undefined ? undefined : JSON.stringify(body)
   })
   return (await response.json()) as unknown
+}
+
+/**
+ * Hapus file livephoto yang dihasilkan Canon cameraAPI bersamaan capture.
+ * Dilakukan di background (fire-and-forget) agar tidak memblokir capture.
+ */
+function removeLivePhotoFiles(directory: string): void {
+  readdir(directory)
+    .then((entries) =>
+      Promise.all(
+        entries
+          .filter((name) => /^livephoto/i.test(name))
+          .map((name) => unlink(join(directory, name)).catch(() => undefined))
+      )
+    )
+    .catch(() => undefined)
 }
 
 /** Mencari file capture JPEG terbaru yang muncul di directory setelah sinceMs. */
@@ -223,7 +239,10 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      // Disable CORS untuk allow canvas.captureStream() pada MJPEG stream
+      // dari FastAPI backend (localhost:5000). Aman karena hanya localhost.
+      webSecurity: false
     }
   })
 
@@ -339,6 +358,8 @@ app.whenReady().then(() => {
       if (!capturedPath) {
         throw new Error('File hasil capture Canon tidak ditemukan dalam 8 detik.')
       }
+
+      removeLivePhotoFiles(cameraSaveDir)
 
       let finalPath = capturedPath
       if (options?.filename) {

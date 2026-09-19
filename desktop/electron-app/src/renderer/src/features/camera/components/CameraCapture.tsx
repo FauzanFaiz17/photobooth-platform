@@ -57,6 +57,7 @@ export default function CameraCapture({
   } | null>(null)
 
   const cameraInitializedRef = useRef(false)
+  const capturingRef = useRef(false)
 
   useEffect(() => {
     if (cameraInitializedRef.current) return
@@ -256,53 +257,108 @@ export default function CameraCapture({
 
   const captureFrame = useCallback(
     async (shotIndex: number): Promise<string | null> => {
+      if (capturingRef.current) return null
+      capturingRef.current = true
       console.log(`[Recording] captureFrame called at shotIndex=${shotIndex}`)
       const settings = cameraSettings ?? DEFAULT_CAMERA_SETTINGS
 
-      if (settings.source === 'canon') {
-        // Ambil JPEG asli dari file yang ditulis cameraAPI di folder sesi,
-        // lalu render sekali ke canvas hanya untuk preview/komposisi.
-        const capture = await window.electron.camera.captureCanon({
-          filename: `capture-${String(shotIndex + 1).padStart(2, '0')}.jpg`
-        })
-        const image = new Image()
-        await new Promise<void>((resolve, reject) => {
-          image.onload = () => resolve()
-          image.onerror = () => reject(new Error('Hasil Canon tidak dapat dibaca.'))
-          image.src = capture.dataUrl
-        })
-        const originalWidth = image.naturalWidth
-        const originalHeight = image.naturalHeight
+      try {
+        if (settings.source === 'canon') {
+          // Ambil JPEG asli dari file yang ditulis cameraAPI di folder sesi,
+          // lalu render sekali ke canvas hanya untuk preview/komposisi.
+          const capture = await window.electron.camera.captureCanon({
+            filename: `capture-${String(shotIndex + 1).padStart(2, '0')}.jpg`
+          })
+          const image = new Image()
+          await new Promise<void>((resolve, reject) => {
+            image.onload = () => resolve()
+            image.onerror = () => reject(new Error('Hasil Canon tidak dapat dibaca.'))
+            image.src = capture.dataUrl
+          })
+          const originalWidth = image.naturalWidth
+          const originalHeight = image.naturalHeight
+          const canvas = canvasRef.current
+          if (!canvas) return null
+          const portrait = settings.orientation === 'portrait'
+          canvas.width = portrait ? image.naturalHeight : image.naturalWidth
+          canvas.height = portrait ? image.naturalWidth : image.naturalHeight
+          const context = canvas.getContext('2d')
+          if (!context) return null
+          context.translate(canvas.width / 2, canvas.height / 2)
+          if (portrait) context.rotate(Math.PI / 2)
+          context.scale(settings.mirror ? -1 : 1, 1)
+          context.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2)
+          const captured = canvas.toDataURL('image/png')
+          // Tahan frame terakhir ~350ms agar video memiliki hold pada shot terakhir
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 350))
+          stopRecording()
+          const videoDataUrl = await Promise.race([
+            recordingPromiseRef.current ?? Promise.resolve(null),
+            new Promise<string | null>((resolve) => window.setTimeout(() => resolve(null), 1200))
+          ])
+          const shot: CapturedShot = {
+            id: `${Date.now()}`,
+            dataUrl: captured,
+            width: canvas.width,
+            height: canvas.height,
+            videoDataUrl: videoDataUrl ?? undefined,
+            mirror: settings.mirror,
+            originalDataUrl: capture.dataUrl,
+            originalWidth,
+            originalHeight,
+            savedPath: capture.filePath ?? undefined
+          }
+          setLastCaptured(shot)
+          const priorShots = useSessionStore.getState().shots
+          void composeTemplateImage({
+            shots: [...priorShots, shot],
+            jsonLayout: template.jsonLayout,
+            layout: template.layout,
+            overlayPath: template.overlayPath,
+            frameIndex: undefined
+          })
+            .then((composed) => setReviewImage(composed.dataUrl))
+            .catch(() => setReviewImage(captured))
+          return captured
+        }
+
+        const video = videoRef.current
+
         const canvas = canvasRef.current
-        if (!canvas) return null
+
+        if (!video || !canvas || video.videoWidth === 0) {
+          return null
+        }
+
         const portrait = settings.orientation === 'portrait'
-        canvas.width = portrait ? image.naturalHeight : image.naturalWidth
-        canvas.height = portrait ? image.naturalWidth : image.naturalHeight
-        const context = canvas.getContext('2d')
-        if (!context) return null
-        context.translate(canvas.width / 2, canvas.height / 2)
-        if (portrait) context.rotate(Math.PI / 2)
-        context.scale(settings.mirror ? -1 : 1, 1)
-        context.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2)
-        const captured = canvas.toDataURL('image/png')
+        canvas.width = portrait ? video.videoHeight : video.videoWidth
+        canvas.height = portrait ? video.videoWidth : video.videoHeight
+
+        const ctx = canvas.getContext('2d')
+
+        if (!ctx) {
+          return null
+        }
+
+        ctx.translate(canvas.width / 2, canvas.height / 2)
+        if (portrait) ctx.rotate(Math.PI / 2)
+        ctx.scale(settings.mirror ? -1 : 1, 1)
+        ctx.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2)
+
+        const dataUrl = canvas.toDataURL('image/png')
+
         // Tahan frame terakhir ~350ms agar video memiliki hold pada shot terakhir
         await new Promise<void>((resolve) => window.setTimeout(resolve, 350))
         stopRecording()
-        const videoDataUrl = await Promise.race([
-          recordingPromiseRef.current ?? Promise.resolve(null),
-          new Promise<string | null>((resolve) => window.setTimeout(() => resolve(null), 1200))
-        ])
-        const shot: CapturedShot = {
+        const videoDataUrl = await (recordingPromiseRef.current ?? Promise.resolve(null))
+
+        const shot = {
           id: `${Date.now()}`,
-          dataUrl: captured,
+          dataUrl,
           width: canvas.width,
           height: canvas.height,
           videoDataUrl: videoDataUrl ?? undefined,
-          mirror: settings.mirror,
-          originalDataUrl: capture.dataUrl,
-          originalWidth,
-          originalHeight,
-          savedPath: capture.filePath ?? undefined
+          mirror: settings.mirror
         }
         setLastCaptured(shot)
         const priorShots = useSessionStore.getState().shots
@@ -314,61 +370,12 @@ export default function CameraCapture({
           frameIndex: undefined
         })
           .then((composed) => setReviewImage(composed.dataUrl))
-          .catch(() => setReviewImage(captured))
-        return captured
+          .catch(() => setReviewImage(dataUrl))
+
+        return dataUrl
+      } finally {
+        capturingRef.current = false
       }
-
-      const video = videoRef.current
-
-      const canvas = canvasRef.current
-
-      if (!video || !canvas || video.videoWidth === 0) {
-        return null
-      }
-
-      const portrait = settings.orientation === 'portrait'
-      canvas.width = portrait ? video.videoHeight : video.videoWidth
-      canvas.height = portrait ? video.videoWidth : video.videoHeight
-
-      const ctx = canvas.getContext('2d')
-
-      if (!ctx) {
-        return null
-      }
-
-      ctx.translate(canvas.width / 2, canvas.height / 2)
-      if (portrait) ctx.rotate(Math.PI / 2)
-      ctx.scale(settings.mirror ? -1 : 1, 1)
-      ctx.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2)
-
-      const dataUrl = canvas.toDataURL('image/png')
-
-      // Tahan frame terakhir ~350ms agar video memiliki hold pada shot terakhir
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 350))
-      stopRecording()
-      const videoDataUrl = await (recordingPromiseRef.current ?? Promise.resolve(null))
-
-      const shot = {
-        id: `${Date.now()}`,
-        dataUrl,
-        width: canvas.width,
-        height: canvas.height,
-        videoDataUrl: videoDataUrl ?? undefined,
-        mirror: settings.mirror
-      }
-      setLastCaptured(shot)
-      const priorShots = useSessionStore.getState().shots
-      void composeTemplateImage({
-        shots: [...priorShots, shot],
-        jsonLayout: template.jsonLayout,
-        layout: template.layout,
-        overlayPath: template.overlayPath,
-        frameIndex: undefined
-      })
-        .then((composed) => setReviewImage(composed.dataUrl))
-        .catch(() => setReviewImage(dataUrl))
-
-      return dataUrl
     },
     [cameraSettings, template, videoRef, stopRecording]
   )
@@ -479,6 +486,7 @@ export default function CameraCapture({
           <img
             ref={mjpegImgRef}
             src={`${CAMERA_API_URL}/video_feed`}
+            crossOrigin="anonymous"
             alt="Live preview Canon"
             className={`absolute inset-0 h-full w-full object-cover ${cameraSettings.mirror ? '-scale-x-100' : ''}`}
           />

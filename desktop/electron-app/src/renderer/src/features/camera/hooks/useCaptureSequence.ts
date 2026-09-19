@@ -54,6 +54,8 @@ export function useCaptureSequence({
     }
   }, [])
 
+  const captureInProgressRef = useRef(false)
+
   useEffect(() => {
     tickRef.current = (secondsLeft: number): void => {
       console.log(`[Countdown] tick: secondsLeft=${secondsLeft}`)
@@ -62,12 +64,13 @@ export function useCaptureSequence({
       if (secondsLeft <= 0) {
         setStage('flash')
 
+        if (captureInProgressRef.current) return
+        captureInProgressRef.current = true
+
         void Promise.resolve(onCapture(currentShotIndexRef.current))
           .then((captured) => {
+            captureInProgressRef.current = false
             if (!captured) {
-              // Capture gagal (mis. kamera tidak menghasilkan file). Kembali
-              // ke idle agar operator bisa mencoba lagi — index shot tidak
-              // direset sehingga tidak mengulang dari foto pertama.
               setStage('idle')
               return
             }
@@ -76,7 +79,10 @@ export function useCaptureSequence({
               setStage('review')
             }, 350)
           })
-          .catch(() => setStage('idle'))
+          .catch(() => {
+            captureInProgressRef.current = false
+            setStage('idle')
+          })
 
         return
       }
@@ -89,6 +95,7 @@ export function useCaptureSequence({
 
   const start = useCallback((): void => {
     clearPendingTimeout()
+    captureInProgressRef.current = false
 
     // Lanjutkan dari shot berikutnya yang belum diambil. Memanggil start() lagi
     // (mis. setelah capture gagal dan stage kembali ke idle) tidak boleh
