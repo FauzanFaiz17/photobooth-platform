@@ -705,23 +705,26 @@ export function FrameCreatePage(): ReactElement {
     setErrors((current) => ({ ...current, slots: undefined }));
   }
 
-  function updateSlot(slotId: number, updates: Partial<Omit<PhotoSlot, "id">>) {
-    setSlots((current) =>
-      current.map((slot) => {
-        if (slot.id !== slotId) return slot;
-        const next = { ...slot, ...updates };
-        const width = clamp(next.width, 10, canvasSize.width);
-        const height = clamp(next.height, 10, canvasSize.height);
-        return {
-          ...next,
-          width,
-          height,
-          x: clamp(next.x, 0, canvasSize.width - width),
-          y: clamp(next.y, 0, canvasSize.height - height),
-        };
-      }),
-    );
-  }
+  const updateSlot = useCallback(
+    (slotId: number, updates: Partial<Omit<PhotoSlot, "id">>) => {
+      setSlots((current) =>
+        current.map((slot) => {
+          if (slot.id !== slotId) return slot;
+          const next = { ...slot, ...updates };
+          const width = clamp(next.width, 10, canvasSize.width);
+          const height = clamp(next.height, 10, canvasSize.height);
+          return {
+            ...next,
+            width,
+            height,
+            x: clamp(next.x, 0, canvasSize.width - width),
+            y: clamp(next.y, 0, canvasSize.height - height),
+          };
+        }),
+      );
+    },
+    [canvasSize.height, canvasSize.width],
+  );
 
   /** Salinan digeser sedikit supaya slot aslinya masih bisa diklik di canvas. */
   const duplicateSlot = useCallback((source: PhotoSlot): void => {
@@ -739,9 +742,8 @@ export function FrameCreatePage(): ReactElement {
   }, [canvasHeight, canvasWidth]);
 
   useEffect(() => {
-    function handleClipboardShortcut(event: KeyboardEvent): void {
+    function handleEditorShortcut(event: KeyboardEvent): void {
       if (mode !== "edit") return;
-      if (!(event.ctrlKey || event.metaKey)) return;
       const target = event.target;
       if (
         target instanceof HTMLElement &&
@@ -752,6 +754,29 @@ export function FrameCreatePage(): ReactElement {
       )
         return;
 
+      /** Slot terpilih digeser dengan tombol panah; Shift untuk langkah 10 px. */
+      const nudge = event.shiftKey ? 10 : 1;
+      const delta =
+        event.key === "ArrowUp"
+          ? { x: 0, y: -nudge }
+          : event.key === "ArrowDown"
+            ? { x: 0, y: nudge }
+            : event.key === "ArrowLeft"
+              ? { x: -nudge, y: 0 }
+              : event.key === "ArrowRight"
+                ? { x: nudge, y: 0 }
+                : null;
+      if (delta) {
+        if (!selectedSlot) return;
+        event.preventDefault();
+        updateSlot(selectedSlot.id, {
+          x: selectedSlot.x + delta.x,
+          y: selectedSlot.y + delta.y,
+        });
+        return;
+      }
+
+      if (!(event.ctrlKey || event.metaKey)) return;
       const key = event.key.toLowerCase();
       if (key === "c" && selectedSlot) {
         event.preventDefault();
@@ -762,9 +787,9 @@ export function FrameCreatePage(): ReactElement {
       }
     }
 
-    window.addEventListener("keydown", handleClipboardShortcut);
-    return () => window.removeEventListener("keydown", handleClipboardShortcut);
-  }, [duplicateSlot, mode, selectedSlot]);
+    window.addEventListener("keydown", handleEditorShortcut);
+    return () => window.removeEventListener("keydown", handleEditorShortcut);
+  }, [duplicateSlot, mode, selectedSlot, updateSlot]);
 
   function removeSlot(slotId: number) {
     setSlots((current) => current.filter((slot) => slot.id !== slotId));
@@ -956,7 +981,7 @@ export function FrameCreatePage(): ReactElement {
 
   if (loadState === "loading") {
     return (
-      <div className="grid min-h-96 place-items-center">
+      <div className="grid h-screen place-items-center">
         <LoaderCircle
           className="size-8 animate-spin text-muted-foreground"
           aria-label="Memuat Frame"
@@ -967,7 +992,7 @@ export function FrameCreatePage(): ReactElement {
 
   if (loadState === "error") {
     return (
-      <div className="grid min-h-96 place-items-center p-6 text-center">
+      <div className="grid h-screen place-items-center p-6 text-center">
         <div>
           <p className="font-medium">Frame tidak dapat dimuat</p>
           <p className="mt-1 text-sm text-muted-foreground">{formError}</p>
@@ -986,31 +1011,65 @@ export function FrameCreatePage(): ReactElement {
 
   return (
     <form
-      className="min-w-0 space-y-5 p-4 sm:p-6 lg:p-8"
+      className="flex h-screen min-w-0 flex-col overflow-hidden bg-muted/40"
       onSubmit={(event) => void handleSubmit(event)}
       noValidate
     >
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-start gap-3">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b bg-background px-3">
+        <div className="flex min-w-0 items-center gap-2">
           <Button
             type="button"
             size="icon"
-            variant="outline"
+            variant="ghost"
             aria-label="Kembali ke daftar Frame"
+            title="Kembali ke daftar Frame"
             onClick={() => navigate("/frame-photo")}
           >
             <ArrowLeft aria-hidden="true" />
           </Button>
-          <div>
-            <h1 className="text-2xl font-semibold">
-              {editing ? "Edit Frame" : "Frame Baru"}
+          <div className="min-w-0">
+            <h1 className="truncate text-sm font-semibold">
+              {name.trim() || (editing ? "Edit Frame" : "Frame Baru")}
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Atur ukuran dan posisi slot foto tanpa menulis JSON.
+            <p className="truncate text-xs text-muted-foreground">
+              {FRAME_SIZES[size].label} · {canvasSize.width} x{" "}
+              {canvasSize.height} px
             </p>
           </div>
+          <Badge variant="outline">{status}</Badge>
+          {selectedSlot && mode === "edit" && (
+            <Badge variant="secondary">
+              Slot {slots.findIndex((slot) => slot.id === selectedSlot.id) + 1}
+            </Badge>
+          )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 items-center gap-2">
+          <label className="hidden items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs font-medium sm:flex">
+            <span>{canvasDark ? "Background hitam" : "Background putih"}</span>
+            <Switch
+              checked={canvasDark}
+              onCheckedChange={setCanvasDark}
+              aria-label="Ganti background canvas"
+            />
+          </label>
+          <div className="flex rounded-md border p-0.5">
+            <Button
+              type="button"
+              size="sm"
+              variant={mode === "edit" ? "secondary" : "ghost"}
+              onClick={() => setMode("edit")}
+            >
+              <Pencil aria-hidden="true" /> Edit
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={mode === "preview" ? "secondary" : "ghost"}
+              onClick={() => setMode("preview")}
+            >
+              <Eye aria-hidden="true" /> Preview
+            </Button>
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -1035,87 +1094,39 @@ export function FrameCreatePage(): ReactElement {
 
       <div
         className={cn(
-          "grid items-start gap-5",
-          mode === "edit" && "xl:grid-cols-[minmax(0,1fr)_20rem]",
+          "grid min-h-0 flex-1 overflow-hidden max-lg:block max-lg:overflow-y-auto",
+          mode === "edit" && "lg:grid-cols-[minmax(0,1fr)_20rem]",
         )}
       >
-        <Card>
-          <CardHeader className="border-b">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <CardTitle>
-                  {mode === "edit" ? "Editor Slot Foto" : "Preview Frame"}
-                </CardTitle>
-                <CardDescription>
-                  {mode === "edit"
-                    ? "Tarik slot untuk mengatur posisi pada canvas."
-                    : "Preview menggunakan koordinat yang sama dengan hasil Electron."}
-                </CardDescription>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <div className="flex rounded-md border p-1">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={mode === "edit" ? "secondary" : "ghost"}
-                    onClick={() => setMode("edit")}
-                  >
-                    <Pencil aria-hidden="true" /> Edit
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={mode === "preview" ? "secondary" : "ghost"}
-                    onClick={() => setMode("preview")}
-                  >
-                    <Eye aria-hidden="true" /> Preview
-                  </Button>
-                </div>
-                <label className="flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium">
-                  <span>{canvasDark ? "Background hitam" : "Background putih"}</span>
-                  <Switch
-                    checked={canvasDark}
-                    onCheckedChange={setCanvasDark}
-                    aria-label="Ganti background canvas"
-                  />
-                </label>
-                {mode === "edit" && (
-                  <Button
-                    type="button"
-                    onClick={addSlot}
-                    disabled={!overlayUrl}
-                    title={overlayUrl ? undefined : "Unggah PNG frame dulu"}
-                  >
-                    <Plus aria-hidden="true" /> Tambah Foto
-                  </Button>
-                )}
-              </div>
+        <section className="flex min-h-0 flex-col overflow-hidden max-lg:h-[70vh]">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-background px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">{size}</Badge>
+              <span className="text-xs text-muted-foreground">
+                {canvasSize.width} x {canvasSize.height} px · {slots.length} slot
+                foto
+                {selectedSlot && mode === "edit"
+                  ? " · geser dengan tombol panah (Shift = 10 px)"
+                  : ""}
+              </span>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{size}</Badge>
-                <span className="text-xs text-muted-foreground">
-                  {canvasSize.width} x {canvasSize.height} px
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{slots.length} slot foto</span>
-                {selectedSlot && mode === "edit" && (
-                  <Badge variant="outline">
-                    Slot{" "}
-                    {slots.findIndex((slot) => slot.id === selectedSlot.id) + 1}{" "}
-                    dipilih
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <div className="grid min-h-136 place-items-center overflow-hidden rounded-md border bg-zinc-100 p-5 dark:bg-zinc-950 sm:p-10">
-              <div
-                ref={canvasAreaRef}
-                className="grid w-full place-items-center"
+            {mode === "edit" && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={addSlot}
+                disabled={!overlayUrl}
+                title={overlayUrl ? undefined : "Unggah PNG frame dulu"}
               >
+                <Plus aria-hidden="true" /> Tambah Foto
+              </Button>
+            )}
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto bg-zinc-100 p-6 dark:bg-zinc-950">
+            <div
+              ref={canvasAreaRef}
+              className="grid min-h-full w-full place-items-center"
+            >
               {mode === "edit" ? (
                 <div
                   className={cn(
@@ -1226,16 +1237,17 @@ export function FrameCreatePage(): ReactElement {
                   </div>
                 </div>
               )}
-              </div>
             </div>
-            {errors.slots && (
-              <p className="text-sm text-destructive">{errors.slots}</p>
-            )}
-          </CardContent>
-        </Card>
+          </div>
+          {errors.slots && (
+            <p className="shrink-0 border-t bg-background px-3 py-2 text-sm text-destructive">
+              {errors.slots}
+            </p>
+          )}
+        </section>
 
         {mode === "edit" && (
-          <div className="space-y-5">
+          <div className="min-h-0 space-y-4 overflow-y-auto bg-background p-4 max-lg:border-t lg:border-l">
             <Card>
               <CardHeader>
                 <CardTitle>Pengaturan Frame</CardTitle>

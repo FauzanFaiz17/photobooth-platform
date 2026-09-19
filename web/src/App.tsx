@@ -18,6 +18,7 @@ const KioskBoothDetailPage = lazy(
 const BoothDetailPage = lazy(() => import("./pages/BoothDetailPage"))
 const EventPage = lazy(() => import("./pages/EventPage"))
 const EventDetailPage = lazy(() => import("./pages/EventDetailPage"))
+const EventFormPage = lazy(() => import("./pages/EventFormPage"))
 const GalleryPage = lazy(() => import("./pages/GalleryPage"))
 const StatisticsPage = lazy(() => import("./pages/StatisticsPage"))
 const TransactionsPage = lazy(() => import("./pages/TransactionsPage"))
@@ -110,10 +111,26 @@ function App() {
             }
           />
           <Route
+            path="events/create"
+            element={
+              <Suspense fallback={<OverviewPageFallback />}>
+                <EventFormPage />
+              </Suspense>
+            }
+          />
+          <Route
             path="events/:eventId"
             element={
               <Suspense fallback={<OverviewPageFallback />}>
                 <EventDetailPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="events/:eventId/edit"
+            element={
+              <Suspense fallback={<OverviewPageFallback />}>
+                <EventFormPage />
               </Suspense>
             }
           />
@@ -233,23 +250,24 @@ function App() {
               </Suspense>
             }
           />
-          <Route
-            path="create"
-            element={
-              <Suspense fallback={<OverviewPageFallback />}>
-                <FrameCreatePage />
-              </Suspense>
-            }
-          />
-          <Route
-            path=":frameId/edit"
-            element={
-              <Suspense fallback={<OverviewPageFallback />}>
-                <FrameCreatePage />
-              </Suspense>
-            }
-          />
         </Route>
+        {/* Editor Frame tampil layar penuh, di luar sidebar. */}
+        <Route
+          path="/frame-photo/create"
+          element={
+            <Suspense fallback={<OverviewPageFallback />}>
+              <FrameCreatePage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/frame-photo/:frameId/edit"
+          element={
+            <Suspense fallback={<OverviewPageFallback />}>
+              <FrameCreatePage />
+            </Suspense>
+          }
+        />
         <Route path="/frame" element={<SidebarLayout />}>
           <Route
             index

@@ -176,6 +176,8 @@ export interface EventConfigurationOption {
   id: number
   name: string
   is_global: boolean
+  /** Signed URL asset (hanya tersedia untuk Template). */
+  image_url?: string | null
 }
 
 export interface EventConfigurationOptions {

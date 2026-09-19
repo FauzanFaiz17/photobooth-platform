@@ -65,7 +65,14 @@ function parseConfigurationOptions(payload: unknown, nameField: "name" | "printe
     if (typeof record.id !== "number" || typeof record[nameField] !== "string" || typeof record.is_global !== "boolean") {
       throw new ApiError("Format konfigurasi Event dari server tidak sesuai.", 500)
     }
-    return { id: record.id, name: record[nameField], is_global: record.is_global }
+    // Preview/PNG Template dibalas sebagai signed URL; Filter dan profile tidak punya asset.
+    const imageUrl = record.preview_url ?? record.png_url ?? record.thumbnail_url
+    return {
+      id: record.id,
+      name: record[nameField],
+      is_global: record.is_global,
+      image_url: typeof imageUrl === "string" ? imageUrl : null,
+    }
   })
 }
 

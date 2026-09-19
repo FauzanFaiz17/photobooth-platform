@@ -4,7 +4,6 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { EventDeleteDialog } from "@/components/events/event-delete-dialog"
-import { EventFormDialog } from "@/components/events/event-form-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -56,7 +55,6 @@ export function EventDetailPage() {
   const [loadState, setLoadState] = useState<"loading" | "success" | "not-found" | "error">("loading")
   const [errorMessage, setErrorMessage] = useState("")
   const [retryKey, setRetryKey] = useState(0)
-  const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   const handleUnauthorized = useCallback(async () => {
@@ -108,7 +106,7 @@ export function EventDetailPage() {
         <>
           <header className="space-y-5">
             <Button variant="ghost" className="-ml-2" render={<Link to="/admin/events" />}><ArrowLeft aria-hidden="true" /> Daftar Event</Button>
-            <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="font-mono text-sm text-muted-foreground">{event.event_code}</p><h1 className="mt-1 text-3xl font-semibold tracking-tight">{event.event_name}</h1></div><div className="flex gap-2"><Button variant="outline" onClick={() => setEditOpen(true)}><Pencil aria-hidden="true" /> Edit</Button><Button variant="destructive" onClick={() => setDeleteOpen(true)}><Trash2 aria-hidden="true" /> Hapus</Button></div></div>
+            <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="font-mono text-sm text-muted-foreground">{event.event_code}</p><h1 className="mt-1 text-3xl font-semibold tracking-tight">{event.event_name}</h1></div><div className="flex gap-2"><Button variant="outline" render={<Link to={`/admin/events/${event.id}/edit`} />}><Pencil aria-hidden="true" /> Edit</Button><Button variant="destructive" onClick={() => setDeleteOpen(true)}><Trash2 aria-hidden="true" /> Hapus</Button></div></div>
           </header>
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -120,7 +118,6 @@ export function EventDetailPage() {
 
           <Card><CardHeader><CardTitle>Paket cetak</CardTitle><CardDescription>Pilihan jumlah dan harga cetak yang tersedia untuk Event ini.</CardDescription></CardHeader><CardContent>{(event.configuration.print_options ?? []).length === 0 ? <p className="text-sm text-muted-foreground">Event ini belum memiliki paket cetak.</p> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{(event.configuration.print_options ?? []).map((option) => <div key={option.id} className="rounded-md border p-4"><div className="flex items-center justify-between gap-3"><p className="font-semibold">{option.paper_size.toUpperCase()}</p><Badge variant={option.is_active ? "default" : "secondary"}>{option.is_active ? "Aktif" : "Nonaktif"}</Badge></div><p className="mt-3 text-lg font-semibold">{formatPrice(option.price)}</p><p className="mt-1 text-sm text-muted-foreground">{option.unit_quantity} cetak dasar · tambah per {option.quantity_step}</p></div>)}</div>}</CardContent></Card>
 
-          {editOpen && <EventFormDialog event={event} booths={[]} open onOpenChange={setEditOpen} onSaved={(saved) => { setEvent(saved); toast.success(`Event ${saved.event_name} diperbarui.`) }} onUnauthorized={() => void handleUnauthorized()} onForbidden={handleForbidden} />}
           {deleteOpen && <EventDeleteDialog event={event} open onOpenChange={setDeleteOpen} onDeleted={() => { toast.success(`Event ${event.event_name} dihapus.`); navigate("/admin/events", { replace: true }) }} onUnauthorized={() => void handleUnauthorized()} onForbidden={handleForbidden} />}
         </>
       )}

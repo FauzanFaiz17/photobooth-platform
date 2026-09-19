@@ -1,16 +1,28 @@
-import { LoaderCircle, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
-
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ArrowLeft,
+  CalendarX,
+  CircleAlert,
+  Frame as FrameIcon,
+  ImageOff,
+  LoaderCircle,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type FormEvent,
+  type ReactElement,
+} from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -20,10 +32,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { BoothRecord } from "@/features/booths/booth.types";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Toaster } from "@/components/ui/sonner";
 import { useAuth } from "@/features/auth/auth-context";
+import { getBooths } from "@/features/booths/booth-service";
+import type { BoothRecord } from "@/features/booths/booth.types";
 import {
   createEvent,
+  getEvent,
   getEventConfigurationOptions,
   updateEvent,
 } from "@/features/events/event-service";
@@ -34,6 +50,7 @@ import type {
   EventStatus,
 } from "@/features/events/event.types";
 import { ApiError } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 
 interface EventFormState {
   booth_id: string;
@@ -290,25 +307,187 @@ function ConfigurationChecklist({
   );
 }
 
-export function EventFormDialog({
-  event,
-  booths,
-  open,
-  onOpenChange,
-  onSaved,
-  onUnauthorized,
-  onForbidden,
+/** Kartu pilihan Frame: gambar jadi patokan utama, bukan hanya namanya. */
+function FrameOptionCard({
+  option,
+  selected,
+  isDefault,
+  onToggle,
+  onExpired,
 }: {
-  readonly event: EventRecord | null;
-  readonly booths: ReadonlyArray<BoothRecord>;
-  readonly open: boolean;
-  readonly onOpenChange: (open: boolean) => void;
-  readonly onSaved: (event: EventRecord, isNew: boolean) => void;
-  readonly onUnauthorized: () => void;
-  readonly onForbidden: () => void;
+  readonly option: EventConfigurationOption;
+  readonly selected: boolean;
+  readonly isDefault: boolean;
+  readonly onToggle: () => void;
+  readonly onExpired: () => void;
 }) {
-  const { token } = useAuth();
-  const [form, setForm] = useState<EventFormState>(() => initialForm(event));
+  const [broken, setBroken] = useState(false);
+
+  return (
+    <div
+      role="checkbox"
+      aria-checked={selected}
+      aria-label={`Frame ${option.name}`}
+      tabIndex={0}
+      onClick={onToggle}
+      onKeyDown={(keyEvent) => {
+        if (keyEvent.key === " " || keyEvent.key === "Enter") {
+          keyEvent.preventDefault();
+          onToggle();
+        }
+      }}
+      className={cn(
+        "group relative cursor-pointer overflow-hidden rounded-lg border bg-background outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50",
+        selected
+          ? "border-primary ring-2 ring-primary/30"
+          : "hover:border-primary/40",
+      )}
+    >
+      <div
+        className="relative aspect-[4/3] w-full overflow-hidden"
+        style={{
+          backgroundImage:
+            "repeating-conic-gradient(rgba(0,0,0,0.06) 0% 25%, transparent 0% 50%)",
+          backgroundSize: "16px 16px",
+        }}
+      >
+        {option.image_url && !broken ? (
+          <img
+            src={option.image_url}
+            alt={`Frame ${option.name}`}
+            loading="lazy"
+            className="absolute inset-0 size-full object-contain p-3"
+            onError={() => setBroken(true)}
+          />
+        ) : (
+          <div className="absolute inset-0 grid place-items-center gap-2 p-3 text-center">
+            {broken ? (
+              <ImageOff className="size-6 text-muted-foreground" />
+            ) : (
+              <FrameIcon className="size-8 text-muted-foreground" />
+            )}
+            {broken && (
+              <button
+                type="button"
+                className="text-xs font-medium text-primary underline"
+                onClick={(clickEvent) => {
+                  clickEvent.stopPropagation();
+                  onExpired();
+                }}
+              >
+                <RefreshCw className="mr-1 inline size-3" aria-hidden="true" />
+                Muat ulang
+              </button>
+            )}
+          </div>
+        )}
+        <Checkbox
+          checked={selected}
+          tabIndex={-1}
+          aria-hidden="true"
+          onCheckedChange={onToggle}
+          className="pointer-events-none absolute left-2 top-2 bg-background"
+        />
+        {isDefault && (
+          <Badge className="absolute right-2 top-2" variant="secondary">
+            Default
+          </Badge>
+        )}
+      </div>
+      <div className="flex min-w-0 items-center gap-2 border-t px-3 py-2">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium" title={option.name}>
+          {option.name}
+        </span>
+        {option.is_global && <Badge variant="outline">Global</Badge>}
+      </div>
+    </div>
+  );
+}
+
+function FrameChecklist({
+  options,
+  values,
+  error,
+  onChange,
+  onExpired,
+}: {
+  readonly options: ReadonlyArray<EventConfigurationOption>;
+  readonly values: ReadonlyArray<string>;
+  readonly error?: string;
+  readonly onChange: (values: ReadonlyArray<string>) => void;
+  readonly onExpired: () => void;
+}) {
+  function toggle(value: string, checked: boolean) {
+    onChange(
+      checked ? [...values, value] : values.filter((item) => item !== value),
+    );
+  }
+
+  const allSelected = options.length > 0 && values.length === options.length;
+  const partiallySelected = values.length > 0 && !allSelected;
+
+  return (
+    <fieldset className="grid gap-3" aria-invalid={Boolean(error)}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <label className="flex cursor-pointer items-center gap-3 text-sm font-medium">
+          <Checkbox
+            checked={allSelected}
+            indeterminate={partiallySelected}
+            onCheckedChange={(checked) =>
+              onChange(
+                checked ? options.map((option) => String(option.id)) : [],
+              )
+            }
+          />
+          <span>Pilih semua ({options.length} Frame)</span>
+        </label>
+        <p className="text-xs text-muted-foreground">
+          Pilihan pertama menjadi Frame default.
+        </p>
+      </div>
+      <div className="grid max-h-96 gap-3 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-4">
+        {options.map((option) => {
+          const value = String(option.id);
+          const selected = values.includes(value);
+          return (
+            <FrameOptionCard
+              key={`${option.id}-${option.image_url ?? "none"}`}
+              option={option}
+              selected={selected}
+              isDefault={values[0] === value}
+              onToggle={() => toggle(value, !selected)}
+              onExpired={onExpired}
+            />
+          );
+        })}
+      </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </fieldset>
+  );
+}
+
+function parseId(value: string | undefined): number | null {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+export function EventFormPage(): ReactElement {
+  const { eventId: eventIdParam } = useParams<{ eventId: string }>();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { token, logout } = useAuth();
+  const editing = eventIdParam !== undefined;
+  const eventId = editing ? parseId(eventIdParam) : null;
+  const invalidEventId = editing && eventId === null;
+  const [event, setEvent] = useState<EventRecord | null>(null);
+  const [booths, setBooths] = useState<ReadonlyArray<BoothRecord>>([]);
+  const [loadState, setLoadState] = useState<
+    "loading" | "ready" | "not-found" | "error"
+  >("loading");
+  const [loadError, setLoadError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
+  const [optionsRetryKey, setOptionsRetryKey] = useState(0);
+  const [form, setForm] = useState<EventFormState>(() => initialForm(null));
   const [errors, setErrors] = useState<EventFormErrors>({});
   const [printOptionErrors, setPrintOptionErrors] = useState<PrintOptionErrors>(
     {},
@@ -328,6 +507,68 @@ export function EventFormDialog({
   const selectedBooth = booths.find(
     (booth) => String(booth.id) === form.booth_id,
   );
+
+  const handleUnauthorized = useCallback(async () => {
+    await logout();
+    navigate("/login", { replace: true, state: { from: location } });
+  }, [location, logout, navigate]);
+
+  const handleForbidden = useCallback(() => {
+    navigate("/admin/forbidden", {
+      replace: true,
+      state: { from: location.pathname },
+    });
+  }, [location.pathname, navigate]);
+
+  /** Booth (untuk create) dan Event (untuk edit) dimuat di halaman, bukan diwarisi dari dialog. */
+  useEffect(() => {
+    if (!token || invalidEventId) return;
+    const controller = new AbortController();
+    const eventRequest =
+      eventId === null
+        ? Promise.resolve(null)
+        : getEvent(token, eventId, controller.signal);
+    const boothsRequest = editing
+      ? Promise.resolve(null)
+      : getBooths(token, { per_page: 100 }, controller.signal);
+
+    void Promise.all([eventRequest, boothsRequest])
+      .then(([loadedEvent, boothsResponse]) => {
+        if (controller.signal.aborted) return;
+        if (boothsResponse) setBooths(boothsResponse.data);
+        if (loadedEvent) {
+          setEvent(loadedEvent);
+          setForm(initialForm(loadedEvent));
+          setConfigurationState("success");
+        }
+        setLoadState("ready");
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        if (error instanceof ApiError && error.status === 401)
+          return void handleUnauthorized();
+        if (error instanceof ApiError && error.status === 403)
+          return handleForbidden();
+        if (error instanceof ApiError && error.status === 404)
+          return setLoadState("not-found");
+        setLoadError(
+          error instanceof ApiError
+            ? error.message
+            : "Data Event tidak dapat dimuat.",
+        );
+        setLoadState("error");
+      });
+
+    return () => controller.abort();
+  }, [
+    editing,
+    eventId,
+    handleForbidden,
+    handleUnauthorized,
+    invalidEventId,
+    retryKey,
+    token,
+  ]);
 
   useEffect(() => {
     if (event || !token || !selectedBooth) return;
@@ -350,9 +591,9 @@ export function EventFormDialog({
       } catch (error: unknown) {
         if (controller.signal.aborted) return;
         if (error instanceof ApiError && error.status === 401)
-          return onUnauthorized();
+          return void handleUnauthorized();
         if (error instanceof ApiError && error.status === 403)
-          return onForbidden();
+          return handleForbidden();
         setConfigurationState("error");
         setFormError(
           error instanceof ApiError
@@ -365,7 +606,14 @@ export function EventFormDialog({
     void loadOptions();
 
     return () => controller.abort();
-  }, [event, onForbidden, onUnauthorized, selectedBooth, token]);
+  }, [
+    event,
+    handleForbidden,
+    handleUnauthorized,
+    optionsRetryKey,
+    selectedBooth,
+    token,
+  ]);
 
   function updateField<Field extends keyof EventFormState>(
     field: Field,
@@ -479,13 +727,18 @@ export function EventFormDialog({
             status: form.status === "scheduled" ? "scheduled" : "draft",
           });
 
-      onSaved(saved, event === null);
-      onOpenChange(false);
+      toast.success(
+        event
+          ? `Event ${saved.event_name} diperbarui.`
+          : `Event ${saved.event_name} ditambahkan.`,
+      );
+      if (event) setEvent(saved);
+      else navigate(`/admin/events/${saved.id}`, { replace: true });
     } catch (error: unknown) {
       if (error instanceof ApiError && error.status === 401)
-        return onUnauthorized();
+        return void handleUnauthorized();
       if (error instanceof ApiError && error.status === 403)
-        return onForbidden();
+        return handleForbidden();
       if (error instanceof ApiError && error.status === 422) {
         const fieldErrors = mapValidationErrors(error);
         setErrors(fieldErrors);
@@ -512,23 +765,92 @@ export function EventFormDialog({
     configurationState === "success" &&
     Object.values(options).some((items) => items.length === 0);
 
+  if (loadState === "loading")
+    return (
+      <div className="space-y-4 p-4 sm:p-6 lg:p-8" aria-busy>
+        <Skeleton className="h-9 w-36" />
+        <Skeleton className="h-12 w-72" />
+        <Skeleton className="h-96 w-full rounded-xl" />
+      </div>
+    );
+
+  if (invalidEventId || loadState === "not-found")
+    return (
+      <div className="p-4 sm:p-6 lg:p-8">
+        <Card>
+          <CardContent className="grid min-h-72 place-items-center text-center">
+            <div>
+              <CalendarX className="mx-auto size-10 text-muted-foreground" />
+              <h1 className="mt-4 text-xl font-semibold">
+                Event tidak ditemukan
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Event sudah dihapus atau tidak tersedia untuk akun Anda.
+              </p>
+              <Button
+                className="mt-4"
+                variant="outline"
+                render={<Link to="/admin/events" />}
+              >
+                <ArrowLeft aria-hidden="true" /> Daftar Event
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+
+  if (loadState === "error")
+    return (
+      <div className="p-4 sm:p-6 lg:p-8">
+        <Card>
+          <CardContent className="grid min-h-72 place-items-center text-center">
+            <div>
+              <CircleAlert className="mx-auto size-10 text-destructive" />
+              <h1 className="mt-4 text-xl font-semibold">
+                Form Event gagal dimuat
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">{loadError}</p>
+              <Button
+                className="mt-4"
+                variant="outline"
+                onClick={() => setRetryKey((value) => value + 1)}
+              >
+                <RefreshCw aria-hidden="true" /> Coba lagi
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+
   return (
-    <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{event ? "Edit Event" : "Tambah Event"}</DialogTitle>
-          <DialogDescription>
+    <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
+      <header className="space-y-5">
+        <Button
+          variant="ghost"
+          className="-ml-2"
+          render={<Link to="/admin/events" />}
+        >
+          <ArrowLeft aria-hidden="true" /> Daftar Event
+        </Button>
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {event ? "Edit Event" : "Tambah Event"}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             {event
               ? "Konfigurasi snapshot tidak berubah saat jadwal Event diedit."
-              : "Pilih Booth dan konfigurasi yang akan disalin menjadi snapshot Event."}
-          </DialogDescription>
-        </DialogHeader>
+              : "Pilih Booth, Frame, dan konfigurasi yang akan disalin menjadi snapshot Event."}
+          </p>
+        </div>
+      </header>
 
-        <form
-          className="grid gap-4"
-          onSubmit={(submitEvent) => void handleSubmit(submitEvent)}
-          noValidate
-        >
+      <form
+        className="grid max-w-6xl gap-4"
+        onSubmit={(submitEvent) => void handleSubmit(submitEvent)}
+        noValidate
+      >
           {!event && (
             <div className="grid gap-2">
               <Label htmlFor="event-booth">Booth</Label>
@@ -582,37 +904,39 @@ export function EventFormDialog({
           )}
 
           {!event && configurationState === "success" && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <ConfigurationChecklist
-                label="Frame"
-                values={form.template_ids}
+            <div className="grid gap-6">
+              <FrameChecklist
                 options={options.templates}
+                values={form.template_ids}
                 error={errors.template_ids}
                 onChange={(values) => updateField("template_ids", values)}
+                onExpired={() => setOptionsRetryKey((value) => value + 1)}
               />
-              <ConfigurationChecklist
-                label="Filter"
-                values={form.filter_ids}
-                options={options.filters}
-                error={errors.filter_ids}
-                onChange={(values) => updateField("filter_ids", values)}
-              />
-              <ConfigurationSelect
-                id="event-camera"
-                label="Camera Profile"
-                value={form.camera_profile_id}
-                options={options.cameras}
-                error={errors.camera_profile_id}
-                onChange={(value) => updateField("camera_profile_id", value)}
-              />
-              <ConfigurationSelect
-                id="event-printer"
-                label="Printer Profile"
-                value={form.printer_profile_id}
-                options={options.printers}
-                error={errors.printer_profile_id}
-                onChange={(value) => updateField("printer_profile_id", value)}
-              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <ConfigurationChecklist
+                  label="Filter"
+                  values={form.filter_ids}
+                  options={options.filters}
+                  error={errors.filter_ids}
+                  onChange={(values) => updateField("filter_ids", values)}
+                />
+                <ConfigurationSelect
+                  id="event-camera"
+                  label="Camera Profile"
+                  value={form.camera_profile_id}
+                  options={options.cameras}
+                  error={errors.camera_profile_id}
+                  onChange={(value) => updateField("camera_profile_id", value)}
+                />
+                <ConfigurationSelect
+                  id="event-printer"
+                  label="Printer Profile"
+                  value={form.printer_profile_id}
+                  options={options.printers}
+                  error={errors.printer_profile_id}
+                  onChange={(value) => updateField("printer_profile_id", value)}
+                />
+              </div>
             </div>
           )}
 
@@ -888,12 +1212,14 @@ export function EventFormDialog({
             </p>
           )}
 
-          <DialogFooter>
+          <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
             <Button
               type="button"
               variant="outline"
               disabled={pending}
-              onClick={() => onOpenChange(false)}
+              onClick={() =>
+                navigate(event ? `/admin/events/${event.id}` : "/admin/events")
+              }
             >
               Batal
             </Button>
@@ -910,9 +1236,10 @@ export function EventFormDialog({
               )}
               {event ? "Simpan perubahan" : "Tambah Event"}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
-      </DialogContent>
-    </Dialog>
+
+      <Toaster position="top-right" />
+    </div>
   );
 }
