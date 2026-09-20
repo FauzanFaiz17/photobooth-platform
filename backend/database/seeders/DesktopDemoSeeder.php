@@ -190,7 +190,6 @@ class DesktopDemoSeeder extends Seeder
                 'event_date' => now()->toDateString(),
                 'start_time' => '00:00',
                 'end_time' => '23:59',
-                'price' => 0,
                 'print_count_limit' => 0,
                 'status' => 'scheduled',
             ], $operator);
@@ -205,7 +204,6 @@ class DesktopDemoSeeder extends Seeder
                 'event_date' => now()->toDateString(),
                 'start_time' => '00:00',
                 'end_time' => '23:59',
-                'price' => 0,
                 'print_count_limit' => 0,
                 'status' => 'scheduled',
             ]);

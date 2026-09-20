@@ -191,9 +191,24 @@ export const useSessionStore = create<SessionState>((set) => ({
   setComposedVideoUploaded: (composedVideoUploaded) => set({ composedVideoUploaded }),
 
   setTemplate: (template) =>
-    set({
-      template,
-      requiredShots: template.slots ?? DEFAULT_REQUIRED_SHOTS
+    set((state) => {
+      const configuration = state.eventConfiguration
+      const allSnapshots = configuration?.templates ?? (configuration ? [configuration.template] : [])
+      const matchedSnapshot = allSnapshots.find((s) => String(s.id) === template.id)
+      const templatePaperSize = matchedSnapshot?.paper_size ?? state.paperSize
+
+      const printOptions = configuration?.print_options ?? configuration?.event.print_options ?? []
+      const matchedOption = templatePaperSize
+        ? printOptions.find((opt) => opt.paper_size === templatePaperSize && opt.is_active) ?? null
+        : state.printOption
+
+      return {
+        template,
+        requiredShots: template.slots ?? DEFAULT_REQUIRED_SHOTS,
+        paperSize: templatePaperSize ?? state.paperSize,
+        printOption: matchedOption,
+        quantity: matchedOption?.unit_quantity ?? state.quantity
+      }
     }),
 
   setFilter: (filter) => set({ filter, printImage: null, printedLocally: false }),

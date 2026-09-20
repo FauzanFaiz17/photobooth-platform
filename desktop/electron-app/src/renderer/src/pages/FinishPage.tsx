@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import QRCode from 'qrcode'
 
 import { getApiErrorMessage } from '@/api/axios'
-import { completePhotoSession, createPhotoSession, uploadSessionMedia } from '@/api/media'
+import { completePhotoSession, createPhotoSession, uploadSessionMedia, recordPrintJob } from '@/api/media'
 import { NeoButton } from '@/components/shared/button'
 import {
   getAppSettings,
@@ -14,6 +14,7 @@ import {
 import { composeTemplateImage } from '@/features/template/services/composeTemplate'
 import { createSessionGif } from '@/features/gif/services/createSessionGif'
 import { useSessionStore } from '@/store/sessionStore'
+import { useDeviceStore } from '@/store/deviceStore'
 
 const focusRing =
   'focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-(--danger)'
@@ -93,6 +94,8 @@ export default function FinishPage(): JSX.Element {
 
     composingRef.current = true
 
+    const gifEnabled = eventConfiguration?.event.gif_enabled ?? true
+
     void Promise.all([
       composeTemplateImage({
         shots,
@@ -100,7 +103,7 @@ export default function FinishPage(): JSX.Element {
         layout: template.layout,
         overlayPath: template.overlayPath
       }),
-      createSessionGif(shots),
+      gifEnabled ? createSessionGif(shots, eventConfiguration?.gif_template?.png_url) : Promise.resolve(null),
       filter
         ? composeTemplateImage({
             shots,
@@ -124,19 +127,24 @@ export default function FinishPage(): JSX.Element {
     template,
     shots,
     filter,
+    eventConfiguration,
     setComposedImage,
     setAnimatedGif,
     setPrintImage
   ])
 
   const finalizeSession = useCallback(async (): Promise<void> => {
+    const gifEnabled = eventConfiguration?.event.gif_enabled ?? true
+    const videoEnabled = eventConfiguration?.event.video_enabled ?? true
+    const hasGif = gifEnabled ? Boolean(animatedGif) : true
+
     if (
       !eventConfiguration ||
       shots.length === 0 ||
       !composedImage ||
       !printImage ||
       !paperSize ||
-      !animatedGif
+      !hasGif
     ) {
       setSyncStatus('failed', 'Template belum berhasil dibuat. Silakan coba lagi.')
       setProcessing(false)
@@ -156,12 +164,11 @@ export default function FinishPage(): JSX.Element {
         const saved = await window.session.saveWebcamShots(
           shots.map((shot) => ({
             dataUrl: shot.dataUrl,
-            // JPEG asli Canon sudah tersimpan di folder sesi oleh cameraAPI.
             savedPath: shot.savedPath ?? null
           })),
           composedImage.dataUrl,
-          animatedGif.dataUrl,
-          composedVideo?.dataUrl,
+          gifEnabled ? animatedGif?.dataUrl : undefined,
+          videoEnabled ? composedVideo?.dataUrl : undefined,
           cameraServiceDirectory ?? appSettings.storageDirectory,
           { exactDirectory: Boolean(cameraServiceDirectory) }
         )
@@ -225,7 +232,7 @@ export default function FinishPage(): JSX.Element {
         setComposedImageUploaded(true)
       }
 
-      if (!useSessionStore.getState().animatedGifUploaded) {
+      if (gifEnabled && !useSessionStore.getState().animatedGifUploaded && animatedGif) {
         await uploadSessionMedia(sessionId, {
           type: 'gif',
           filename: 'session-animation.gif',
@@ -238,7 +245,7 @@ export default function FinishPage(): JSX.Element {
         setAnimatedGifUploaded(true)
       }
 
-      if (composedVideo && !composedVideoUploaded) {
+      if (videoEnabled && composedVideo && !composedVideoUploaded) {
         await uploadSessionMedia(sessionId, {
           type: 'video',
           filename: 'template-video.webm',
@@ -273,6 +280,15 @@ export default function FinishPage(): JSX.Element {
             })
             printAccepted = true
             setPrintedLocally(true)
+            const deviceUuid = useDeviceStore.getState().fingerprint?.deviceUuid
+            if (deviceUuid) {
+              recordPrintJob({
+                device_uuid: deviceUuid,
+                photo_session_id: sessionId,
+                paper_size: paperSize,
+                copies: Math.max(1, quantity)
+              }).catch(() => {})
+            }
           } catch (error) {
             printWarning = getApiErrorMessage(
               error,
@@ -320,10 +336,12 @@ export default function FinishPage(): JSX.Element {
 
   useEffect(() => {
     if (startedRef.current) return
-    if (!composedImage || !printImage || !animatedGif) return
+    const gifEnabled = eventConfiguration?.event.gif_enabled ?? true
+    const hasGif = gifEnabled ? Boolean(animatedGif) : true
+    if (!composedImage || !printImage || !hasGif) return
     startedRef.current = true
     void finalizeSession()
-  }, [composedImage, printImage, animatedGif, finalizeSession])
+  }, [composedImage, printImage, animatedGif, eventConfiguration, finalizeSession])
 
   useEffect(() => {
     void getAppSettings().then((settings) => setQrTimerSeconds(settings.qrTimerSeconds))
@@ -408,6 +426,15 @@ export default function FinishPage(): JSX.Element {
         orientation: eventConfiguration.printer.orientation
       })
       setPrintedLocally(true)
+      const deviceUuid = useDeviceStore.getState().fingerprint?.deviceUuid
+      if (deviceUuid) {
+        recordPrintJob({
+          device_uuid: deviceUuid,
+          photo_session_id: useSessionStore.getState().remoteSessionId,
+          paper_size: paperSize,
+          copies: Math.max(1, manualQuantity)
+        }).catch(() => {})
+      }
     } catch (error) {
       setManualPrintError(error instanceof Error ? error.message : 'Print gagal.')
     } finally {

@@ -22,9 +22,16 @@ class UpdateEventRequest extends FormRequest
 
             'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
 
-            'price' => ['nullable', 'numeric', 'min:0'],
-
             'print_count_limit' => ['nullable', 'integer', 'min:0'],
+
+            'payment_mode' => ['nullable', 'string', 'in:disabled,voucher_only,full'],
+
+            'video_enabled' => ['nullable', 'boolean'],
+
+            'gif_enabled' => ['nullable', 'boolean'],
+
+            'template_ids' => ['nullable', 'array', 'min:1'],
+            'template_ids.*' => ['integer', 'exists:templates,id'],
 
             'status' => [
                 'required',

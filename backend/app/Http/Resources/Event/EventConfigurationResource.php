@@ -30,10 +30,15 @@ class EventConfigurationResource extends JsonResource
 
                 'end_time' => $this->end_time,
 
-                'price' => (float) $this->price,
                 'print_options' => $this->whenLoaded('printOptions'),
 
                 'print_count_limit' => $this->print_count_limit,
+
+                'payment_mode' => $this->payment_mode ?? 'full',
+
+                'video_enabled' => $this->video_enabled ?? true,
+
+                'gif_enabled' => $this->gif_enabled ?? true,
 
                 'partner' => [
                     'id' => $this->partner?->id,
@@ -63,6 +68,10 @@ class EventConfigurationResource extends JsonResource
 
             'printer' => new PrinterSnapshotResource(
                 $this->whenLoaded('printerSnapshot')
+            ),
+
+            'gif_template' => new TemplateSnapshotResource(
+                $this->whenLoaded('gifTemplateSnapshot')
             ),
         ];
     }

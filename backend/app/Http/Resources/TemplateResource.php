@@ -11,10 +11,14 @@ class TemplateResource extends JsonResource
     public function toArray(Request $request): array
     {
         URL::forceRootUrl($request->getSchemeAndHttpHost());
-        $assetUrl = function (?string $path, string $type) use ($request): ?string {
-            if (! $path) return null;
+        $assetUrl = function (?string $path, string $type): ?string {
+            if (! $path) {
+                return null;
+            }
+
             return URL::temporarySignedRoute('template-assets.show', now()->addMinutes(30), ['type' => $type, 'path' => $path]);
         };
+
         return [
             'id' => $this->id,
             'partner' => $this->partner ? [
@@ -23,6 +27,7 @@ class TemplateResource extends JsonResource
             ] : null,
             'is_global' => $this->partner_id === null,
             'name' => $this->name,
+            'type' => $this->type ?? 'photo',
             'preview_path' => $this->preview_path,
             'preview_url' => $assetUrl($this->preview_path, 'preview'),
             'thumbnail_path' => $this->thumbnail_path,

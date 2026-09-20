@@ -45,23 +45,30 @@ export default function PreviewPage(): JSX.Element | null {
     setComposing(true)
     setCompositionError(null)
 
+    const gifEnabled = configuration?.event.gif_enabled ?? true
+    const videoEnabled = configuration?.event.video_enabled ?? true
+
     try {
-      const [composedResult, gifResult, videoResult] = await Promise.all([
-        composeTemplateImage({
-          shots,
-          jsonLayout: template.jsonLayout,
-          layout: template.layout,
-          overlayPath: template.overlayPath
-        }),
-        createSessionGif(shots),
-        composeTemplateVideo({
-          shots,
-          jsonLayout: template.jsonLayout,
-          layout: template.layout,
-          overlayPath: template.overlayPath,
-          shotDurationSeconds: countdownSeconds ?? configuration?.camera.countdown_seconds
-        })
-      ])
+      const promises: Promise<[typeof composedResult, typeof gifResult, typeof videoResult]>[] = []
+
+      const composedResult = await composeTemplateImage({
+        shots,
+        jsonLayout: template.jsonLayout,
+        layout: template.layout,
+        overlayPath: template.overlayPath
+      })
+
+      const gifResult = gifEnabled ? await createSessionGif(shots, configuration?.gif_template?.png_url) : null
+      const videoResult = videoEnabled
+        ? await composeTemplateVideo({
+            shots,
+            jsonLayout: template.jsonLayout,
+            layout: template.layout,
+            overlayPath: template.overlayPath,
+            shotDurationSeconds: countdownSeconds ?? configuration?.camera.countdown_seconds
+          })
+        : null
+
       setComposedImage(composedResult)
       setAnimatedGif(gifResult)
       setComposedVideo(videoResult)
@@ -84,13 +91,18 @@ export default function PreviewPage(): JSX.Element | null {
   }, [configuration, template, shots.length, navigate])
 
   useEffect(() => {
-    if ((!composedImage || !animatedGif) && template && shots.length > 0) {
+    const gifEnabled = configuration?.event.gif_enabled ?? true
+    const videoEnabled = configuration?.event.video_enabled ?? true
+    const hasGif = gifEnabled ? Boolean(animatedGif) : true
+    const hasVideo = videoEnabled ? Boolean(composedVideo) : true
+
+    if ((!composedImage || !hasGif || !hasVideo) && template && shots.length > 0) {
       const timeout = window.setTimeout(() => void compose(), 0)
       return () => window.clearTimeout(timeout)
     }
 
     return undefined
-  }, [animatedGif, compose, composedImage, countdownSeconds, shots.length, template])
+  }, [animatedGif, compose, composedImage, composedVideo, countdownSeconds, shots.length, template, configuration])
 
   function handleRetake(): void {
     resetShots()
@@ -106,7 +118,9 @@ export default function PreviewPage(): JSX.Element | null {
     return null
   }
 
-  const ready = !composing && Boolean(composedImage) && Boolean(animatedGif)
+  const gifEnabled = configuration?.event.gif_enabled ?? true
+  const videoEnabled = configuration?.event.video_enabled ?? true
+  const ready = !composing && Boolean(composedImage) && (gifEnabled ? Boolean(animatedGif) : true) && (videoEnabled ? Boolean(composedVideo) : true)
 
   return (
     <main className="flex h-full min-h-0 flex-col bg-(--background) text-(--foreground)">
@@ -176,8 +190,8 @@ export default function PreviewPage(): JSX.Element | null {
           </div>
         )}
 
-        {ready && composedImage && animatedGif && (
-          <div className="grid h-full min-h-0 w-full grid-cols-1 gap-6 md:grid-cols-[1.15fr_0.85fr]">
+        {ready && composedImage && (
+          <div className={`grid h-full min-h-0 w-full grid-cols-1 gap-6 ${(gifEnabled || videoEnabled) ? 'md:grid-cols-[1.15fr_0.85fr]' : ''}`}>
             <figure className="flex min-h-0 flex-col border-4 border-(--border) bg-(--surface) shadow-[10px_10px_0_0_var(--border)]">
               <figcaption className="flex items-center justify-between gap-3 border-b-4 border-(--border) bg-(--primary) px-4 py-3">
                 <span className="text-sm font-black uppercase tracking-[0.16em]">Hasil Cetak</span>
@@ -194,33 +208,35 @@ export default function PreviewPage(): JSX.Element | null {
               </div>
             </figure>
 
-            <figure className="flex min-h-0 flex-col border-4 border-(--border) bg-(--surface) shadow-[10px_10px_0_0_var(--border)]">
-              <figcaption className="flex items-center justify-between gap-3 border-b-4 border-(--border) bg-(--accent) px-4 py-3">
-                <span className="text-sm font-black uppercase tracking-[0.16em]">
-                  {composedVideo ? 'Video Template' : 'Animasi'}
-                </span>
-                <span className="border-2 border-(--border) bg-(--surface) px-2 py-1 text-[0.6rem] font-black">
-                  02
-                </span>
-              </figcaption>
-              <div className="grid min-h-0 flex-1 place-items-center bg-(--background) p-4">
-                {composedVideo ? (
-                  <video
-                    src={composedVideo.dataUrl}
-                    controls
-                    autoPlay
-                    loop
-                    className="max-h-full min-h-0 max-w-full border-2 border-(--border) bg-white object-contain"
-                  />
-                ) : (
-                  <img
-                    src={animatedGif.dataUrl}
-                    alt="Animasi seluruh hasil foto"
-                    className="max-h-full min-h-0 max-w-full border-2 border-(--border) bg-white object-contain"
-                  />
-                )}
-              </div>
-            </figure>
+            {(gifEnabled || videoEnabled) && (
+              <figure className="flex min-h-0 flex-col border-4 border-(--border) bg-(--surface) shadow-[10px_10px_0_0_var(--border)]">
+                <figcaption className="flex items-center justify-between gap-3 border-b-4 border-(--border) bg-(--accent) px-4 py-3">
+                  <span className="text-sm font-black uppercase tracking-[0.16em]">
+                    {composedVideo && videoEnabled ? 'Video Template' : 'Animasi'}
+                  </span>
+                  <span className="border-2 border-(--border) bg-(--surface) px-2 py-1 text-[0.6rem] font-black">
+                    02
+                  </span>
+                </figcaption>
+                <div className="grid min-h-0 flex-1 place-items-center bg-(--background) p-4">
+                  {composedVideo && videoEnabled ? (
+                    <video
+                      src={composedVideo.dataUrl}
+                      controls
+                      autoPlay
+                      loop
+                      className="max-h-full min-h-0 max-w-full border-2 border-(--border) bg-white object-contain"
+                    />
+                  ) : animatedGif && gifEnabled ? (
+                    <img
+                      src={animatedGif.dataUrl}
+                      alt="Animasi seluruh hasil foto"
+                      className="max-h-full min-h-0 max-w-full border-2 border-(--border) bg-white object-contain"
+                    />
+                  ) : null}
+                </div>
+              </figure>
+            )}
           </div>
         )}
       </section>

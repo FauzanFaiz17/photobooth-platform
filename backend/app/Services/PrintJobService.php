@@ -6,6 +6,7 @@ use App\Models\Device;
 use App\Models\Media;
 use App\Models\PhotoSession;
 use App\Models\Printer;
+use App\Models\PrinterSnapshot;
 use App\Models\PrintJob;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -15,7 +16,10 @@ use Illuminate\Validation\ValidationException;
 
 class PrintJobService
 {
-    public function __construct(protected AuditService $auditService) {}
+    public function __construct(
+        protected AuditService $auditService,
+        protected PrinterAlertService $printerAlertService,
+    ) {}
 
     public function index(array $filters, User $user): LengthAwarePaginator
     {
@@ -177,6 +181,13 @@ class PrintJobService
             }
             $job->update($attributes);
 
+            if ($target === 'success') {
+                $printer = $job->printer ?? $job->load('printer')->printer;
+                if ($printer) {
+                    $this->printerAlertService->checkAndNotify($printer);
+                }
+            }
+
             return $job->fresh()->load(['printer', 'photoSession.media']);
         });
     }
@@ -234,6 +245,78 @@ class PrintJobService
             'copies' => max(1, $snapshot->copies),
             'idempotency_key' => "session:{$session->id}",
         ], $user);
+    }
+
+    public function recordLocalPrint(array $data, User $user): PrintJob
+    {
+        $device = $this->activeDevice($user, $data['device_uuid']);
+
+        $printer = Printer::query()
+            ->where('partner_id', $device->partner_id)
+            ->where('device_id', $device->device_id ?? $device->id)
+            ->where('is_active', true)
+            ->oldest('id')
+            ->first();
+
+        if (! $printer) {
+            $printer = Printer::query()
+                ->where('partner_id', $device->partner_id)
+                ->where('booth_id', $device->booth_id)
+                ->where('is_active', true)
+                ->oldest('id')
+                ->first();
+        }
+
+        if (! $printer) {
+            throw ValidationException::withMessages(['printer_id' => 'No active printer found for this device.']);
+        }
+
+        $photoSessionId = $data['photo_session_id'] ?? null;
+        $printerSnapshotId = null;
+        $idempotencyKey = null;
+
+        if ($photoSessionId) {
+            $session = PhotoSession::find($photoSessionId);
+            if ($session) {
+                $printerSnapshotId = $session->event?->printer_snapshot_id;
+                $idempotencyKey = "local:{$photoSessionId}";
+            }
+        }
+
+        if ($idempotencyKey) {
+            $existing = PrintJob::where('partner_id', $device->partner_id)
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+            if ($existing) {
+                return $existing->load(['printer', 'photoSession.media']);
+            }
+        }
+
+        $copies = max(1, (int) ($data['copies'] ?? 1));
+
+        $job = PrintJob::create([
+            'partner_id' => $device->partner_id,
+            'photo_session_id' => $photoSessionId,
+            'printer_id' => $printer->id,
+            'printer_snapshot_id' => $printerSnapshotId,
+            'idempotency_key' => $idempotencyKey,
+            'copies' => $copies,
+            'status' => 'success',
+            'queued_at' => now(),
+            'started_at' => now(),
+            'finished_at' => now(),
+        ])->load(['printer', 'photoSession.media']);
+
+        $this->printerAlertService->checkAndNotify($printer);
+
+        $this->auditService->record('print', $user, $job, 'Local print recorded.', [
+            'status' => 'success',
+            'copies' => $copies,
+            'photo_session_id' => $photoSessionId,
+            'device_id' => $device->id,
+        ]);
+
+        return $job;
     }
 
     public function printableMedia(PrintJob $job, User $user, string $deviceUuid): Media

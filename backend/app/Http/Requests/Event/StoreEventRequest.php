@@ -54,6 +54,7 @@ class StoreEventRequest extends FormRequest
             'print_options.*.unit_quantity' => ['required_with:print_options', 'integer', 'min:1'],
             'print_options.*.quantity_step' => ['nullable', 'integer', 'min:1'],
             'print_options.*.price' => ['required_with:print_options', 'numeric', 'min:0'],
+            'print_options.*.discount' => ['nullable', 'numeric', 'min:0'],
 
             'camera_profile_id' => [
                 'required',
@@ -65,6 +66,12 @@ class StoreEventRequest extends FormRequest
                 'required',
                 'integer',
                 'exists:printer_profiles,id',
+            ],
+
+            'gif_template_id' => [
+                'nullable',
+                'integer',
+                'exists:templates,id',
             ],
 
             'event_date' => [
@@ -83,16 +90,26 @@ class StoreEventRequest extends FormRequest
                 'after:start_time',
             ],
 
-            'price' => [
-                'nullable',
-                'numeric',
-                'min:0',
-            ],
-
             'print_count_limit' => [
                 'nullable',
                 'integer',
                 'min:0',
+            ],
+
+            'payment_mode' => [
+                'nullable',
+                'string',
+                'in:disabled,voucher_only,full',
+            ],
+
+            'video_enabled' => [
+                'nullable',
+                'boolean',
+            ],
+
+            'gif_enabled' => [
+                'nullable',
+                'boolean',
             ],
 
             'status' => [

@@ -21,6 +21,15 @@ function loadImage(source: string): Promise<HTMLImageElement> {
   })
 }
 
+function loadOverlay(path: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = (): void => resolve(image)
+    image.onerror = (): void => reject(new Error('Overlay GIF template tidak dapat dimuat.'))
+    image.src = path
+  })
+}
+
 function bytesToDataUrl(bytes: Uint8Array): string {
   const chunkSize = 0x8000
   let binary = ''
@@ -32,7 +41,10 @@ function bytesToDataUrl(bytes: Uint8Array): string {
   return `data:image/gif;base64,${btoa(binary)}`
 }
 
-export async function createSessionGif(shots: CapturedShot[]): Promise<AnimatedGif> {
+export async function createSessionGif(
+  shots: CapturedShot[],
+  overlayPath?: string | null
+): Promise<AnimatedGif> {
   if (shots.length === 0) throw new Error('Tidak ada foto untuk membuat GIF.')
 
   const images = await Promise.all(shots.map((shot) => loadImage(shot.dataUrl)))
@@ -47,11 +59,29 @@ export async function createSessionGif(shots: CapturedShot[]): Promise<AnimatedG
   const context = canvas.getContext('2d', { willReadFrequently: true })
   if (!context) throw new Error('Canvas GIF tidak tersedia.')
 
+  let overlay: HTMLImageElement | null = null
+  if (overlayPath) {
+    try {
+      overlay = await loadOverlay(overlayPath)
+    } catch {
+      overlay = null
+    }
+  }
+
   const gif = GIFEncoder()
 
   images.forEach((image) => {
     context.clearRect(0, 0, width, height)
     context.drawImage(image, 0, 0, width, height)
+
+    if (overlay) {
+      const overlayScale = Math.min(width / overlay.naturalWidth, height / overlay.naturalHeight)
+      const ow = Math.round(overlay.naturalWidth * overlayScale)
+      const oh = Math.round(overlay.naturalHeight * overlayScale)
+      const ox = Math.round((width - ow) / 2)
+      const oy = Math.round((height - oh) / 2)
+      context.drawImage(overlay, ox, oy, ow, oh)
+    }
 
     const rgba = context.getImageData(0, 0, width, height).data
     const palette = quantize(rgba, 256)

@@ -24,14 +24,15 @@ use App\Http\Controllers\Api\V1\PartnerController;
 use App\Http\Controllers\Api\V1\PartnerSubscriptionController;
 use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\PlatformCredentialController;
+use App\Http\Controllers\Api\V1\PrinterAlertController;
 use App\Http\Controllers\Api\V1\PrinterController;
 use App\Http\Controllers\Api\V1\PrinterProfileController;
 use App\Http\Controllers\Api\V1\PrintJobController;
 // khusus desktop
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\SubscriptionPlanController;
-use App\Http\Controllers\Api\V1\TemplateController;
 use App\Http\Controllers\Api\V1\TemplateAssetController;
+use App\Http\Controllers\Api\V1\TemplateController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\VoucherController;
 use App\Http\Controllers\Api\V1\VoucherPackageController;
@@ -78,6 +79,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/payments', [DesktopPaymentController::class, 'store']);
             Route::get('/payments/{payment}', [DesktopPaymentController::class, 'show']);
             Route::get('/print-jobs', [DesktopPrintJobController::class, 'index']);
+            Route::post('/print-jobs/record', [DesktopPrintJobController::class, 'record']);
             Route::post('/print-jobs/{printJob}/status', [DesktopPrintJobController::class, 'update']);
             Route::get('/print-jobs/{printJob}/media', [DesktopPrintJobController::class, 'media'])
                 ->name('desktop.print-jobs.media');
@@ -247,6 +249,16 @@ Route::prefix('v1')->group(function () {
             ->middlewareFor('store', 'permission:printers.create')
             ->middlewareFor('update', 'permission:printers.update')
             ->middlewareFor('destroy', 'permission:printers.delete');
+
+        Route::prefix('printers/{printer}/alert')->group(function () {
+            Route::get('/', [PrinterAlertController::class, 'show'])->middleware('permission:printers.view');
+            Route::post('/', [PrinterAlertController::class, 'store'])->middleware('permission:printers.update');
+            Route::put('/', [PrinterAlertController::class, 'update'])->middleware('permission:printers.update');
+            Route::delete('/', [PrinterAlertController::class, 'destroy'])->middleware('permission:printers.delete');
+            Route::post('/recipients', [PrinterAlertController::class, 'storeRecipient'])->middleware('permission:printers.update');
+            Route::delete('/recipients/{recipient}', [PrinterAlertController::class, 'destroyRecipient'])->middleware('permission:printers.update');
+            Route::get('/logs', [PrinterAlertController::class, 'logs'])->middleware('permission:printers.view');
+        });
 
         Route::prefix('print-jobs')->group(function () {
             Route::get('/', [PrintJobController::class, 'index'])->middleware('permission:print_jobs.view');

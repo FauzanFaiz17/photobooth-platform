@@ -19,7 +19,9 @@ export default function PaymentPage(): JSX.Element | null {
   const quantity = useSessionStore((state) => state.quantity)
   const setPrintSelection = useSessionStore((state) => state.setPrintSelection)
   const setPaymentId = useSessionStore((state) => state.setPaymentId)
-  const [method, setMethod] = useState<'qris' | 'voucher'>('qris')
+  const [method, setMethod] = useState<'qris' | 'voucher'>(
+    configuration?.event.payment_mode === 'voucher_only' ? 'voucher' : 'qris'
+  )
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -77,24 +79,30 @@ export default function PaymentPage(): JSX.Element | null {
   const option =
     selectedOption?.paper_size === paperSize
       ? selectedOption
-      : (options[0] ??
-        (configuration
-          ? {
-              id: 0,
-              paper_size: paperSize,
-              unit_quantity: 1,
-              quantity_step: 1,
-              price: configuration.event.price,
-              is_active: true
-            }
-          : undefined))
+      : options[0]
 
   if (!configuration || !paperSize || !option) return null
 
+  const paymentMode = configuration.event.payment_mode ?? 'full'
+
+  if (paymentMode === 'disabled') {
+    navigate('/customer', { replace: true })
+    return null
+  }
+
   const hasPrintOption = option.id > 0
   const currentQuantity = hasPrintOption ? quantity || option.unit_quantity : 1
-  const multiplier = hasPrintOption ? Math.max(1, currentQuantity / option.unit_quantity) : 1
-  const total = Number(option.price) * multiplier
+  const units = hasPrintOption ? Math.max(1, currentQuantity / option.unit_quantity) : 1
+  const optionPrice = Number(option.price)
+  const discount = option.discount != null ? Number(option.discount) : null
+
+  let total: number
+  if (discount !== null && discount > 0) {
+    const discountedUnitPrice = Math.max(0, optionPrice - discount)
+    total = optionPrice + (units - 1) * discountedUnitPrice
+  } else {
+    total = optionPrice * units
+  }
 
   return (
     <main className="flex h-full flex-col items-center justify-center gap-6 bg-(--background) p-5 text-(--foreground) md:p-8">
@@ -137,13 +145,15 @@ export default function PaymentPage(): JSX.Element | null {
         )}
         <p className="mt-6 text-3xl font-black">Rp {total.toLocaleString('id-ID')}</p>
         <div className="mt-6 flex justify-center gap-3">
-          <NeoButton
-            onClick={() => setMethod('qris')}
-            variant={method === 'qris' ? 'primary' : 'outlined'}
-            className="[transition:none]"
-          >
-            QRIS
-          </NeoButton>
+          {paymentMode !== 'voucher_only' && (
+            <NeoButton
+              onClick={() => setMethod('qris')}
+              variant={method === 'qris' ? 'primary' : 'outlined'}
+              className="[transition:none]"
+            >
+              QRIS
+            </NeoButton>
+          )}
           <NeoButton
             onClick={() => setMethod('voucher')}
             variant={method === 'voucher' ? 'secondary' : 'outlined'}

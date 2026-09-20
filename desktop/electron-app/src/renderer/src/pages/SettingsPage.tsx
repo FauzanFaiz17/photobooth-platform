@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getApiErrorMessage } from '@/api/axios'
+import { recordPrintJob } from '@/api/media'
 import { NeoButton } from '@/components/shared/button'
 import Alert from '@/components/ui/Alert'
 import { verifyPassword } from '@/features/auth/api/auth'
 import { authService } from '@/features/auth/services/authService'
 import CameraTestPanel from '@/features/camera/components/CameraTestPanel'
 import { NeoInput } from '@/components/shared/input'
+import { useDeviceStore } from '@/store/deviceStore'
 import {
   type AppSettings,
   DEFAULT_APP_SETTINGS,
@@ -416,6 +418,14 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
         quality,
         sampleDataUrl: currentSample?.dataUrl
       })
+      const deviceUuid = useDeviceStore.getState().fingerprint?.deviceUuid
+      if (deviceUuid) {
+        recordPrintJob({
+          device_uuid: deviceUuid,
+          paper_size: paperSize,
+          copies: 1
+        }).catch(() => {})
+      }
       setMessage({ type: 'success', text: `Test print ${paperSize.toUpperCase()} dikirim ke printer.` })
     } catch (cause) {
       setMessage({
@@ -752,6 +762,14 @@ function DnpPresetTest({ onBack }: { onBack: () => void }): JSX.Element {
         orientation: preset.orientation,
         mediaFormat: preset.mediaFormat
       })
+      const deviceUuid = useDeviceStore.getState().fingerprint?.deviceUuid
+      if (deviceUuid) {
+        recordPrintJob({
+          device_uuid: deviceUuid,
+          paper_size: '4r',
+          copies: 1
+        }).catch(() => {})
+      }
       setMessage(
         `Test 4R ${preset.label} dikirim memakai sample "${sample.name}" pada media 101,6 x 152,4 mm.`
       )

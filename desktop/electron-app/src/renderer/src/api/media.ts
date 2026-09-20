@@ -73,3 +73,14 @@ export async function completePhotoSession(
 
   return response.data.data
 }
+
+export interface RecordPrintJobPayload {
+  device_uuid: string
+  photo_session_id?: number | null
+  paper_size: '2r' | '4r'
+  copies?: number
+}
+
+export async function recordPrintJob(payload: RecordPrintJobPayload): Promise<void> {
+  await api.post<ApiEnvelope<unknown>>('/v1/desktop/print-jobs/record', payload)
+}

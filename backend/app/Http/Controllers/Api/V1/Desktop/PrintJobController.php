@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Desktop;
 use App\Contracts\MediaStorage;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Desktop\PollPrintJobsRequest;
+use App\Http\Requests\Desktop\RecordPrintJobRequest;
 use App\Http\Requests\Desktop\UpdatePrintJobRequest;
 use App\Http\Resources\PrintJobResource;
 use App\Models\PrintJob;
@@ -38,5 +39,12 @@ class PrintJobController extends Controller
             fpassthru($stream);
             fclose($stream);
         }, $media->filename, ['Content-Type' => $media->mime_type, 'Content-Length' => (string) $media->size_bytes, 'Cache-Control' => 'private, no-store']);
+    }
+
+    public function record(RecordPrintJobRequest $r)
+    {
+        $job = $this->service->recordLocalPrint($r->validated(), $r->user());
+
+        return ApiResponse::success(new PrintJobResource($job), 'Local print recorded.');
     }
 }

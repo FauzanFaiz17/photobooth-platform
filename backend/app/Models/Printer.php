@@ -16,8 +16,28 @@ class Printer extends Model
 
     protected $casts = ['is_active' => 'boolean'];
 
-    public function partner() { return $this->belongsTo(Partner::class); }
-    public function booth() { return $this->belongsTo(Booth::class); }
-    public function device() { return $this->belongsTo(Device::class); }
-    public function printJobs() { return $this->hasMany(PrintJob::class); }
+    public function partner()
+    {
+        return $this->belongsTo(Partner::class);
+    }
+
+    public function booth()
+    {
+        return $this->belongsTo(Booth::class);
+    }
+
+    public function device()
+    {
+        return $this->belongsTo(Device::class);
+    }
+
+    public function printJobs()
+    {
+        return $this->hasMany(PrintJob::class);
+    }
+
+    public function alertSetting()
+    {
+        return $this->hasOne(PrinterAlertSetting::class);
+    }
 }

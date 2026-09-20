@@ -568,7 +568,6 @@ Table events {
   event_date date [not null]
   start_time time [not null]
   end_time time [not null]
-  price decimal(15,2) [not null, default: 0]
   print_count_limit int [not null, default: 0]
   status event_status [not null, default: 'draft']
   created_at timestamp [not null, default: `now()`]
@@ -614,6 +613,7 @@ Table event_print_options {
   unit_quantity int [not null, default: 1]
   quantity_step int [not null, default: 1]
   price decimal(15,2) [not null]
+  discount decimal(15,2) [null]
   is_active boolean [not null, default: true]
   created_at timestamp [not null, default: `now()`]
   updated_at timestamp

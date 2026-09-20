@@ -233,7 +233,7 @@ class PrintingApiTest extends ApiTestCase
             'template_snapshot_id' => $templateSnapshot->id, 'filter_snapshot_id' => $filterSnapshot->id,
             'camera_snapshot_id' => $cameraSnapshot->id, 'printer_snapshot_id' => $printerSnapshot->id,
             'event_date' => now()->toDateString(), 'start_time' => '08:00:00', 'end_time' => '20:00:00',
-            'price' => 35000, 'print_count_limit' => 0, 'status' => 'ongoing',
+            'print_count_limit' => 0, 'status' => 'ongoing',
         ]);
     }
 }

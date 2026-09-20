@@ -35,7 +35,6 @@ class EventApiTest extends ApiTestCase
             'event_date' => now()->toDateString(),
             'start_time' => '10:00',
             'end_time' => '18:00',
-            'price' => 50000,
             'print_count_limit' => 2,
             'status' => 'scheduled',
         ])->assertCreated()
@@ -63,7 +62,6 @@ class EventApiTest extends ApiTestCase
             'event_date' => now()->toDateString(),
             'start_time' => '11:00',
             'end_time' => '19:00',
-            'price' => 75000,
             'print_count_limit' => 3,
             'status' => 'ongoing',
         ])->assertOk()
@@ -84,11 +82,11 @@ class EventApiTest extends ApiTestCase
             ->assertOk()
             ->assertJsonPath(
                 'data.configuration.template.name',
-                'Snapshot Template'
+                'Master Template Updated'
             )
             ->assertJsonPath(
                 'data.configuration.template.json_layout.frames.0.x',
-                0
+                100
             );
 
         $this->assertSame(
@@ -103,7 +101,7 @@ class EventApiTest extends ApiTestCase
             ->getJson("/api/v1/desktop/events/{$eventCode}/configuration")
             ->assertOk()
             ->assertJsonPath('data.event.id', $eventId)
-            ->assertJsonPath('data.template.name', 'Snapshot Template')
+            ->assertJsonPath('data.template.name', 'Master Template Updated')
             ->assertJsonPath('data.camera.burst_count', 4);
 
         Sanctum::actingAs($this->superAdmin);

@@ -45,6 +45,8 @@ class TemplateService extends TenantConfigurationService
             $this->storage->delete($oldPath);
         }
 
+        $this->syncSnapshots($updated);
+
         return $updated;
     }
 
@@ -70,7 +72,31 @@ class TemplateService extends TenantConfigurationService
             $this->storage->delete($oldPath);
         }
 
+        $this->syncSnapshots($template->fresh());
+
         return $template->fresh()->load('partner');
+    }
+
+    private function syncSnapshots(Template $template): void
+    {
+        $template->snapshots()->each(function ($snapshot) use ($template) {
+            $updateData = [
+                'name' => $template->name,
+                'type' => $template->type ?? 'photo',
+                'paper_size' => $template->paper_size,
+                'json_layout' => $template->json_layout,
+                'version' => $template->version,
+            ];
+
+            $pathFields = ['preview_path', 'thumbnail_path', 'psd_path', 'png_path'];
+            foreach ($pathFields as $field) {
+                if ($template->{$field} !== null) {
+                    $updateData[$field] = $template->{$field};
+                }
+            }
+
+            $snapshot->update($updateData);
+        });
     }
 
     private function uploadPng(UploadedFile $image): string

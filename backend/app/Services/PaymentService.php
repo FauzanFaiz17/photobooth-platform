@@ -334,7 +334,8 @@ class PaymentService
                     throw ValidationException::withMessages(['quantity' => 'Quantity must follow the selected print option increment.']);
                 }
 
-                $amount = (float) $option->price * ($quantity / $option->unit_quantity);
+                $amount = $this->calculatePriceWithDiscount($option, $quantity);
+
                 if (isset($data['amount']) && (float) $data['amount'] !== $amount) {
                     throw ValidationException::withMessages(['amount' => 'The amount does not match the selected print option.']);
                 }
@@ -342,11 +343,9 @@ class PaymentService
                 return $amount;
             }
 
-            if (isset($data['amount']) && (float) $data['amount'] !== (float) $event->price) {
-                throw ValidationException::withMessages(['amount' => 'The amount must match the event price.']);
-            }
-
-            return (float) $event->price;
+            throw ValidationException::withMessages([
+                'print_option_id' => 'A print option is required for this event.',
+            ]);
         }
 
         if (! isset($data['amount'])) {
@@ -356,5 +355,23 @@ class PaymentService
         }
 
         return (float) $data['amount'];
+    }
+
+    private function calculatePriceWithDiscount(EventPrintOption $option, int $quantity): float
+    {
+        $price = (float) $option->price;
+        $discount = $option->discount !== null ? (float) $option->discount : null;
+        $units = $quantity / $option->unit_quantity;
+
+        if ($discount === null || $discount <= 0) {
+            return $price * $units;
+        }
+
+        $discountedUnitPrice = $price - $discount;
+        if ($discountedUnitPrice < 0) {
+            $discountedUnitPrice = 0;
+        }
+
+        return $price + ($units - 1) * $discountedUnitPrice;
     }
 }

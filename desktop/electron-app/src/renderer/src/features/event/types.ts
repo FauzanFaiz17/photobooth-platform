@@ -9,9 +9,11 @@ export interface EventSummary {
   event_date: string
   start_time: string
   end_time: string
-  price: number
   print_options?: EventPrintOption[]
   print_count_limit: number
+  payment_mode: 'disabled' | 'voucher_only' | 'full'
+  video_enabled: boolean
+  gif_enabled: boolean
   partner: {
     id: number
     company_name: string
@@ -89,6 +91,7 @@ export interface EventConfiguration {
   print_options?: EventPrintOption[]
   camera: CameraSnapshot
   printer: PrinterSnapshot
+  gif_template?: TemplateSnapshot | null
 }
 
 export interface EventPrintOption {
@@ -97,6 +100,7 @@ export interface EventPrintOption {
   unit_quantity: number
   quantity_step: number
   price: number | string
+  discount: number | string | null
   is_active: boolean
 }
 

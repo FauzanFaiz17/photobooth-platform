@@ -116,6 +116,17 @@ class EventService
                 $printer
             );
 
+            $gifSnapshotId = null;
+            if (! empty($data['gif_template_id'])) {
+                $gifTemplate = $this->availableConfiguration(
+                    Template::query(),
+                    $data['gif_template_id'],
+                    $partner,
+                    fn (Builder $query) => $query->where('status', 'published')->where('type', 'gif')
+                );
+                $gifSnapshotId = $this->snapshotService->createTemplate($gifTemplate);
+            }
+
             $event = Event::create([
                 'partner_id' => $partner->id,
                 'booth_id' => $booth->id,
@@ -123,11 +134,14 @@ class EventService
                 'event_name' => $data['event_name'],
                 'event_code' => $this->generateEventCode(),
                 ...$snapshots,
+                'gif_template_snapshot_id' => $gifSnapshotId,
                 'event_date' => $data['event_date'],
                 'start_time' => $data['start_time'],
                 'end_time' => $data['end_time'],
-                'price' => $data['price'] ?? 0,
                 'print_count_limit' => $data['print_count_limit'] ?? 0,
+                'payment_mode' => $data['payment_mode'] ?? 'full',
+                'video_enabled' => $data['video_enabled'] ?? true,
+                'gif_enabled' => $data['gif_enabled'] ?? true,
                 'status' => $data['status'] ?? 'draft',
             ]);
 
@@ -151,9 +165,55 @@ class EventService
 
     public function update(Event $event, array $data): Event
     {
+        $templateIds = $data['template_ids'] ?? null;
+        unset($data['template_ids']);
+
         $event->update($data);
 
+        if ($templateIds !== null) {
+            $this->syncEventTemplates($event, $templateIds);
+        }
+
         return $event->fresh()->load($this->relations());
+    }
+
+    private function syncEventTemplates(Event $event, array $templateIds): void
+    {
+        $templateIds = array_values(array_unique($templateIds));
+
+        if (empty($templateIds)) {
+            throw ValidationException::withMessages([
+                'template_ids' => 'At least one template is required.',
+            ]);
+        }
+
+        $partner = $event->partner;
+
+        $newSnapshots = [];
+        foreach ($templateIds as $order => $templateId) {
+            $template = $this->availableConfiguration(
+                Template::query(),
+                $templateId,
+                $partner,
+                fn (Builder $q) => $q->where('status', 'published')
+            );
+            $snapshotId = $this->snapshotService->createTemplate($template);
+            $newSnapshots[] = ['snapshot_id' => $snapshotId, 'order' => $order];
+        }
+
+        $event->templateSnapshots()->detach();
+
+        foreach ($newSnapshots as $item) {
+            $event->templateSnapshots()->attach($item['snapshot_id'], [
+                'sort_order' => $item['order'],
+                'is_default' => $item['order'] === 0,
+            ]);
+        }
+
+        $firstSnapshotId = $newSnapshots[0]['snapshot_id'];
+        if ($event->template_snapshot_id !== $firstSnapshotId) {
+            $event->update(['template_snapshot_id' => $firstSnapshotId]);
+        }
     }
 
     public function destroy(Event $event): void
@@ -200,6 +260,7 @@ class EventService
             'filterSnapshot',
             'cameraSnapshot',
             'printerSnapshot',
+            'gifTemplateSnapshot',
             'templateSnapshots',
             'filterSnapshots',
             'printOptions',

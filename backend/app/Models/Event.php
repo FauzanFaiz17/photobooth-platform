@@ -5,8 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Event extends Model
@@ -26,12 +26,16 @@ class Event extends Model
         'camera_snapshot_id',
         'printer_snapshot_id',
 
+        'gif_template_snapshot_id',
+
         'event_date',
         'start_time',
         'end_time',
 
-        'price',
         'print_count_limit',
+        'payment_mode',
+        'video_enabled',
+        'gif_enabled',
 
         'status',
     ];
@@ -40,8 +44,10 @@ class Event extends Model
         'event_date' => 'date',
         'start_time' => 'datetime:H:i:s',
         'end_time' => 'datetime:H:i:s',
-        'price' => 'decimal:2',
         'print_count_limit' => 'integer',
+        'payment_mode' => 'string',
+        'video_enabled' => 'boolean',
+        'gif_enabled' => 'boolean',
     ];
 
     /*
@@ -94,6 +100,14 @@ class Event extends Model
         return $this->belongsTo(
             PrinterSnapshot::class,
             'printer_snapshot_id'
+        );
+    }
+
+    public function gifTemplateSnapshot(): BelongsTo
+    {
+        return $this->belongsTo(
+            TemplateSnapshot::class,
+            'gif_template_snapshot_id'
         );
     }
 

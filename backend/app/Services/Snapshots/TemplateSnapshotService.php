@@ -10,15 +10,16 @@ class TemplateSnapshotService
     public function create(Template $template): TemplateSnapshot
     {
         return TemplateSnapshot::create([
-            'template_id'    => $template->id,
-            'name'           => $template->name,
-            'paper_size'     => $template->paper_size,
-            'preview_path'   => $template->preview_path,
+            'template_id' => $template->id,
+            'name' => $template->name,
+            'type' => $template->type ?? 'photo',
+            'paper_size' => $template->paper_size,
+            'preview_path' => $template->preview_path,
             'thumbnail_path' => $template->thumbnail_path,
-            'json_layout'    => $template->json_layout,
-            'psd_path'       => $template->psd_path,
-            'png_path'       => $template->png_path,
-            'version'        => $template->version,
+            'json_layout' => $template->json_layout,
+            'psd_path' => $template->psd_path,
+            'png_path' => $template->png_path,
+            'version' => $template->version,
         ]);
     }
 }

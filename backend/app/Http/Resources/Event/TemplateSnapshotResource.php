@@ -14,16 +14,21 @@ class TemplateSnapshotResource extends JsonResource
     public function toArray(Request $request): array
     {
         URL::forceRootUrl($request->getSchemeAndHttpHost());
-        $assetUrl = function (?string $path, string $type) use ($request): ?string {
-            if (! $path) return null;
+        $assetUrl = function (?string $path, string $type): ?string {
+            if (! $path) {
+                return null;
+            }
+
             return URL::temporarySignedRoute('template-assets.show', now()->addMinutes(30), ['type' => $type, 'path' => $path]);
         };
+
         return [
             'id' => $this->id,
 
             'template_id' => $this->template_id,
 
             'name' => $this->name,
+            'type' => $this->type ?? 'photo',
             'paper_size' => $this->paper_size,
 
             'preview_path' => $this->preview_path,

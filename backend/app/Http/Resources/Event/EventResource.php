@@ -26,8 +26,6 @@ class EventResource extends JsonResource
 
             'end_time' => $this->end_time,
 
-            'price' => (float) $this->price,
-
             'print_count_limit' => $this->print_count_limit,
 
             'status' => $this->status,

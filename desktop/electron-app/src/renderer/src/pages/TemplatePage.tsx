@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import Alert from '@/components/ui/Alert'
 import { NeoButton } from '@/components/shared/button'
 import { mapTemplateSnapshot } from '@/features/event/types'
+import type { TemplateSnapshot } from '@/features/event/types'
 import { loadTemplateOverlayDataUrl } from '@/features/template/services/composeTemplate'
 import { useSessionStore } from '@/store/sessionStore'
 
@@ -20,26 +21,52 @@ function resolveTemplateAsset(path: string | null): string | null {
   ).toString()
 }
 
+type PaperSizeOption = '2r' | '4r'
+
 export default function TemplatePage(): JSX.Element | null {
   const navigate = useNavigate()
   const configuration = useSessionStore((state) => state.eventConfiguration)
-  const paperSize = useSessionStore((state) => state.paperSize)
   const setTemplate = useSessionStore((state) => state.setTemplate)
   const syncStatus = useSessionStore((state) => state.syncStatus)
   const syncError = useSessionStore((state) => state.syncError)
   const [assetPreviews, setAssetPreviews] = useState<Record<string, string>>({})
   const [loadingAssets, setLoadingAssets] = useState(false)
 
+  const allTemplates = useMemo(
+    () => configuration?.templates ?? (configuration ? [configuration.template] : []),
+    [configuration]
+  )
+
+  const availableSizes = useMemo(() => {
+    const sizes = new Set<PaperSizeOption>(allTemplates.map((t) => t.paper_size as PaperSizeOption))
+    const ordered: PaperSizeOption[] = ['4r', '2r']
+    return ordered.filter((s) => sizes.has(s))
+  }, [allTemplates])
+
+  const [activeSize, setActiveSize] = useState<PaperSizeOption | null>(null)
+
   useEffect(() => {
-    if (!configuration) navigate('/dashboard', { replace: true })
+    if (!configuration) {
+      navigate('/dashboard', { replace: true })
+    }
   }, [configuration, navigate])
 
   useEffect(() => {
-    if (!configuration) return
-    const candidates = (configuration.templates ?? [configuration.template]).filter((item) => item.paper_size === paperSize)
+    if (availableSizes.length > 0 && !activeSize) {
+      setActiveSize(availableSizes[0])
+    }
+  }, [availableSizes, activeSize])
+
+  const filteredTemplates = useMemo(
+    () => allTemplates.filter((item) => item.paper_size === activeSize),
+    [allTemplates, activeSize]
+  )
+
+  useEffect(() => {
+    if (filteredTemplates.length === 0) return
     let active = true
-    setLoadingAssets(candidates.some((item) => Boolean(item.png_url ?? item.png_path)))
-    void Promise.all(candidates.map(async (item) => {
+    setLoadingAssets(filteredTemplates.some((item) => Boolean(item.png_url ?? item.png_path)))
+    void Promise.all(filteredTemplates.map(async (item) => {
       const source = item.png_url ?? item.png_path
       if (!source) return null
       try { return [String(item.id), await loadTemplateOverlayDataUrl(source)] as const } catch { return null }
@@ -49,13 +76,19 @@ export default function TemplatePage(): JSX.Element | null {
       setLoadingAssets(false)
     })
     return () => { active = false }
-  }, [configuration, paperSize])
+  }, [filteredTemplates])
 
-  if (!configuration || !paperSize) return null
+  if (!configuration || !activeSize) return null
 
-  const templates = (configuration.templates ?? [configuration.template]).filter(
-    (item) => item.paper_size === paperSize
-  )
+  function handleSelect(snapshot: TemplateSnapshot): void {
+    setTemplate(mapTemplateSnapshot(snapshot))
+    const paymentMode = configuration?.event.payment_mode ?? 'full'
+    if (paymentMode === 'disabled') {
+      navigate('/customer')
+    } else {
+      navigate('/payment')
+    }
+  }
 
   return (
     <main className="flex h-full flex-col gap-6 bg-(--background) p-5 text-(--foreground) md:px-8 md:py-4">
@@ -65,13 +98,31 @@ export default function TemplatePage(): JSX.Element | null {
           {configuration.event.event_name}
         </p>
       </div>
-      {templates.length === 0 ? (
-        <Alert type="warning">Belum ada template {paperSize.toUpperCase()} untuk event ini.</Alert>
+
+      {availableSizes.length > 1 && (
+        <div className="flex gap-2">
+          {availableSizes.map((size) => (
+            <button
+              key={size}
+              onClick={() => setActiveSize(size)}
+              className={`border-4 border-(--border) px-5 py-2 text-sm font-black uppercase tracking-wider shadow-[var(--shadow-neo)] [transition:none] ${
+                activeSize === size
+                  ? 'bg-(--primary) text-(--foreground)'
+                  : 'bg-(--surface) text-(--muted-foreground) hover:bg-(--background)'
+              }`}
+            >
+              {size}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {filteredTemplates.length === 0 ? (
+        <Alert type="warning">Belum ada template {activeSize.toUpperCase()} untuk event ini.</Alert>
       ) : (
         <div className="grid grid-cols-1 gap-6 overflow-auto pb-3 md:grid-cols-2 xl:grid-cols-3">
-          {templates.map((item) => {
+          {filteredTemplates.map((item) => {
             const mapped = mapTemplateSnapshot(item)
-            // Frame PNG adalah asset preview utama; preview/thumbnail bersifat opsional.
             const previewSource = assetPreviews[String(item.id)] ?? resolveTemplateAsset(mapped.previewPath || mapped.thumbnailPath)
             return (
               <article
@@ -104,14 +155,11 @@ export default function TemplatePage(): JSX.Element | null {
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <p className="font-black">{mapped.name}</p>
                   <span className="border-2 border-(--border) bg-(--primary) px-2 py-1 text-xs font-black uppercase">
-                    {paperSize}
+                    {item.paper_size}
                   </span>
                 </div>
                 <NeoButton
-                  onClick={() => {
-                    setTemplate(mapped)
-                    navigate('/payment')
-                  }}
+                  onClick={() => handleSelect(item)}
                   className="w-full [transition:none]"
                 >
                   Pilih Template <span aria-hidden="true">→</span>

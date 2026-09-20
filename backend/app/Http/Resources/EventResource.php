@@ -23,9 +23,13 @@ class EventResource extends JsonResource
 
             'end_time' => $this->end_time,
 
-            'price' => $this->price,
-
             'print_count_limit' => $this->print_count_limit,
+
+            'payment_mode' => $this->payment_mode,
+
+            'video_enabled' => $this->video_enabled,
+
+            'gif_enabled' => $this->gif_enabled,
 
             'status' => $this->status,
 
