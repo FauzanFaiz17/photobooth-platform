@@ -138,6 +138,7 @@ export interface PrinterSettings {
   verticalPosition: number
   paperSize: '2r' | '4r'
   orientation: 'portrait' | 'landscape'
+  autoPrint: boolean
 }
 
 export async function getPrinterSettings(): Promise<PrinterSettings | null> {
@@ -188,7 +189,8 @@ export async function getPrinterSettings(): Promise<PrinterSettings | null> {
         ? Math.min(100, Math.max(-100, candidate.verticalPosition))
         : 0,
     paperSize: candidate.paperSize === '2r' ? '2r' : '4r',
-    orientation: candidate.orientation === 'landscape' ? 'landscape' : 'portrait'
+    orientation: candidate.orientation === 'landscape' ? 'landscape' : 'portrait',
+    autoPrint: typeof candidate.autoPrint === 'boolean' ? candidate.autoPrint : true
   }
 }
 

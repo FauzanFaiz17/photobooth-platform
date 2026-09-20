@@ -28,10 +28,8 @@ const PAPER_DIMENSIONS_MM: Record<'2r' | '4r', { width: number; height: number }
 }
 
 /**
- * Preview akurat layout print: mereplikasi logika main process —
- * kertas selalu sesuai media fisik (portrait), dan gambar landscape
- * dirotasi 90 derajat lewat CSS. Area hitam = pinggir kertas yang
- * tidak tertutup gambar.
+ * Preview akurat layout print — paper rotates, image stays portrait.
+ * Sama seperti Ctrl+P Windows: foto tetap portrait, kertas yang berubah.
  */
 function PaperPreview({
   paperSize,
@@ -50,56 +48,45 @@ function PaperPreview({
   verticalPosition: number
   quality: string
 }): JSX.Element {
-  const paper = PAPER_DIMENSIONS_MM[paperSize]
+  const base = PAPER_DIMENSIONS_MM[paperSize]
   const isLandscape = orientation === 'landscape'
-  const imgW = isLandscape ? paper.height : paper.width
-  const imgH = isLandscape ? paper.width : paper.height
-  const scalePct = Math.max(5, Math.min(200, scale)) / 100
 
-  // Preview diperbesar agar detail foto dan batas kertas mudah terlihat.
+  // Paper berubah sesuai orientasi (bukan gambar yang rotate)
+  const paperW = isLandscape ? base.height : base.width
+  const paperH = isLandscape ? base.width : base.height
+
+  const scalePct = Math.max(5, Math.min(200, scale)) / 100
   const pxPerMm = 2.2
-  const paperW = paper.width * pxPerMm
-  const paperH = paper.height * pxPerMm
 
   return (
     <div
       className="relative grid place-items-center overflow-hidden border-4 border-[#f2cc25] bg-[#f5f3ec] shadow-[0_0_0_2px_#111]"
-      style={{ width: paperW, height: paperH, margin: '0 auto' }}
+      style={{ width: paperW * pxPerMm, height: paperH * pxPerMm, margin: '0 auto' }}
     >
       {sampleImage?.dataUrl ? (
         <img
           src={sampleImage.dataUrl}
           alt="Print sample"
           className="absolute"
-          style={
-            isLandscape
-              ? {
-                  width: imgW * pxPerMm * scalePct,
-                  height: imgH * pxPerMm * scalePct,
-                  transform: `translate(calc(-50% + ${horizontalPosition / 4}px), calc(-50% + ${verticalPosition / 4}px)) rotate(90deg)`,
-                  top: '50%',
-                  left: '50%'
-                }
-              : {
-                  width: imgW * pxPerMm * scalePct,
-                  height: imgH * pxPerMm * scalePct,
-                  transform: `translate(calc(-50% + ${horizontalPosition / 4}px), calc(-50% + ${verticalPosition / 4}px))`,
-                  top: '50%',
-                  left: '50%'
-                }
-          }
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'fill',
+            transform: `translate(${horizontalPosition / 4}px, ${verticalPosition / 4}px) scale(${scalePct})`,
+            top: '50%',
+            left: '50%',
+            marginLeft: '-50%',
+            marginTop: '-50%'
+          }}
         />
       ) : (
-        <div className="absolute inset-0 grid place-items-center text-center text-xs font-bold text-black/50">
-          <span>
-            {imgW} x {imgH} mm
-            <br />
-            {orientation.toUpperCase()} · {quality.toUpperCase()} · {scale}%
-            <br />
-            (upload gambar sampel untuk preview)
-          </span>
+        <div className="flex h-full w-full items-center justify-center bg-white text-xs text-gray-400">
+          {isLandscape ? 'Landscape' : 'Portrait'} {paperSize.toUpperCase()}
         </div>
       )}
+      <p className="absolute bottom-1 right-2 text-[0.55rem] font-bold text-black/40">
+        {isLandscape ? 'Landscape' : 'Portrait'} · {paperSize.toUpperCase()} · {quality.toUpperCase()}
+      </p>
     </div>
   )
 }
@@ -323,10 +310,14 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
   const [verticalPosition, setVerticalPosition] = useState(0)
   const [paperSize, setPaperSize] = useState<'2r' | '4r'>('4r')
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait')
-  const [sampleImage, setSampleImage] = useState<PrintSampleImage | null>(null)
+  const [autoPrint, setAutoPrint] = useState(true)
+  const [sampleImages, setSampleImages] = useState<PrintSampleSettings>({ '2r': null, '4r': null })
   const [loading, setLoading] = useState(true)
   const [testing, setTesting] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const sampleImage = sampleImages[paperSize]
 
   useEffect(() => {
     void Promise.all([
@@ -334,7 +325,7 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
       getPrinterSettings(),
       getPrintSampleSettings()
     ])
-      .then(([available, stored, sample]) => {
+      .then(([available, stored, samples]) => {
         setPrinters(available)
         const defaultPrinter =
           stored?.deviceName4r ??
@@ -350,8 +341,8 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
         setVerticalPosition(stored?.verticalPosition ?? 0)
         setPaperSize(stored?.paperSize ?? '4r')
         setOrientation(stored?.orientation ?? 'portrait')
-        const savedPaperSize = stored?.paperSize ?? '4r'
-        setSampleImage(sample[savedPaperSize])
+        setAutoPrint(stored?.autoPrint ?? true)
+        setSampleImages(samples)
       })
       .catch((cause) => {
         setMessage({
@@ -362,9 +353,42 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
       .finally(() => setLoading(false))
   }, [])
 
-  async function saveAndTest(): Promise<void> {
-    const activePaperSize = paperSize
-    const activeDeviceName = activePaperSize === '2r' ? deviceName2r : deviceName4r
+  function getActiveDeviceName(): string {
+    return paperSize === '2r' ? deviceName2r : deviceName4r
+  }
+
+  async function saveSettings(): Promise<void> {
+    setSaving(true)
+    setMessage(null)
+    try {
+      await savePrinterSettings({
+        deviceName: deviceName4r,
+        displayName: printers.find((p) => p.name === deviceName4r)?.displayName ?? deviceName4r,
+        deviceName2r,
+        displayName2r: printers.find((p) => p.name === deviceName2r)?.displayName ?? deviceName2r,
+        deviceName4r,
+        displayName4r: printers.find((p) => p.name === deviceName4r)?.displayName ?? deviceName4r,
+        quality,
+        scale,
+        horizontalPosition,
+        verticalPosition,
+        paperSize,
+        orientation,
+        autoPrint
+      })
+      setMessage({ type: 'success', text: 'Pengaturan tersimpan.' })
+    } catch (cause) {
+      setMessage({
+        type: 'error',
+        text: cause instanceof Error ? cause.message : 'Gagal menyimpan pengaturan.'
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function testPrint(): Promise<void> {
+    const activeDeviceName = getActiveDeviceName()
     const selected = printers.find((printer) => printer.name === activeDeviceName)
     if (!selected) return
 
@@ -382,11 +406,17 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
         scale,
         horizontalPosition,
         verticalPosition,
-        paperSize: activePaperSize,
-        orientation
+        paperSize,
+        orientation,
+        autoPrint
       })
-      await window.electron.printer.test(selected.name, { paperSize: activePaperSize, orientation })
-      setMessage({ type: 'success', text: 'Test print dikirim ke printer.' })
+      const currentSample = sampleImages[paperSize]
+      await window.electron.printer.test(selected.name, {
+        orientation,
+        quality,
+        sampleDataUrl: currentSample?.dataUrl
+      })
+      setMessage({ type: 'success', text: `Test print ${paperSize.toUpperCase()} dikirim ke printer.` })
     } catch (cause) {
       setMessage({
         type: 'error',
@@ -409,15 +439,13 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
   async function chooseSample(): Promise<void> {
     const picked = await window.electron.printer.pickSampleImage()
     if (!picked) return
-    setSampleImage(picked)
-    const current = await getPrintSampleSettings()
-    await savePrintSampleSettings({ ...current, [paperSize]: picked })
+    const updated = { ...sampleImages, [paperSize]: picked }
+    setSampleImages(updated)
+    await savePrintSampleSettings(updated)
   }
 
   async function changePaperSize(next: '2r' | '4r'): Promise<void> {
     setPaperSize(next)
-    const samples = await getPrintSampleSettings()
-    setSampleImage(samples[next])
   }
 
   function PrinterSelect({
@@ -484,7 +512,7 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
             </select>
           </label>
           <label className="grid gap-2 font-bold">
-            Ukuran kertas
+            Mode
             <select
               value={paperSize}
               onChange={(e) => void changePaperSize(e.target.value as '2r' | '4r')}
@@ -504,6 +532,15 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
               <option value="portrait">Portrait (tinggi)</option>
               <option value="landscape">Landscape (mendatar)</option>
             </select>
+          </label>
+          <label className="flex items-center gap-2 font-bold">
+            <input
+              type="checkbox"
+              checked={autoPrint}
+              onChange={(e) => setAutoPrint(e.target.checked)}
+              className="h-4 w-4"
+            />
+            Cetak otomatis saat sesi selesai
           </label>
           {(
             [
@@ -562,7 +599,7 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
               {sampleImage
                 ? `Sample: ${sampleImage.name}`
                 : 'Belum ada foto sample. Preview menampilkan ukuran media.'}{' '}
-              Ukuran media 100 x 150 mm (4R).
+              Mode {paperSize.toUpperCase()} — 2-inch cut {paperSize === '2r' ? 'enabled' : 'disabled'}.
             </p>
           </div>
 
@@ -597,6 +634,10 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
                 <span>Quality</span>
                 <span>{quality === 'high' ? 'High' : 'Standard'}</span>
               </div>
+              <div className="flex justify-between gap-3 border-t-2 border-(--border) pt-2">
+                <span>Cetak otomatis</span>
+                <span>{autoPrint ? 'Ya' : 'Tidak'}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -608,12 +649,20 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
         <NeoButton variant="outlined" onClick={onBack}>
           Kembali
         </NeoButton>
-        <NeoButton
-          disabled={!(paperSize === '2r' ? deviceName2r : deviceName4r) || testing}
-          onClick={() => void saveAndTest()}
-        >
-          {testing ? 'Mengirim...' : 'Simpan dan Test Print'}
-        </NeoButton>
+        <div className="flex gap-3">
+          <NeoButton
+            disabled={!getActiveDeviceName() || saving}
+            onClick={() => void saveSettings()}
+          >
+            {saving ? 'Menyimpan...' : 'Simpan'}
+          </NeoButton>
+          <NeoButton
+            disabled={!getActiveDeviceName() || testing}
+            onClick={() => void testPrint()}
+          >
+            {testing ? 'Mengirim...' : `Test ${paperSize.toUpperCase()}`}
+          </NeoButton>
+        </div>
       </div>
     </div>
   )

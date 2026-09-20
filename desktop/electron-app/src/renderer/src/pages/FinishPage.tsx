@@ -73,6 +73,10 @@ export default function FinishPage(): JSX.Element {
   const [qrTimerSeconds, setQrTimerSeconds] = useState<number | null>(null)
   const [processing, setProcessing] = useState(true)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+  const [autoPrint, setAutoPrint] = useState(true)
+  const [manualQuantity, setManualQuantity] = useState(1)
+  const [manualPrinting, setManualPrinting] = useState(false)
+  const [manualPrintError, setManualPrintError] = useState<string | null>(null)
   const startedRef = useRef(false)
   const composingRef = useRef(false)
 
@@ -253,7 +257,7 @@ export default function FinishPage(): JSX.Element {
         const printer = await getPrinterSettings()
         if (!printer) {
           printWarning = 'Printer belum dipilih; sesi tetap disimpan ke gallery.'
-        } else {
+        } else if (printer.autoPrint) {
           try {
             const printDataUrl = await applyPrinterTransform(
               printImage.dataUrl,
@@ -265,7 +269,6 @@ export default function FinishPage(): JSX.Element {
               dataUrl: printDataUrl,
               deviceName: getDeviceNameForPaperSize(printer, paperSize),
               copies: Math.max(1, quantity),
-              paperSize,
               orientation: eventConfiguration.printer.orientation
             })
             printAccepted = true
@@ -327,6 +330,15 @@ export default function FinishPage(): JSX.Element {
   }, [])
 
   useEffect(() => {
+    void getPrinterSettings().then((printer) => {
+      if (printer) {
+        setAutoPrint(printer.autoPrint)
+        setManualQuantity(Math.max(1, quantity))
+      }
+    })
+  }, [quantity])
+
+  useEffect(() => {
     if (!galleryUrl) return
 
     let cancelled = false
@@ -375,6 +387,34 @@ export default function FinishPage(): JSX.Element {
     navigate('/welcome', { replace: true })
   }
 
+  async function handleManualPrint(): Promise<void> {
+    if (!printImage || !paperSize || !eventConfiguration) return
+    const printer = await getPrinterSettings()
+    if (!printer) return
+
+    setManualPrinting(true)
+    setManualPrintError(null)
+    try {
+      const printDataUrl = await applyPrinterTransform(
+        printImage.dataUrl,
+        printer.scale,
+        printer.horizontalPosition,
+        printer.verticalPosition
+      )
+      await window.electron.printer.printImage({
+        dataUrl: printDataUrl,
+        deviceName: getDeviceNameForPaperSize(printer, paperSize),
+        copies: Math.max(1, manualQuantity),
+        orientation: eventConfiguration.printer.orientation
+      })
+      setPrintedLocally(true)
+    } catch (error) {
+      setManualPrintError(error instanceof Error ? error.message : 'Print gagal.')
+    } finally {
+      setManualPrinting(false)
+    }
+  }
+
   const status = processing
     ? { label: 'Memproses', tone: 'bg-(--accent)' }
     : syncStatus === 'synced'
@@ -409,7 +449,7 @@ export default function FinishPage(): JSX.Element {
 
             {processing && (
               <p className="mt-6 max-w-md text-lg font-semibold leading-7 text-(--muted-foreground)">
-                Foto sedang disimpan, diunggah, dan dicetak. Mohon tunggu sebentar.
+                Foto sedang disimpan dan diunggah. Mohon tunggu sebentar.
               </p>
             )}
 
@@ -468,6 +508,39 @@ export default function FinishPage(): JSX.Element {
                 <p className="max-w-xs text-center text-xl font-black leading-tight">
                   Pindai QR untuk melihat &amp; mengunduh fotomu.
                 </p>
+                {!autoPrint && !useSessionStore.getState().printedLocally && (
+                  <>
+                    <div className="mt-2 flex items-center gap-3">
+                      <button
+                        onClick={() => setManualQuantity((q) => Math.max(1, q - 1))}
+                        className="flex h-10 w-10 items-center justify-center border-2 border-(--border) bg-(--surface) text-xl font-bold shadow-[var(--shadow-neo)] [transition:none] hover:bg-(--background)"
+                      >
+                        −
+                      </button>
+                      <span className="w-12 text-center text-lg font-black tabular-nums">
+                        {manualQuantity}
+                      </span>
+                      <button
+                        onClick={() => setManualQuantity((q) => Math.min(20, q + 1))}
+                        className="flex h-10 w-10 items-center justify-center border-2 border-(--border) bg-(--surface) text-xl font-bold shadow-[var(--shadow-neo)] [transition:none] hover:bg-(--background)"
+                      >
+                        +
+                      </button>
+                      <NeoButton
+                        onClick={() => void handleManualPrint()}
+                        disabled={manualPrinting}
+                        className={`ml-2 px-5 py-2 shadow-[var(--shadow-neo)] [transition:none] ${focusRing}`}
+                      >
+                        {manualPrinting ? 'Mencetak...' : 'Cetak'}
+                      </NeoButton>
+                    </div>
+                    {manualPrintError && (
+                      <p className="mt-2 max-w-xs text-center text-sm font-bold text-red-200">
+                        {manualPrintError}
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
             ) : (
               <p className="max-w-xs text-2xl font-black leading-tight">

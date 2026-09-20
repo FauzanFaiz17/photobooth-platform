@@ -46,17 +46,16 @@ const electron = {
       dataUrl: string
       deviceName: string
       copies: number
-      paperSize: '2r' | '4r'
       orientation: string
+      quality?: string
     }): Promise<void> => ipcRenderer.invoke('printer:print-image', options),
     test: (
       deviceName: string,
       options?: {
-        paperSize?: '2r' | '4r'
         copies?: number
         sampleDataUrl?: string
         orientation?: 'portrait' | 'landscape'
-        mediaFormat?: '4x6' | '6x4'
+        quality?: string
       }
     ): Promise<void> => ipcRenderer.invoke('printer:test', deviceName, options)
   }
