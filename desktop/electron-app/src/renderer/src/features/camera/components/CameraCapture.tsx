@@ -231,7 +231,9 @@ export default function CameraCapture({
   }, [countdownSeconds, videoRef, cameraSettings])
 
   const stopRecording = useCallback((): void => {
-    console.log(`[Recording] stopRecording called, mediaRecorder state=${mediaRecorderRef.current?.state}`)
+    console.log(
+      `[Recording] stopRecording called, mediaRecorder state=${mediaRecorderRef.current?.state}`
+    )
     if (recordingStopTimerRef.current) {
       clearTimeout(recordingStopTimerRef.current)
       recordingStopTimerRef.current = null
@@ -420,7 +422,9 @@ export default function CameraCapture({
 
   // Rekam mulai saat countdown dimulai (termasuk saat retake).
   useEffect(() => {
-    console.log(`[Recording] effect check: stage=${stage}, countdown=${countdown}, countdownSeconds=${countdownSeconds}`)
+    console.log(
+      `[Recording] effect check: stage=${stage}, countdown=${countdown}, countdownSeconds=${countdownSeconds}`
+    )
     if (stage === 'countdown' && countdown === countdownSeconds) {
       console.log(`[Recording] TRIGGER startRecording at countdown=${countdown}`)
       startRecording()
@@ -480,7 +484,7 @@ export default function CameraCapture({
       className="camera-stage flex h-full flex-col items-center justify-center gap-4 bg-[#202020] p-4 fullscreen:bg-black md:p-6"
     >
       <div
-        className={`relative aspect-[4/3] w-[min(640px,calc(100vw-2rem))] overflow-hidden rounded-2xl bg-black shadow-xl ${stage === 'review' ? 'hidden' : ''}`}
+        className={`relative aspect-4/3 w-[min(640px,calc(100vw-2rem))] overflow-hidden rounded-2xl bg-black shadow-xl ${stage === 'review' ? 'hidden' : ''}`}
       >
         {cameraSettings.source === 'canon' ? (
           <img
@@ -525,7 +529,7 @@ export default function CameraCapture({
       <canvas ref={canvasRef} className="hidden" />
       <canvas
         ref={recordingCanvasRef}
-        className="pointer-events-none absolute -left-[9999px] top-0 h-px w-px opacity-0"
+        className="pointer-events-none absolute left-[-9999px] top-0 h-px w-px opacity-0"
       />
 
       {stage === 'review' && lastCaptured && (

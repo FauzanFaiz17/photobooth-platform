@@ -6,14 +6,16 @@ import type { EventListResponse } from "@/features/events/event.types";
 export function EventPagination({
   meta,
   onUpdateQuery,
+  label = "Event",
 }: {
   readonly meta: EventListResponse["meta"];
   readonly onUpdateQuery: (updates: Readonly<Record<string, string | null>>) => void;
+  readonly label?: string;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 pt-4 sm:px-6">
       <p className="text-sm text-muted-foreground">
-        {meta.from ?? 0}–{meta.to ?? 0} dari {meta.total} Event
+        {meta.from ?? 0}–{meta.to ?? 0} dari {meta.total} {label}
       </p>
       <div className="flex gap-2">
         <Button

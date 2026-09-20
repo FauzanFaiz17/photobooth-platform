@@ -19,6 +19,7 @@ import {
   PrintOptionsSection,
 } from "./components/event-form-sections";
 import { useEventForm } from "./hooks/use-event-form";
+import SectionHeader from "../shared/section-header";
 
 export function EventFormPage(): ReactElement {
   const { eventId: eventIdParam } = useParams<{ eventId: string }>();
@@ -108,7 +109,7 @@ export function EventFormPage(): ReactElement {
 
   return (
     <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
-      <header className="space-y-5">
+      <div className="space-y-5">
         <Button
           variant="ghost"
           className="-ml-2"
@@ -116,17 +117,16 @@ export function EventFormPage(): ReactElement {
         >
           <ArrowLeft aria-hidden="true" /> Daftar Event
         </Button>
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            {event ? "Edit Event" : "Tambah Event"}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {event
+        
+        <SectionHeader
+          heading={event ? "Edit Event" : "Tambah Event"}
+          description={
+            event
               ? "Konfigurasi snapshot tidak berubah saat jadwal Event diedit."
-              : "Pilih Booth, Frame, dan konfigurasi yang akan disalin menjadi snapshot Event."}
-          </p>
-        </div>
-      </header>
+              : "Pilih Booth, Frame, dan konfigurasi yang akan disalin menjadi snapshot Event."
+          }
+        />
+      </div>
 
       <form
         className="grid max-w-6xl gap-4"
