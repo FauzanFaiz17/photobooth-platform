@@ -10,6 +10,7 @@ import {
   RectangleHorizontal,
   RectangleVertical,
   Save,
+  Sparkles,
   Square,
   Trash2,
 } from "lucide-react";
@@ -49,6 +50,11 @@ import { useAuth } from "@/features/auth/auth-context";
 import { getPartners } from "@/features/partners/partner-service";
 import type { PartnerRecord } from "@/features/partners/partner.types";
 import {
+  detectSlotsInImage,
+  type DetectedSlot,
+} from "@/features/templates/slot-detection";
+import { shotColor } from "@/features/templates/shot-colors";
+import {
   createTemplate,
   getTemplate,
   updateTemplate,
@@ -62,6 +68,7 @@ import {
 } from "@/features/templates/template.types";
 import { ApiError, resolveStorageUrl } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+import { FrameSlotDetectDialog } from "./frame-slot-detect-dialog";
 import { Switch } from "../ui/switch";
 
 // Template 2R dicetak di lembar 4R berisi dua strip identik, lalu dipotong tengah.
@@ -348,6 +355,9 @@ function FrameCanvas({
         top: slot.y,
         width: slot.width,
         height: slot.height,
+        // Slot diwarnai per nomor foto supaya sebaran "1, 2, 3" langsung terbaca.
+        fill: shotColor(slot.shot),
+        stroke: "rgba(15, 23, 42, 0.35)",
       };
       const existing = current.get(slot.id);
       if (existing) {
@@ -365,9 +375,6 @@ function FrameCanvas({
           ...values,
           originX: "left",
           originY: "top",
-          fill: "rgba(37, 99, 235, 0.10)",
-          stroke: "#2563eb",
-          strokeDashArray: [8 * visualScale, 6 * visualScale],
           strokeWidth: 2 * visualScale,
           cornerColor: "#ffffff",
           cornerStrokeColor: "#2563eb",
@@ -416,10 +423,11 @@ function FrameCanvas({
       {slots.map((slot) => (
         <span
           key={slot.id}
-          className="pointer-events-none absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-black/65 px-2 py-1 text-sm font-bold text-white"
+          className="pointer-events-none absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full px-2 py-1 text-sm font-bold text-white ring-2 ring-white/70"
           style={{
             left: `${((slot.x + slot.width / 2) / canvasWidth) * 100}%`,
             top: `${((slot.y + slot.height / 2) / canvasHeight) * 100}%`,
+            backgroundColor: shotColor(slot.shot),
           }}
         >
           {slot.shot}
@@ -556,6 +564,11 @@ export function FrameCreatePage(): ReactElement {
   );
   const canvasAreaRef = useRef<HTMLDivElement>(null);
   const [availableWidth, setAvailableWidth] = useState<number | null>(null);
+  const [detection, setDetection] = useState<{
+    slots: ReadonlyArray<DetectedSlot>;
+    imageUrl: string;
+  } | null>(null);
+  const [detecting, setDetecting] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -649,6 +662,57 @@ export function FrameCreatePage(): ReactElement {
     setOverlayFile(file);
     setOverlayBroken(false);
     setErrors((current) => ({ ...current, png: undefined }));
+    void runDetection(file, overlayUrlRef.current);
+  }
+
+  /** Auto deteksi: baca area transparan PNG lalu tawarkan polanya ke pengguna. */
+  async function runDetection(source: Blob, imageUrl: string): Promise<void> {
+    setDetecting(true);
+    try {
+      const detected = await detectSlotsInImage(
+        source,
+        frameDimensions(size, orientation),
+      );
+      if (detected.length === 0) {
+        toast.info(
+          "Tidak ada kotak transparan pada PNG ini. Tambahkan slot manual.",
+        );
+        return;
+      }
+      setDetection({ slots: detected, imageUrl });
+    } catch {
+      toast.error("PNG tidak dapat dibaca untuk deteksi otomatis.");
+    } finally {
+      setDetecting(false);
+    }
+  }
+
+  /** Untuk Frame yang sudah tersimpan belum tentu ada berkasnya, jadi PNG diambil ulang. */
+  async function detectFromCurrent(): Promise<void> {
+    if (!overlayUrl) return;
+    try {
+      const source = overlayFile ?? (await (await fetch(overlayUrl)).blob());
+      await runDetection(source, overlayUrl);
+    } catch {
+      toast.error("PNG tidak dapat diambil untuk deteksi otomatis.");
+    }
+  }
+
+  /** Nomor foto diisi bergilang mengikuti urutan kotak hasil deteksi. */
+  function applyDetected(shotCount: number): void {
+    if (!detection) return;
+    const created = detection.slots.map((box, index) => ({
+      id: nextSlotId.current++,
+      x: box.x,
+      y: box.y,
+      width: box.width,
+      height: box.height,
+      shot: (index % shotCount) + 1,
+    }));
+    setSlots(created);
+    setSelectedSlotId(created[0]?.id ?? null);
+    setErrors((current) => ({ ...current, slots: undefined }));
+    setDetection(null);
   }
 
   const selectedSlot = slots.find((slot) => slot.id === selectedSlotId) ?? null;
@@ -1111,15 +1175,36 @@ export function FrameCreatePage(): ReactElement {
               </span>
             </div>
             {mode === "edit" && (
-              <Button
-                type="button"
-                size="sm"
-                onClick={addSlot}
-                disabled={!overlayUrl}
-                title={overlayUrl ? undefined : "Unggah PNG frame dulu"}
-              >
-                <Plus aria-hidden="true" /> Tambah Foto
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!overlayUrl || detecting}
+                  title={
+                    overlayUrl
+                      ? "Cari slot foto dari area transparan PNG"
+                      : "Unggah PNG frame dulu"
+                  }
+                  onClick={() => void detectFromCurrent()}
+                >
+                  {detecting ? (
+                    <LoaderCircle className="animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Sparkles aria-hidden="true" />
+                  )}{" "}
+                  Auto deteksi
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={addSlot}
+                  disabled={!overlayUrl}
+                  title={overlayUrl ? undefined : "Unggah PNG frame dulu"}
+                >
+                  <Plus aria-hidden="true" /> Tambah Foto
+                </Button>
+              </div>
             )}
           </div>
           <div className="min-h-0 flex-1 overflow-auto bg-zinc-100 p-6 dark:bg-zinc-950">
@@ -1207,7 +1292,10 @@ export function FrameCreatePage(): ReactElement {
                               index % 2 === 0 ? "center 25%" : "center 65%",
                           }}
                         />
-                        <span className="absolute left-1/2 top-1/2 grid size-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-black/70 text-sm font-bold text-white">
+                        <span
+                          className="absolute left-1/2 top-1/2 grid size-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-sm font-bold text-white"
+                          style={{ backgroundColor: shotColor(slot.shot) }}
+                        >
                           {slot.shot}
                         </span>
                       </div>
@@ -1634,6 +1722,16 @@ export function FrameCreatePage(): ReactElement {
           </div>
         )}
       </div>
+      {detection && (
+        <FrameSlotDetectDialog
+          imageUrl={detection.imageUrl}
+          canvas={canvasSize}
+          slots={detection.slots}
+          replacedCount={slots.length}
+          onCancel={() => setDetection(null)}
+          onApply={applyDetected}
+        />
+      )}
       <Toaster position="top-right" />
     </form>
   );

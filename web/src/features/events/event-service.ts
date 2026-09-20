@@ -52,6 +52,10 @@ function normalizeEvent(event: EventRecord): EventRecord {
   }
 }
 
+function toFiniteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined
+}
+
 function parseConfigurationOptions(payload: unknown, nameField: "name" | "printer_name"): ReadonlyArray<EventConfigurationOption> {
   if (typeof payload !== "object" || payload === null || !("data" in payload) || !Array.isArray(payload.data)) {
     throw new ApiError("Format response konfigurasi Event dari server tidak sesuai.", 500)
@@ -72,6 +76,10 @@ function parseConfigurationOptions(payload: unknown, nameField: "name" | "printe
       name: record[nameField],
       is_global: record.is_global,
       image_url: typeof imageUrl === "string" ? imageUrl : null,
+      brightness: toFiniteNumber(record.brightness),
+      contrast: toFiniteNumber(record.contrast),
+      saturation: toFiniteNumber(record.saturation),
+      intensity: toFiniteNumber(record.intensity),
     }
   })
 }
