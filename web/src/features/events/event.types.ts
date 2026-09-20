@@ -178,6 +178,11 @@ export interface EventConfigurationOption {
   is_global: boolean
   /** Signed URL asset (hanya tersedia untuk Template). */
   image_url?: string | null
+  /** Nilai Filter untuk pratinjau; hanya terisi pada daftar Filter. */
+  brightness?: number
+  contrast?: number
+  saturation?: number
+  intensity?: number
 }
 
 export interface EventConfigurationOptions {

@@ -19,6 +19,7 @@ import {
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
+import samplePhoto from "@/assets/preview.webp";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -49,6 +50,7 @@ import type {
   EventRecord,
   EventStatus,
 } from "@/features/events/event.types";
+import { filterPreviewStyle } from "@/features/filters/filter-preview";
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
@@ -233,101 +235,41 @@ function ConfigurationSelect({
   );
 }
 
-function ConfigurationChecklist({
-  label,
-  options,
-  values,
-  error,
-  onChange,
-}: {
-  readonly label: string;
-  readonly options: ReadonlyArray<EventConfigurationOption>;
-  readonly values: ReadonlyArray<string>;
-  readonly error?: string;
-  readonly onChange: (values: ReadonlyArray<string>) => void;
-}) {
-  function toggle(value: string, checked: boolean) {
-    onChange(
-      checked ? [...values, value] : values.filter((item) => item !== value),
-    );
-  }
+const CHECKERBOARD = {
+  backgroundImage:
+    "repeating-conic-gradient(rgba(0,0,0,0.06) 0% 25%, transparent 0% 50%)",
+  backgroundSize: "16px 16px",
+} as const;
 
-  const allSelected = options.length > 0 && values.length === options.length;
-  const partiallySelected = values.length > 0 && !allSelected;
-
-  return (
-    <fieldset className="grid gap-2">
-      <legend className="text-sm font-medium">{label}</legend>
-      <div
-        className="grid max-h-44 gap-1 overflow-y-auto rounded-md border p-2"
-        aria-invalid={Boolean(error)}
-      >
-        <label className="flex cursor-pointer items-center gap-3 border-b px-2 py-2 text-sm font-medium">
-          <Checkbox
-            checked={allSelected}
-            indeterminate={partiallySelected}
-            onCheckedChange={(checked) =>
-              onChange(
-                checked ? options.map((option) => String(option.id)) : [],
-              )
-            }
-          />
-          <span>Pilih semua</span>
-        </label>
-        {options.map((option) => {
-          const value = String(option.id);
-          const selectedIndex = values.indexOf(value);
-          return (
-            <label
-              key={option.id}
-              className="flex cursor-pointer items-center gap-3 rounded-sm px-2 py-2 text-sm hover:bg-muted"
-            >
-              <Checkbox
-                checked={selectedIndex >= 0}
-                onCheckedChange={(checked) => toggle(value, checked)}
-              />
-              <span className="min-w-0 flex-1 truncate">
-                {option.name}
-                {option.is_global ? " (Global)" : ""}
-              </span>
-              {selectedIndex === 0 && (
-                <span className="text-xs font-medium text-primary">
-                  Default
-                </span>
-              )}
-            </label>
-          );
-        })}
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Pilihan pertama digunakan sebagai default.
-      </p>
-      {error && <p className="text-xs text-destructive">{error}</p>}
-    </fieldset>
-  );
-}
-
-/** Kartu pilihan Frame: gambar jadi patokan utama, bukan hanya namanya. */
-function FrameOptionCard({
+/**
+ * Kartu pilihan konfigurasi. Frame memakai PNG-nya; Filter tidak punya asset,
+ * jadi dipratinjau di atas contoh foto memakai rumus warnanya.
+ */
+function OptionCard({
   option,
   selected,
   isDefault,
+  previewStyle,
   onToggle,
   onExpired,
 }: {
   readonly option: EventConfigurationOption;
   readonly selected: boolean;
   readonly isDefault: boolean;
+  /** Kalau diisi, kartu menampilkan contoh foto dengan rumus filter ini. */
+  readonly previewStyle?: string;
   readonly onToggle: () => void;
   readonly onExpired: () => void;
 }) {
   const [broken, setBroken] = useState(false);
+  const isFilterPreview = previewStyle !== undefined;
+  const imageUrl = option.image_url ?? (isFilterPreview ? samplePhoto : null);
 
   return (
     <div
       role="checkbox"
       aria-checked={selected}
-      aria-label={`Frame ${option.name}`}
+      aria-label={option.name}
       tabIndex={0}
       onClick={onToggle}
       onKeyDown={(keyEvent) => {
@@ -337,26 +279,30 @@ function FrameOptionCard({
         }
       }}
       className={cn(
-        "group relative cursor-pointer overflow-hidden rounded-lg border bg-background outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50",
+        "group relative cursor-pointer h-48 overflow-hidden rounded-lg border bg-background outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50",
         selected
           ? "border-primary ring-2 ring-primary/30"
           : "hover:border-primary/40",
       )}
     >
       <div
-        className="relative aspect-[4/3] w-full overflow-hidden"
-        style={{
-          backgroundImage:
-            "repeating-conic-gradient(rgba(0,0,0,0.06) 0% 25%, transparent 0% 50%)",
-          backgroundSize: "16px 16px",
-        }}
+        className="relative aspect-4/3 w-full overflow-hidden"
+        style={CHECKERBOARD}
       >
-        {option.image_url && !broken ? (
+        {imageUrl && !broken ? (
           <img
-            src={option.image_url}
-            alt={`Frame ${option.name}`}
+            src={imageUrl}
+            alt={
+              isFilterPreview
+                ? `Pratinjau Filter ${option.name}`
+                : `Frame ${option.name}`
+            }
             loading="lazy"
-            className="absolute inset-0 size-full object-contain p-3"
+            className={cn(
+              "absolute inset-0 size-full object-cover",
+              isFilterPreview ? "object-cover" : "object-contain p-3",
+            )}
+            style={previewStyle === undefined ? undefined : { filter: previewStyle }}
             onError={() => setBroken(true)}
           />
         ) : (
@@ -366,7 +312,7 @@ function FrameOptionCard({
             ) : (
               <FrameIcon className="size-8 text-muted-foreground" />
             )}
-            {broken && (
+            {broken && option.image_url && (
               <button
                 type="button"
                 className="text-xs font-medium text-primary underline"
@@ -395,7 +341,10 @@ function FrameOptionCard({
         )}
       </div>
       <div className="flex min-w-0 items-center gap-2 border-t px-3 py-2">
-        <span className="min-w-0 flex-1 truncate text-sm font-medium" title={option.name}>
+        <span
+          className="min-w-0 flex-1 truncate text-sm font-medium"
+          title={option.name}
+        >
           {option.name}
         </span>
         {option.is_global && <Badge variant="outline">Global</Badge>}
@@ -404,16 +353,22 @@ function FrameOptionCard({
   );
 }
 
-function FrameChecklist({
+function OptionChecklist({
+  noun,
+  hint,
   options,
   values,
   error,
+  previewStyle,
   onChange,
   onExpired,
 }: {
+  readonly noun: string;
+  readonly hint: string;
   readonly options: ReadonlyArray<EventConfigurationOption>;
   readonly values: ReadonlyArray<string>;
   readonly error?: string;
+  readonly previewStyle?: (option: EventConfigurationOption) => string;
   readonly onChange: (values: ReadonlyArray<string>) => void;
   readonly onExpired: () => void;
 }) {
@@ -427,9 +382,17 @@ function FrameChecklist({
   const partiallySelected = values.length > 0 && !allSelected;
 
   return (
-    <fieldset className="grid gap-3" aria-invalid={Boolean(error)}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <label className="flex cursor-pointer items-center gap-3 text-sm font-medium">
+    <fieldset
+      className="grid min-w-0 content-start gap-3 rounded-xl border p-3"
+      aria-label={noun}
+      aria-invalid={Boolean(error)}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold">{noun}</h3>
+          <p className="text-xs text-muted-foreground">{hint}</p>
+        </div>
+        <label className="flex cursor-pointer items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-xs font-medium">
           <Checkbox
             checked={allSelected}
             indeterminate={partiallySelected}
@@ -439,32 +402,42 @@ function FrameChecklist({
               )
             }
           />
-          <span>Pilih semua ({options.length} Frame)</span>
+          <span>Pilih semua ({options.length})</span>
         </label>
-        <p className="text-xs text-muted-foreground">
-          Pilihan pertama menjadi Frame default.
+      </div>
+
+      {options.length === 0 ? (
+        <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+          Belum ada {noun.toLowerCase()} yang aktif.
         </p>
-      </div>
-      <div className="grid max-h-96 gap-3 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-4">
-        {options.map((option) => {
-          const value = String(option.id);
-          const selected = values.includes(value);
-          return (
-            <FrameOptionCard
-              key={`${option.id}-${option.image_url ?? "none"}`}
-              option={option}
-              selected={selected}
-              isDefault={values[0] === value}
-              onToggle={() => toggle(value, !selected)}
-              onExpired={onExpired}
-            />
-          );
-        })}
-      </div>
+      ) : (
+        <div className="grid max-h-[30rem] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+          {options.map((option) => {
+            const value = String(option.id);
+            const selected = values.includes(value);
+            return (
+              <OptionCard
+                key={`${option.id}-${option.image_url ?? "none"}`}
+                option={option}
+                selected={selected}
+                isDefault={values[0] === value}
+                previewStyle={previewStyle?.(option)}
+                onToggle={() => toggle(value, !selected)}
+                onExpired={onExpired}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        Pilihan pertama menjadi {noun} default.
+      </p>
       {error && <p className="text-xs text-destructive">{error}</p>}
     </fieldset>
   );
 }
+
 
 function parseId(value: string | undefined): number | null {
   const id = Number(value);
@@ -851,244 +824,62 @@ export function EventFormPage(): ReactElement {
         onSubmit={(submitEvent) => void handleSubmit(submitEvent)}
         noValidate
       >
-          {!event && (
-            <div className="grid gap-2">
-              <Label htmlFor="event-booth">Booth</Label>
-              <Select<string>
-                value={form.booth_id || null}
-                onValueChange={(value) => value !== null && changeBooth(value)}
-              >
-                <SelectTrigger
-                  id="event-booth"
-                  className="w-full"
-                  aria-invalid={Boolean(errors.booth_id)}
-                >
-                  <SelectValue placeholder="Pilih Booth" />
-                </SelectTrigger>
-                <SelectContent>
-                  {booths.map((booth) => (
-                    <SelectItem key={booth.id} value={String(booth.id)}>
-                      {booth.name} —{" "}
-                      {booth.partner.brand_name || booth.partner.company_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.booth_id && (
-                <p className="text-xs text-destructive">{errors.booth_id}</p>
-              )}
-            </div>
-          )}
-
-          <div className="grid gap-2">
-            <Label htmlFor="event-name">Nama Event</Label>
-            <Input
-              id="event-name"
-              value={form.event_name}
-              maxLength={150}
-              aria-invalid={Boolean(errors.event_name)}
-              onChange={(inputEvent) =>
-                updateField("event_name", inputEvent.target.value)
-              }
-            />
-            {errors.event_name && (
-              <p className="text-xs text-destructive">{errors.event_name}</p>
-            )}
+        <section className="grid gap-4 rounded-xl border bg-card p-4 sm:p-5">
+          <div>
+            <h2 className="text-sm font-semibold">Informasi Event</h2>
+            <p className="text-xs text-muted-foreground">
+              Booth, nama, dan jadwal pelaksanaan Event.
+            </p>
           </div>
 
-          {!event && selectedBooth && configurationState === "loading" && (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <LoaderCircle className="size-4 animate-spin" /> Memuat
-              konfigurasi Partner...
-            </p>
-          )}
-
-          {!event && configurationState === "success" && (
-            <div className="grid gap-6">
-              <FrameChecklist
-                options={options.templates}
-                values={form.template_ids}
-                error={errors.template_ids}
-                onChange={(values) => updateField("template_ids", values)}
-                onExpired={() => setOptionsRetryKey((value) => value + 1)}
-              />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <ConfigurationChecklist
-                  label="Filter"
-                  values={form.filter_ids}
-                  options={options.filters}
-                  error={errors.filter_ids}
-                  onChange={(values) => updateField("filter_ids", values)}
-                />
-                <ConfigurationSelect
-                  id="event-camera"
-                  label="Camera Profile"
-                  value={form.camera_profile_id}
-                  options={options.cameras}
-                  error={errors.camera_profile_id}
-                  onChange={(value) => updateField("camera_profile_id", value)}
-                />
-                <ConfigurationSelect
-                  id="event-printer"
-                  label="Printer Profile"
-                  value={form.printer_profile_id}
-                  options={options.printers}
-                  error={errors.printer_profile_id}
-                  onChange={(value) => updateField("printer_profile_id", value)}
-                />
-              </div>
-            </div>
-          )}
-
-          {configurationMissing && (
-            <p className="text-sm text-destructive">
-              Event belum dapat dibuat karena salah satu konfigurasi
-              aktif/published belum tersedia.
-            </p>
-          )}
-
-          {!event && (
-            <section className="grid gap-3 border-t pt-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-medium">Paket cetak</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Atur pilihan jumlah dan harga cetak untuk pelanggan.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addPrintOption}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {!event && (
+              <div className="grid gap-2">
+                <Label htmlFor="event-booth">Booth</Label>
+                <Select<string>
+                  value={form.booth_id || null}
+                  onValueChange={(value) =>
+                    value !== null && changeBooth(value)
+                  }
                 >
-                  <Plus aria-hidden="true" /> Tambah paket
-                </Button>
-              </div>
-
-              {form.print_options.length === 0 && (
-                <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
-                  Belum ada paket cetak.
-                </p>
-              )}
-
-              {form.print_options.map((option, index) => {
-                const rowErrors = printOptionErrors[option.id];
-                return (
-                  <div
-                    key={option.id}
-                    className="grid gap-3 rounded-md border p-3 sm:grid-cols-[0.8fr_1fr_1fr_1.25fr_auto] sm:items-start"
+                  <SelectTrigger
+                    id="event-booth"
+                    className="w-full"
+                    aria-invalid={Boolean(errors.booth_id)}
                   >
-                    <div className="grid gap-2">
-                      <Label htmlFor={`print-paper-${option.id}`}>Ukuran</Label>
-                      <Select<"2r" | "4r">
-                        value={option.paper_size}
-                        onValueChange={(value) =>
-                          value !== null &&
-                          updatePrintOption(option.id, "paper_size", value)
-                        }
-                      >
-                        <SelectTrigger
-                          id={`print-paper-${option.id}`}
-                          className="w-full"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="2r">2R</SelectItem>
-                          <SelectItem value="4r">4R</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor={`print-quantity-${option.id}`}>
-                        Jumlah dasar
-                      </Label>
-                      <Input
-                        id={`print-quantity-${option.id}`}
-                        type="number"
-                        min={1}
-                        step={1}
-                        value={option.unit_quantity}
-                        aria-invalid={Boolean(rowErrors?.unit_quantity)}
-                        onChange={(inputEvent) =>
-                          updatePrintOption(
-                            option.id,
-                            "unit_quantity",
-                            inputEvent.target.value,
-                          )
-                        }
-                      />
-                      {rowErrors?.unit_quantity && (
-                        <p className="text-xs text-destructive">
-                          {rowErrors.unit_quantity}
-                        </p>
-                      )}
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor={`print-step-${option.id}`}>
-                        Kelipatan
-                      </Label>
-                      <Input
-                        id={`print-step-${option.id}`}
-                        type="number"
-                        min={1}
-                        step={1}
-                        value={option.quantity_step}
-                        aria-invalid={Boolean(rowErrors?.quantity_step)}
-                        onChange={(inputEvent) =>
-                          updatePrintOption(
-                            option.id,
-                            "quantity_step",
-                            inputEvent.target.value,
-                          )
-                        }
-                      />
-                      {rowErrors?.quantity_step && (
-                        <p className="text-xs text-destructive">
-                          {rowErrors.quantity_step}
-                        </p>
-                      )}
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor={`print-price-${option.id}`}>Harga</Label>
-                      <Input
-                        id={`print-price-${option.id}`}
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={option.price}
-                        aria-invalid={Boolean(rowErrors?.price)}
-                        onChange={(inputEvent) =>
-                          updatePrintOption(
-                            option.id,
-                            "price",
-                            inputEvent.target.value,
-                          )
-                        }
-                      />
-                      {rowErrors?.price && (
-                        <p className="text-xs text-destructive">
-                          {rowErrors.price}
-                        </p>
-                      )}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="sm:mt-6"
-                      aria-label={`Hapus paket cetak ${index + 1}`}
-                      title="Hapus paket"
-                      onClick={() => removePrintOption(option.id)}
-                    >
-                      <Trash2 aria-hidden="true" />
-                    </Button>
-                  </div>
-                );
-              })}
-            </section>
-          )}
+                    <SelectValue placeholder="Pilih Booth" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {booths.map((booth) => (
+                      <SelectItem key={booth.id} value={String(booth.id)}>
+                        {booth.name} —{" "}
+                        {booth.partner.brand_name || booth.partner.company_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.booth_id && (
+                  <p className="text-xs text-destructive">{errors.booth_id}</p>
+                )}
+              </div>
+            )}
+
+            <div className="grid gap-2">
+              <Label htmlFor="event-name">Nama Event</Label>
+              <Input
+                id="event-name"
+                value={form.event_name}
+                maxLength={150}
+                aria-invalid={Boolean(errors.event_name)}
+                onChange={(inputEvent) =>
+                  updateField("event_name", inputEvent.target.value)
+                }
+              />
+              {errors.event_name && (
+                <p className="text-xs text-destructive">{errors.event_name}</p>
+              )}
+            </div>
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="grid gap-2">
@@ -1136,6 +927,89 @@ export function EventFormPage(): ReactElement {
                 <p className="text-xs text-destructive">{errors.end_time}</p>
               )}
             </div>
+          </div>
+        </section>
+
+        {!event && selectedBooth && configurationState === "loading" && (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <LoaderCircle className="size-4 animate-spin" /> Memuat konfigurasi
+            Partner...
+          </p>
+        )}
+
+        {!event && configurationState === "success" && (
+          <section className="grid gap-4 rounded-xl border bg-card p-4 sm:p-5">
+            <div>
+              <h2 className="text-sm font-semibold">Konfigurasi</h2>
+              <p className="text-xs text-muted-foreground">
+                Frame dan Filter bisa dipilih lebih dari satu. Camera dan
+                Printer berlaku per Booth.
+              </p>
+            </div>
+
+            <div className="grid items-start gap-4 lg:grid-cols-2">
+              <OptionChecklist
+                noun="Frame"
+                hint="Kartu memakai PNG Frame asli."
+                options={options.templates}
+                values={form.template_ids}
+                error={errors.template_ids}
+                onChange={(values) => updateField("template_ids", values)}
+                onExpired={() => setOptionsRetryKey((value) => value + 1)}
+              />
+              <OptionChecklist
+                noun="Filter"
+                hint="Pratinjau memakai rumus warna yang sama dengan aplikasi desktop."
+                options={options.filters}
+                values={form.filter_ids}
+                error={errors.filter_ids}
+                previewStyle={(option) =>
+                  filterPreviewStyle({
+                    brightness: option.brightness ?? 0,
+                    contrast: option.contrast ?? 0,
+                    saturation: option.saturation ?? 0,
+                    intensity: option.intensity ?? 100,
+                  })
+                }
+                onChange={(values) => updateField("filter_ids", values)}
+                onExpired={() => setOptionsRetryKey((value) => value + 1)}
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ConfigurationSelect
+                id="event-camera"
+                label="Camera Profile"
+                value={form.camera_profile_id}
+                options={options.cameras}
+                error={errors.camera_profile_id}
+                onChange={(value) => updateField("camera_profile_id", value)}
+              />
+              <ConfigurationSelect
+                id="event-printer"
+                label="Printer Profile"
+                value={form.printer_profile_id}
+                options={options.printers}
+                error={errors.printer_profile_id}
+                onChange={(value) => updateField("printer_profile_id", value)}
+              />
+            </div>
+          </section>
+        )}
+
+        {configurationMissing && (
+          <p className="text-sm text-destructive">
+            Event belum dapat dibuat karena salah satu konfigurasi
+            aktif/published belum tersedia.
+          </p>
+        )}
+
+        <section className="grid gap-4 rounded-xl border bg-card p-4 sm:p-5">
+          <div>
+            <h2 className="text-sm font-semibold">Harga dan Status</h2>
+            <p className="text-xs text-muted-foreground">
+              Harga sesi, batas cetak, dan status Event.
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -1205,39 +1079,181 @@ export function EventFormPage(): ReactElement {
               </Select>
             </div>
           </div>
+        </section>
 
-          {formError && (
-            <p role="alert" className="text-sm text-destructive">
-              {formError}
-            </p>
-          )}
+        {!event && (
+          <section className="grid gap-3 rounded-xl border bg-card p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold">Paket cetak</h2>
+                <p className="text-xs text-muted-foreground">
+                  Atur pilihan jumlah dan harga cetak untuk pelanggan.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addPrintOption}
+              >
+                <Plus aria-hidden="true" /> Tambah paket
+              </Button>
+            </div>
 
-          <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={pending}
-              onClick={() =>
-                navigate(event ? `/admin/events/${event.id}` : "/admin/events")
-              }
-            >
-              Batal
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                pending ||
-                (!event &&
-                  (configurationState !== "success" || configurationMissing))
-              }
-            >
-              {pending && (
-                <LoaderCircle className="animate-spin" aria-hidden="true" />
-              )}
-              {event ? "Simpan perubahan" : "Tambah Event"}
-            </Button>
-          </div>
-        </form>
+            {form.print_options.length === 0 && (
+              <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+                Belum ada paket cetak.
+              </p>
+            )}
+
+            {form.print_options.map((option, index) => {
+              const rowErrors = printOptionErrors[option.id];
+              return (
+                <div
+                  key={option.id}
+                  className="grid gap-3 rounded-md border p-3 sm:grid-cols-[0.8fr_1fr_1fr_1.25fr_auto] sm:items-start"
+                >
+                  <div className="grid gap-2">
+                    <Label htmlFor={`print-paper-${option.id}`}>Ukuran</Label>
+                    <Select<"2r" | "4r">
+                      value={option.paper_size}
+                      onValueChange={(value) =>
+                        value !== null &&
+                        updatePrintOption(option.id, "paper_size", value)
+                      }
+                    >
+                      <SelectTrigger
+                        id={`print-paper-${option.id}`}
+                        className="w-full"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="2r">2R</SelectItem>
+                        <SelectItem value="4r">4R</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`print-quantity-${option.id}`}>
+                      Jumlah dasar
+                    </Label>
+                    <Input
+                      id={`print-quantity-${option.id}`}
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={option.unit_quantity}
+                      aria-invalid={Boolean(rowErrors?.unit_quantity)}
+                      onChange={(inputEvent) =>
+                        updatePrintOption(
+                          option.id,
+                          "unit_quantity",
+                          inputEvent.target.value,
+                        )
+                      }
+                    />
+                    {rowErrors?.unit_quantity && (
+                      <p className="text-xs text-destructive">
+                        {rowErrors.unit_quantity}
+                      </p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`print-step-${option.id}`}>Kelipatan</Label>
+                    <Input
+                      id={`print-step-${option.id}`}
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={option.quantity_step}
+                      aria-invalid={Boolean(rowErrors?.quantity_step)}
+                      onChange={(inputEvent) =>
+                        updatePrintOption(
+                          option.id,
+                          "quantity_step",
+                          inputEvent.target.value,
+                        )
+                      }
+                    />
+                    {rowErrors?.quantity_step && (
+                      <p className="text-xs text-destructive">
+                        {rowErrors.quantity_step}
+                      </p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`print-price-${option.id}`}>Harga</Label>
+                    <Input
+                      id={`print-price-${option.id}`}
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={option.price}
+                      aria-invalid={Boolean(rowErrors?.price)}
+                      onChange={(inputEvent) =>
+                        updatePrintOption(
+                          option.id,
+                          "price",
+                          inputEvent.target.value,
+                        )
+                      }
+                    />
+                    {rowErrors?.price && (
+                      <p className="text-xs text-destructive">
+                        {rowErrors.price}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="sm:mt-6"
+                    aria-label={`Hapus paket cetak ${index + 1}`}
+                    title="Hapus paket"
+                    onClick={() => removePrintOption(option.id)}
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </div>
+              );
+            })}
+          </section>
+        )}
+
+        {formError && (
+          <p role="alert" className="text-sm text-destructive">
+            {formError}
+          </p>
+        )}
+
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onClick={() =>
+              navigate(event ? `/admin/events/${event.id}` : "/admin/events")
+            }
+          >
+            Batal
+          </Button>
+          <Button
+            type="submit"
+            disabled={
+              pending ||
+              (!event &&
+                (configurationState !== "success" || configurationMissing))
+            }
+          >
+            {pending && (
+              <LoaderCircle className="animate-spin" aria-hidden="true" />
+            )}
+            {event ? "Simpan perubahan" : "Tambah Event"}
+          </Button>
+        </div>
+      </form>
 
       <Toaster position="top-right" />
     </div>
