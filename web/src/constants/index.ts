@@ -1,3 +1,4 @@
+import type { TemplateStatus } from "@/features/templates/template.types"
 import {
   CalendarDays,
   ChartNoAxesCombined,
@@ -95,3 +96,26 @@ export const superAdminSettingsNavItems: AdminNavItem[] = [
     icon: UsersRound,
   },
 ]
+
+
+// Template 2R dicetak di lembar 4R berisi dua strip identik, lalu dipotong tengah.
+// Jadi kanvasnya sama-sama 1200x1800; yang membedakan hanya susunan slot dan paper_size.
+export const FRAME_SIZES = {
+  "2R": {
+    width: 1200,
+    height: 1800,
+    label: "2R strip (cetak 4R, potong jadi 2)",
+  },
+  "4R": { width: 1200, height: 1800, label: "4R (10 x 15 cm)" },
+} as const
+
+
+/** Tinggi acuan pratinjau; lebarnya menyusul dari rasio kanvas Frame. */
+export const PREVIEW_HEIGHT = 240;
+
+export const statusLabels: Record<TemplateStatus, string> = {
+  draft: "Draft",
+  published: "Published",
+  archived: "Archived",
+};
+

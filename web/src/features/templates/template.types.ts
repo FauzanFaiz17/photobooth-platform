@@ -1,3 +1,4 @@
+import type { FRAME_SIZES } from "@/constants"
 import {
   isPaginationLinks,
   isPaginationMeta,
@@ -5,6 +6,7 @@ import {
   type PaginationMeta,
   type SortDirection,
 } from "@/lib/pagination"
+import type { Rect } from "fabric"
 
 export const TEMPLATE_STATUSES = ["draft", "published", "archived"] as const
 export type TemplateStatus = (typeof TEMPLATE_STATUSES)[number]
@@ -70,6 +72,67 @@ interface TemplateResponse {
   data: TemplateRecord
 }
 
+export type FrameSize = keyof typeof FRAME_SIZES;
+export type FrameOrientation = "portrait" | "landscape";
+
+
+/** Rasio awal slot; hanya dipakai saat ukuran diterapkan, resize tetap bebas. */
+export const SLOT_RATIOS = {
+  "3:2": { value: 3 / 2, label: "Persegi panjang 3:2 (mendatar)" },
+  "2:3": { value: 2 / 3, label: "Persegi panjang 2:3 (tegak)" },
+  "1:1": { value: 1, label: "Persegi 1:1" },
+} as const;
+
+export type SlotRatio = keyof typeof SLOT_RATIOS;
+
+export interface PhotoSlot {
+  id: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  shot: number;
+}
+
+export interface FormErrors {
+  partner_id?: string;
+  name?: string;
+  png?: string;
+  slots?: string;
+}
+
+export type SlotRect = Rect & { slotId: number };
+
+export interface FrameCanvasProps {
+  canvasWidth: number;
+  canvasHeight: number;
+  displayWidth: number;
+  displayHeight: number;
+  overlayUrl: string | null;
+  slotsInFront: boolean;
+  slots: ReadonlyArray<PhotoSlot>;
+  selectedSlotId: number | null;
+  onSelect: (slotId: number | null) => void;
+  onChange: (slotId: number, updates: Partial<Omit<PhotoSlot, "id">>) => void;
+  onOverlayError: () => void;
+}
+
+
+export interface LayoutSlot {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  shot: number;
+}
+
+export interface FrameLayoutInfo {
+  width: number;
+  height: number;
+  paperSize: TemplatePaperSize;
+  slotsInFront: boolean;
+  slots: ReadonlyArray<LayoutSlot>;
+}
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }

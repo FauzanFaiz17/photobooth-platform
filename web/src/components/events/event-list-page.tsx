@@ -1,7 +1,5 @@
 import { Plus } from "lucide-react";
-import { Link } from "react-router-dom";
-
-import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -25,8 +23,10 @@ import {
 } from "./components/event-list-states";
 import { EventTableRow } from "./components/event-table-row";
 import { EventPagination } from "./components/event-pagination";
+import SectionHeader from "../shared/section-header";
 
 export function EventListPage() {
+  const navigate = useNavigate();
   const {
     response,
     booths,
@@ -46,17 +46,16 @@ export function EventListPage() {
 
   return (
     <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Events</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Kelola jadwal dan konfigurasi Event setiap Booth.
-          </p>
-        </div>
-        <Button render={<Link to="/admin/events/create" />}>
-          <Plus aria-hidden="true" /> Tambah Event
-        </Button>
-      </header>
+      <SectionHeader
+        heading="Events"
+        description="Kelola jadwal dan konfigurasi Event setiap Booth."
+        onAction={() => navigate("/admin/events/create")}
+        actionLabel={
+          <>
+            <Plus aria-hidden="true" /> Tambah Event
+          </>
+        }
+      />
 
       <Card>
         <CardHeader className="gap-4 border-b">
@@ -92,7 +91,9 @@ export function EventListPage() {
           )}
           {loadState === "success" &&
             response &&
-            response.data.length === 0 && <EventListEmpty filtered={filtered} />}
+            response.data.length === 0 && (
+              <EventListEmpty filtered={filtered} />
+            )}
           {loadState === "success" && response && response.data.length > 0 && (
             <>
               <div className="overflow-x-auto">
