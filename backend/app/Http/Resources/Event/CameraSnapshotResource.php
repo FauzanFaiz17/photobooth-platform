@@ -25,6 +25,12 @@ class CameraSnapshotResource extends JsonResource
 
             'white_balance' => $this->white_balance,
 
+            'picture_style' => $this->picture_style,
+
+            'contrast' => $this->contrast,
+
+            'saturation' => $this->saturation,
+
             'exposure' => $this->exposure,
 
             'focus_mode' => $this->focus_mode,

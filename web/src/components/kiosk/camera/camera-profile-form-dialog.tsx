@@ -34,6 +34,9 @@ interface CameraFormState {
   shutter_speed: string
   aperture: string
   white_balance: string
+  picture_style: string
+  contrast: string
+  saturation: string
   exposure: string
   focus_mode: string
   countdown_seconds: string
@@ -50,10 +53,10 @@ const stringFields = [
   "iso",
   "shutter_speed",
   "aperture",
-  "white_balance",
+  "picture_style",
+  "contrast",
+  "saturation",
   "exposure",
-  "focus_mode",
-  "image_quality",
 ] as const
 
 function nullable(value: string): string | null {
@@ -69,7 +72,7 @@ function validate(form: CameraFormState): CameraFormErrors {
   if (form.name.trim().length > 150) errors.name = "Maksimal 150 karakter."
 
   for (const field of stringFields) {
-    const max = field === "focus_mode" ? 30 : field === "name" ? 150 : 20
+    const max = field === "name" ? 150 : 20
     if (form[field].trim().length > max) {
       errors[field] = `Maksimal ${max} karakter.`
     }
@@ -105,6 +108,9 @@ function initialForm(profile: CameraProfileRecord | null): CameraFormState {
     shutter_speed: profile?.shutter_speed ?? "",
     aperture: profile?.aperture ?? "",
     white_balance: profile?.white_balance ?? "",
+    picture_style: profile?.picture_style ?? "",
+    contrast: profile?.contrast ?? "",
+    saturation: profile?.saturation ?? "",
     exposure: profile?.exposure ?? "",
     focus_mode: profile?.focus_mode ?? "",
     countdown_seconds: String(profile?.countdown_seconds ?? 3),
@@ -114,6 +120,60 @@ function initialForm(profile: CameraProfileRecord | null): CameraFormState {
     is_active: profile?.is_active ?? true,
   }
 }
+
+const WHITE_BALANCE_OPTIONS = [
+  "Auto",
+  "Daylight",
+  "Shade",
+  "Cloudy",
+  "Tungsten",
+  "Fluorescent",
+  "Flash",
+  "Custom",
+  "Color Temperature",
+] as const
+
+const PICTURE_STYLE_OPTIONS = [
+  "Standard",
+  "Portrait",
+  "Landscape",
+  "Fine Detail",
+  "Neutral",
+  "Faithful",
+  "Monochrome",
+  "User Def. 1",
+  "User Def. 2",
+  "User Def. 3",
+] as const
+
+const FOCUS_MODE_OPTIONS = [
+  "One-Shot AF",
+  "AI Servo AF",
+  "AI Focus AF",
+  "Manual Focus",
+] as const
+
+const IMAGE_QUALITY_OPTIONS = [
+  "RAW",
+  "RAW+JPEG Fine",
+  "RAW+JPEG Normal",
+  "JPEG Fine",
+  "JPEG Normal",
+  "JPEG Compact",
+] as const
+
+const EXPOSURE_COMP_OPTIONS = [
+  "+5", "+4 1/3", "+4", "+3 2/3", "+3 1/3", "+3",
+  "+2 2/3", "+2 1/3", "+2", "+1 2/3", "+1 1/3", "+1",
+  "+2/3", "+1/3", "0",
+  "-1/3", "-2/3",
+  "-1", "-1 1/3", "-1 2/3",
+  "-2", "-2 1/3", "-2 2/3",
+  "-3", "-3 1/3", "-3 2/3",
+  "-4", "-4 1/3", "-5",
+] as const
+
+const CONTRAST_SAT_OPTIONS = ["-4", "-3", "-2", "-1", "0", "+1", "+2", "+3", "+4"] as const
 
 interface CameraProfileFormDialogProps {
   readonly partnerId: number
@@ -172,6 +232,9 @@ export function CameraProfileFormDialog({
       shutter_speed: nullable(form.shutter_speed),
       aperture: nullable(form.aperture),
       white_balance: nullable(form.white_balance),
+      picture_style: nullable(form.picture_style),
+      contrast: nullable(form.contrast),
+      saturation: nullable(form.saturation),
       exposure: nullable(form.exposure),
       focus_mode: nullable(form.focus_mode),
       countdown_seconds: Number(form.countdown_seconds),
@@ -215,16 +278,6 @@ export function CameraProfileFormDialog({
     }
   }
 
-  const textInputs = [
-    ["iso", "ISO", "Contoh: 100"],
-    ["shutter_speed", "Shutter speed", "Contoh: 1/125"],
-    ["aperture", "Aperture", "Contoh: f/5.6"],
-    ["white_balance", "White balance", "Contoh: Auto"],
-    ["exposure", "Exposure", "Contoh: +0.3"],
-    ["focus_mode", "Focus mode", "Contoh: Auto"],
-    ["image_quality", "Image quality", "Contoh: Fine"],
-  ] as const
-
   return (
     <Dialog open={open} onOpenChange={(value) => !pending && onOpenChange(value)}>
       <DialogContent className="sm:max-w-2xl">
@@ -255,22 +308,163 @@ export function CameraProfileFormDialog({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            {textInputs.map(([field, label, placeholder]) => (
-              <div key={field} className="grid gap-2">
-                <Label htmlFor={`camera-${field}`}>{label}</Label>
-                <Input
-                  id={`camera-${field}`}
-                  value={form[field]}
-                  placeholder={placeholder}
-                  maxLength={field === "focus_mode" ? 30 : 20}
-                  aria-invalid={Boolean(errors[field])}
-                  onChange={(event) => updateField(field, event.target.value)}
-                />
-                {errors[field] && (
-                  <p className="text-xs text-destructive">{errors[field]}</p>
-                )}
-              </div>
-            ))}
+            <div className="grid gap-2">
+              <Label htmlFor="camera-iso">ISO</Label>
+              <Input
+                id="camera-iso"
+                value={form.iso}
+                placeholder="Contoh: 100"
+                maxLength={20}
+                aria-invalid={Boolean(errors.iso)}
+                onChange={(event) => updateField("iso", event.target.value)}
+              />
+              {errors.iso && <p className="text-xs text-destructive">{errors.iso}</p>}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="camera-shutter_speed">Shutter speed</Label>
+              <Input
+                id="camera-shutter_speed"
+                value={form.shutter_speed}
+                placeholder="Contoh: 1/125"
+                maxLength={20}
+                aria-invalid={Boolean(errors.shutter_speed)}
+                onChange={(event) => updateField("shutter_speed", event.target.value)}
+              />
+              {errors.shutter_speed && <p className="text-xs text-destructive">{errors.shutter_speed}</p>}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="camera-aperture">Aperture</Label>
+              <Input
+                id="camera-aperture"
+                value={form.aperture}
+                placeholder="Contoh: f/5.6"
+                maxLength={20}
+                aria-invalid={Boolean(errors.aperture)}
+                onChange={(event) => updateField("aperture", event.target.value)}
+              />
+              {errors.aperture && <p className="text-xs text-destructive">{errors.aperture}</p>}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="camera-white_balance">White balance</Label>
+              <Select
+                value={form.white_balance}
+                onValueChange={(value) => updateField("white_balance", value)}
+              >
+                <SelectTrigger id="camera-white_balance" className="w-full">
+                  <SelectValue placeholder="Pilih white balance" />
+                </SelectTrigger>
+                <SelectContent>
+                  {WHITE_BALANCE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="camera-picture_style">Picture style</Label>
+              <Select
+                value={form.picture_style}
+                onValueChange={(value) => updateField("picture_style", value)}
+              >
+                <SelectTrigger id="camera-picture_style" className="w-full">
+                  <SelectValue placeholder="Pilih picture style" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PICTURE_STYLE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="camera-exposure">Exposure comp.</Label>
+              <Select
+                value={form.exposure}
+                onValueChange={(value) => updateField("exposure", value)}
+              >
+                <SelectTrigger id="camera-exposure" className="w-full">
+                  <SelectValue placeholder="Pilih exposure" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EXPOSURE_COMP_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="camera-contrast">Contrast</Label>
+              <Select
+                value={form.contrast}
+                onValueChange={(value) => updateField("contrast", value)}
+              >
+                <SelectTrigger id="camera-contrast" className="w-full">
+                  <SelectValue placeholder="Pilih contrast" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CONTRAST_SAT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="camera-saturation">Saturation</Label>
+              <Select
+                value={form.saturation}
+                onValueChange={(value) => updateField("saturation", value)}
+              >
+                <SelectTrigger id="camera-saturation" className="w-full">
+                  <SelectValue placeholder="Pilih saturation" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CONTRAST_SAT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="camera-focus_mode">Focus mode</Label>
+              <Select
+                value={form.focus_mode}
+                onValueChange={(value) => updateField("focus_mode", value)}
+              >
+                <SelectTrigger id="camera-focus_mode" className="w-full">
+                  <SelectValue placeholder="Pilih focus mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  {FOCUS_MODE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="camera-image_quality">Image quality</Label>
+              <Select
+                value={form.image_quality}
+                onValueChange={(value) => updateField("image_quality", value)}
+              >
+                <SelectTrigger id="camera-image_quality" className="w-full">
+                  <SelectValue placeholder="Pilih kualitas" />
+                </SelectTrigger>
+                <SelectContent>
+                  {IMAGE_QUALITY_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <div className="grid gap-2">
               <Label htmlFor="camera-countdown">Countdown (detik)</Label>

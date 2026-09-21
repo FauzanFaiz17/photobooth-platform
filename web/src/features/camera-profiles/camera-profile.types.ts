@@ -20,6 +20,9 @@ export interface CameraProfileRecord {
   shutter_speed: string | null
   aperture: string | null
   white_balance: string | null
+  picture_style: string | null
+  contrast: string | null
+  saturation: string | null
   exposure: string | null
   focus_mode: string | null
   countdown_seconds: number
@@ -50,6 +53,9 @@ export interface CameraProfileInput {
   shutter_speed?: string | null
   aperture?: string | null
   white_balance?: string | null
+  picture_style?: string | null
+  contrast?: string | null
+  saturation?: string | null
   exposure?: string | null
   focus_mode?: string | null
   countdown_seconds: number
@@ -101,6 +107,9 @@ export function isCameraProfileRecord(
     isNullableString(value.shutter_speed) &&
     isNullableString(value.aperture) &&
     isNullableString(value.white_balance) &&
+    isNullableString(value.picture_style) &&
+    isNullableString(value.contrast) &&
+    isNullableString(value.saturation) &&
     isNullableString(value.exposure) &&
     isNullableString(value.focus_mode) &&
     typeof value.countdown_seconds === "number" &&

@@ -59,6 +59,9 @@ export interface CameraSnapshot {
   shutter_speed: string | null
   aperture: string | null
   white_balance: string | null
+  picture_style: string | null
+  contrast: string | null
+  saturation: string | null
   exposure: string | null
   focus_mode: string | null
   countdown_seconds: number

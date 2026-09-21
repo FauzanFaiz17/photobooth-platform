@@ -73,6 +73,10 @@ function CameraProfileCard({
           <div><dt className="text-xs text-muted-foreground">Shutter</dt><dd className="mt-1 font-medium">{value(profile.shutter_speed)}</dd></div>
           <div><dt className="text-xs text-muted-foreground">Aperture</dt><dd className="mt-1 font-medium">{value(profile.aperture)}</dd></div>
           <div><dt className="text-xs text-muted-foreground">White balance</dt><dd className="mt-1 font-medium">{value(profile.white_balance)}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Picture style</dt><dd className="mt-1 font-medium">{value(profile.picture_style)}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Contrast</dt><dd className="mt-1 font-medium">{value(profile.contrast)}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Saturation</dt><dd className="mt-1 font-medium">{value(profile.saturation)}</dd></div>
+          <div><dt className="text-xs text-muted-foreground">Exposure</dt><dd className="mt-1 font-medium">{value(profile.exposure)}</dd></div>
           <div><dt className="text-xs text-muted-foreground">Countdown</dt><dd className="mt-1 font-medium">{profile.countdown_seconds} detik</dd></div>
           <div><dt className="text-xs text-muted-foreground">Burst</dt><dd className="mt-1 font-medium">{profile.burst_count} foto</dd></div>
           <div><dt className="text-xs text-muted-foreground">Focus</dt><dd className="mt-1 font-medium">{value(profile.focus_mode)}</dd></div>

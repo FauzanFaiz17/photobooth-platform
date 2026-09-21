@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
 import Alert from '@/components/ui/Alert'
 import { NeoButton } from '@/components/shared/button'
@@ -8,6 +8,9 @@ import {
   getAppSettings,
   saveCameraSettings
 } from '@/features/settings/deviceSettings'
+import { useSessionStore } from '@/store/sessionStore'
+import { getApiErrorMessage } from '@/api/axios'
+import axios from '@/api/axios'
 
 const CAMERA_API_URL = 'http://127.0.0.1:5000'
 
@@ -51,6 +54,10 @@ async function cameraRequest(
     body: body === undefined ? undefined : JSON.stringify(body)
   })
   return response.json() as Promise<CameraApiResponse>
+}
+
+function findOptionByValue(options: CameraOption[], value: number | null): CameraOption | undefined {
+  return options.find((option) => option.value === value)
 }
 
 function ExposureControl({
@@ -117,11 +124,44 @@ function ExposureControl({
   )
 }
 
+function CameraDropdown({
+  label,
+  options,
+  value,
+  disabled,
+  onChange
+}: {
+  label: string
+  options: CameraOption[]
+  value: number | null
+  disabled: boolean
+  onChange: (value: number) => void
+}): JSX.Element {
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-black">{label}</label>
+      <select
+        value={value ?? ''}
+        disabled={disabled || options.length === 0}
+        onChange={(event) => {
+          const selected = Number(event.target.value)
+          if (!Number.isNaN(selected)) onChange(selected)
+        }}
+        className="h-10 w-full border-4 border-[var(--border)] bg-[var(--background)] px-2 text-sm font-bold outline-none disabled:opacity-40"
+      >
+        {options.length === 0 && <option value="">--</option>}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX.Element {
   const [source, setSource] = useState<CameraSource>('canon')
-  // Stream webcam renderer hanya hidup saat sumber webcam dipilih. Saat Canon,
-  // stream dimatikan supaya LED webcam padam dan EDSDK/OpenCV bebas membuka
-  // kamera Canon tanpa konflik perangkat.
   const isWebcamSource = source.startsWith('webcam:')
   const {
     videoRef,
@@ -135,7 +175,9 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
   } = useWebcam({ enabled: isWebcamSource })
   const [orientation, setOrientation] = useState<Orientation>('portrait')
   const [mirror, setMirror] = useState(false)
-  const [options, setOptions] = useState<CameraOptions>({ iso: [], aperture: [], shutter: [], white_balance: [], picture_style: [], exposure: [], contrast: [], saturation: [] })
+  const [options, setOptions] = useState<CameraOptions>({
+    iso: [], aperture: [], shutter: [], white_balance: [], picture_style: [], exposure: [], contrast: [], saturation: []
+  })
   const [iso, setIso] = useState<number | null>(null)
   const [aperture, setAperture] = useState<number | null>(null)
   const [shutter, setShutter] = useState<number | null>(null)
@@ -151,6 +193,8 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
   const [testPhoto, setTestPhoto] = useState<string | null>(null)
   const isCanon = source === 'canon'
   const selectedWebcamId = source.startsWith('webcam:') ? source.slice(7) : null
+  const eventConfiguration = useSessionStore((state) => state.eventConfiguration)
+
   const cameraOptions = useMemo(
     () => [
       { value: 'canon' as const, label: 'Canon R100 (EDSDK)' },
@@ -162,6 +206,24 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
     [webcamDevices]
   )
 
+  const applyAllCanonSettings = useCallback(async (opts: CameraOptions, values: { iso: number | null; aperture: number | null; shutter: number | null; whiteBalance: number | null; pictureStyle: number | null; exposure: number | null; contrast: number | null; saturation: number | null }) => {
+    const props: Array<[string, number | null, CameraOption[]]> = [
+      ['iso', values.iso, opts.iso],
+      ['aperture', values.aperture, opts.aperture],
+      ['shutter', values.shutter, opts.shutter],
+      ['white_balance', values.whiteBalance, opts.white_balance],
+      ['picture_style', values.pictureStyle, opts.picture_style],
+      ['exposure', values.exposure, opts.exposure],
+      ['contrast', values.contrast, opts.contrast],
+      ['saturation', values.saturation, opts.saturation],
+    ]
+    for (const [property, val, available] of props) {
+      if (val !== null && available.some((o) => o.value === val)) {
+        await cameraRequest('/set_property', 'POST', { property, value: val })
+      }
+    }
+  }, [])
+
   async function loadCanonOptions(): Promise<void> {
     setMessage(null)
     try {
@@ -171,14 +233,77 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
       const nextOptions: CameraOptions = {
         iso: data.options?.iso ?? [],
         aperture: data.options?.aperture ?? [],
-      shutter: data.options?.shutter ?? []
-        , white_balance: data.options?.white_balance ?? [], picture_style: data.options?.picture_style ?? [], exposure: data.options?.exposure ?? [], contrast: data.options?.contrast ?? [], saturation: data.options?.saturation ?? []
+        shutter: data.options?.shutter ?? [],
+        white_balance: data.options?.white_balance ?? [],
+        picture_style: data.options?.picture_style ?? [],
+        exposure: data.options?.exposure ?? [],
+        contrast: data.options?.contrast ?? [],
+        saturation: data.options?.saturation ?? []
       }
       setOptions(nextOptions)
-      setIso(nextOptions.iso[0]?.value ?? null)
-      setAperture(nextOptions.aperture[0]?.value ?? null)
-      setShutter(nextOptions.shutter[0]?.value ?? null)
+
+      const camera = eventConfiguration?.camera
+      let nextIso = nextOptions.iso[0]?.value ?? null
+      let nextAperture = nextOptions.aperture[0]?.value ?? null
+      let nextShutter = nextOptions.shutter[0]?.value ?? null
+      let nextWb = nextOptions.white_balance[0]?.value ?? null
+      let nextPs = nextOptions.picture_style[0]?.value ?? null
+      let nextExposure = nextOptions.exposure[0]?.value ?? null
+      let nextContrast = nextOptions.contrast[0]?.value ?? null
+      let nextSaturation = nextOptions.saturation[0]?.value ?? null
+
+      if (camera) {
+        const stored = await getCameraSettings()
+        nextIso = findOptionByValue(nextOptions.iso, stored.iso?.value)?.value
+          ?? findOptionByValue(nextOptions.iso, camera.iso !== null ? Number(camera.iso) : null)?.value
+          ?? nextOptions.iso[0]?.value
+          ?? null
+        nextAperture = findOptionByValue(nextOptions.aperture, stored.aperture?.value)?.value
+          ?? findOptionByValue(nextOptions.aperture, camera.aperture !== null ? Number(camera.aperture) : null)?.value
+          ?? nextOptions.aperture[0]?.value
+          ?? null
+        nextShutter = findOptionByValue(nextOptions.shutter, stored.shutter?.value)?.value
+          ?? findOptionByValue(nextOptions.shutter, camera.shutter_speed !== null ? Number(camera.shutter_speed) : null)?.value
+          ?? nextOptions.shutter[0]?.value
+          ?? null
+        nextWb = findOptionByValue(nextOptions.white_balance, stored.whiteBalance?.value)?.value
+          ?? findOptionByValue(nextOptions.white_balance, camera.white_balance !== null ? Number(camera.white_balance) : null)?.value
+          ?? nextOptions.white_balance[0]?.value
+          ?? null
+        nextPs = findOptionByValue(nextOptions.picture_style, stored.pictureStyle?.value)?.value
+          ?? findOptionByValue(nextOptions.picture_style, camera.picture_style !== null ? Number(camera.picture_style) : null)?.value
+          ?? nextOptions.picture_style[0]?.value
+          ?? null
+        nextExposure = findOptionByValue(nextOptions.exposure, stored.exposure?.value)?.value
+          ?? findOptionByValue(nextOptions.exposure, camera.exposure !== null ? Number(camera.exposure) : null)?.value
+          ?? nextOptions.exposure[0]?.value
+          ?? null
+        nextContrast = findOptionByValue(nextOptions.contrast, stored.contrast?.value)?.value
+          ?? findOptionByValue(nextOptions.contrast, camera.contrast !== null ? Number(camera.contrast) : null)?.value
+          ?? nextOptions.contrast[0]?.value
+          ?? null
+        nextSaturation = findOptionByValue(nextOptions.saturation, stored.saturation?.value)?.value
+          ?? findOptionByValue(nextOptions.saturation, camera.saturation !== null ? Number(camera.saturation) : null)?.value
+          ?? nextOptions.saturation[0]?.value
+          ?? null
+      }
+
+      setIso(nextIso)
+      setAperture(nextAperture)
+      setShutter(nextShutter)
+      setWhiteBalance(nextWb)
+      setPictureStyle(nextPs)
+      setExposureValue(nextExposure)
+      setContrast(nextContrast)
+      setSaturation(nextSaturation)
       setServiceReady(true)
+
+      await applyAllCanonSettings(nextOptions, {
+        iso: nextIso, aperture: nextAperture, shutter: nextShutter,
+        whiteBalance: nextWb, pictureStyle: nextPs, exposure: nextExposure,
+        contrast: nextContrast, saturation: nextSaturation
+      })
+
       if (nextOptions.iso.length === 0) {
         setMessage({
           type: 'error',
@@ -206,17 +331,20 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
         setIso(stored.iso?.value ?? null)
         setAperture(stored.aperture?.value ?? null)
         setShutter(stored.shutter?.value ?? null)
+        setWhiteBalance(stored.whiteBalance?.value ?? null)
+        setPictureStyle(stored.pictureStyle?.value ?? null)
+        setExposureValue(stored.exposure?.value ?? null)
+        setContrast(stored.contrast?.value ?? null)
+        setSaturation(stored.saturation?.value ?? null)
       })
     }, 0)
     return () => window.clearTimeout(timer)
-    // Initial hydration only; device changes are handled by the source selector.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     if (source !== 'webcam:' || !webcamDevices[0]) return
     void selectSource(`webcam:${webcamDevices[0].deviceId}`)
-    // Only resolves a legacy setting without a stored device id.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, webcamDevices])
 
@@ -230,14 +358,14 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
         deviceLabel: webcamDevices.find((device) => device.deviceId === deviceId)?.label ?? null,
         orientation,
         mirror,
-        iso: options.iso.find((option) => option.value === iso) ?? null,
-        aperture: options.aperture.find((option) => option.value === aperture) ?? null,
-        shutter: options.shutter.find((option) => option.value === shutter) ?? null
-        , whiteBalance: options.white_balance.find((option) => option.value === whiteBalance) ?? null
-        , pictureStyle: options.picture_style.find((option) => option.value === pictureStyle) ?? null
-        , exposure: options.exposure.find((option) => option.value === exposure) ?? null
-        , contrast: options.contrast.find((option) => option.value === contrast) ?? null
-        , saturation: options.saturation.find((option) => option.value === saturation) ?? null
+        iso: findOptionByValue(options.iso, iso) ?? null,
+        aperture: findOptionByValue(options.aperture, aperture) ?? null,
+        shutter: findOptionByValue(options.shutter, shutter) ?? null,
+        whiteBalance: findOptionByValue(options.white_balance, whiteBalance) ?? null,
+        pictureStyle: findOptionByValue(options.picture_style, pictureStyle) ?? null,
+        exposure: findOptionByValue(options.exposure, exposure) ?? null,
+        contrast: findOptionByValue(options.contrast, contrast) ?? null,
+        saturation: findOptionByValue(options.saturation, saturation) ?? null
       })
       setMessage({ type: 'success', text: 'Pengaturan kamera berhasil disimpan.' })
     } catch (cause) {
@@ -247,6 +375,31 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
       })
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function syncCameraToBackend(): Promise<void> {
+    const cameraProfileId = eventConfiguration?.camera?.camera_profile_id
+    if (!cameraProfileId) return
+    try {
+      await axios.put(`/v1/camera-profiles/${cameraProfileId}`, {
+        partner_id: eventConfiguration?.event?.partner?.id ?? null,
+        name: `Profile #${cameraProfileId}`,
+        iso: iso !== null ? String(iso) : null,
+        shutter_speed: shutter !== null ? String(shutter) : null,
+        aperture: aperture !== null ? String(aperture) : null,
+        white_balance: whiteBalance !== null ? String(whiteBalance) : null,
+        picture_style: pictureStyle !== null ? String(pictureStyle) : null,
+        contrast: contrast !== null ? String(contrast) : null,
+        saturation: saturation !== null ? String(saturation) : null,
+        exposure: exposure !== null ? String(exposure) : null,
+        countdown_seconds: eventConfiguration?.camera?.countdown_seconds ?? 3,
+        burst_count: eventConfiguration?.camera?.burst_count ?? 1,
+        live_view: eventConfiguration?.camera?.live_view ?? true,
+        is_active: true,
+      })
+    } catch (cause) {
+      console.error('Gagal sync kamera ke backend:', getApiErrorMessage(cause, 'Unknown'))
     }
   }
 
@@ -292,14 +445,31 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
     }
   }
 
-  async function setExposure(
-    property: 'iso' | 'aperture' | 'shutter',
-    value: number
-  ): Promise<void> {
+  async function setExposure(property: 'iso' | 'aperture' | 'shutter', value: number): Promise<void> {
     if (property === 'iso') setIso(value)
     if (property === 'aperture') setAperture(value)
     if (property === 'shutter') setShutter(value)
     await updateCanonProperty(property, value)
+    void syncCameraToBackend()
+  }
+
+  async function setDropdownSetting(
+    setter: (v: number | null) => void,
+    property: string,
+    value: number
+  ): Promise<void> {
+    setter(value)
+    await updateCanonProperty(property, value)
+    void syncCameraToBackend()
+  }
+
+  async function handleAutoFocus(): Promise<void> {
+    const data = await cameraRequest('/auto_focus', 'POST')
+    if (data.status === 'error') {
+      setMessage({ type: 'error', text: data.detail || 'Auto focus gagal.' })
+    } else {
+      setMessage({ type: 'success', text: 'Auto focus berhasil.' })
+    }
   }
 
   async function toggleMirror(enabled: boolean): Promise<void> {
@@ -315,7 +485,6 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
     setMessage(null)
     try {
       if (isCanon) {
-        // Arahkan cameraAPI menyimpan hasil test ke folder test terpisah.
         const appSettings = await getAppSettings()
         const { directory } = await window.session.prepareDirectory(
           appSettings.storageDirectory,
@@ -345,7 +514,6 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
         context.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
 
-        // Simpan hasil test webcam ke folder test yang sama.
         const appSettings = await getAppSettings()
         const { directory } = await window.session.prepareDirectory(
           appSettings.storageDirectory,
@@ -357,9 +525,7 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
           undefined,
           undefined,
           directory,
-          {
-            exactDirectory: true
-          }
+          { exactDirectory: true }
         )
         setTestPhoto(dataUrl)
         setMessage({
@@ -394,19 +560,13 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
       </div>
 
       <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <section className="flex min-h-[320px] items-center justify-center overflow-hidden border-4 border-[var(--border)] bg-[#181818] shadow-[var(--shadow-neo)]">
-      <div
+        <section className="relative flex min-h-[320px] items-center justify-center overflow-hidden border-4 border-[var(--border)] bg-[#181818] shadow-[var(--shadow-neo)]">
+          <div
             className={`relative flex h-full w-full items-center justify-center overflow-hidden ${
               orientation === 'portrait' ? 'mx-auto max-w-[58vh]' : ''
             }`}
           >
-            {testPhoto ? (
-              <img
-                src={testPhoto}
-                alt="Hasil test photo"
-                className="h-full w-full object-contain"
-              />
-            ) : isCanon ? (
+            {isCanon ? (
               <img
                 src={`${CAMERA_API_URL}/video_feed`}
                 alt="Live preview Canon"
@@ -421,17 +581,38 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
                 className={`h-full w-full object-contain ${mirror ? 'scale-x-[-1]' : ''}`}
               />
             )}
-            {!testPhoto && !isCanon && webcamStatus !== 'ready' && (
+            {!isCanon && webcamStatus !== 'ready' && (
               <div className="absolute inset-0 flex items-center justify-center p-5 text-center font-bold text-white">
                 {webcamError || 'Menghubungkan kamera...'}
               </div>
             )}
           </div>
+          {testPhoto && (
+            <div className="absolute inset-x-0 top-0 flex justify-center p-3">
+              <div className="relative max-h-[40%] overflow-hidden border-4 border-[var(--primary)] bg-black shadow-lg">
+                <img
+                  src={testPhoto}
+                  alt="Hasil test photo"
+                  className="max-h-[200px] object-contain"
+                />
+                <button
+                  type="button"
+                  onClick={() => setTestPhoto(null)}
+                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center bg-black/70 text-xs font-bold text-white"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
         </section>
 
         <aside className="min-h-0 space-y-5 overflow-y-auto border-4 border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-neo)]">
           <div className="space-y-2">
-            <div className="flex items-center justify-between"><label className="text-sm font-black">Kamera</label><button type="button" className="text-xs font-black underline" onClick={() => void refreshDevices()}>Refresh</button></div>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-black">Kamera</label>
+              <button type="button" className="text-xs font-black underline" onClick={() => void refreshDevices()}>Refresh</button>
+            </div>
             <select
               value={source}
               onChange={(event) => void selectSource(event.target.value as CameraSource)}
@@ -472,6 +653,15 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
             </button>
           </div>
 
+          <NeoButton
+            variant="outlined"
+            disabled={!isCanon || !serviceReady || options.iso.length === 0}
+            onClick={() => void handleAutoFocus()}
+            className="w-full border-[var(--border)] bg-[var(--surface)] text-sm font-black disabled:opacity-40"
+          >
+            Auto Focus
+          </NeoButton>
+
           <ExposureControl
             label="ISO"
             options={options.iso}
@@ -493,11 +683,41 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
             disabled={canonControlsDisabled}
             onChange={(value) => void setExposure('shutter', value)}
           />
-          <ExposureControl label="White Balance" options={options.white_balance} value={whiteBalance} disabled={canonControlsDisabled} onChange={(value) => { setWhiteBalance(value); void updateCanonProperty('white_balance', value) }} />
-          <ExposureControl label="Picture Style" options={options.picture_style} value={pictureStyle} disabled={canonControlsDisabled} onChange={(value) => { setPictureStyle(value); void updateCanonProperty('picture_style', value) }} />
-          <ExposureControl label="Exposure" options={options.exposure} value={exposure} disabled={canonControlsDisabled} onChange={(value) => { setExposureValue(value); void updateCanonProperty('exposure', value) }} />
-          <ExposureControl label="Contrast" options={options.contrast} value={contrast} disabled={canonControlsDisabled} onChange={(value) => { setContrast(value); void updateCanonProperty('contrast', value) }} />
-          <ExposureControl label="Saturation" options={options.saturation} value={saturation} disabled={canonControlsDisabled} onChange={(value) => { setSaturation(value); void updateCanonProperty('saturation', value) }} />
+          <CameraDropdown
+            label="White Balance"
+            options={options.white_balance}
+            value={whiteBalance}
+            disabled={canonControlsDisabled}
+            onChange={(value) => void setDropdownSetting(setWhiteBalance, 'white_balance', value)}
+          />
+          <CameraDropdown
+            label="Picture Style"
+            options={options.picture_style}
+            value={pictureStyle}
+            disabled={canonControlsDisabled}
+            onChange={(value) => void setDropdownSetting(setPictureStyle, 'picture_style', value)}
+          />
+          <ExposureControl
+            label="Exposure"
+            options={options.exposure}
+            value={exposure}
+            disabled={canonControlsDisabled}
+            onChange={(value) => void setDropdownSetting(setExposureValue, 'exposure', value)}
+          />
+          <ExposureControl
+            label="Contrast"
+            options={options.contrast}
+            value={contrast}
+            disabled={canonControlsDisabled}
+            onChange={(value) => void setDropdownSetting(setContrast, 'contrast', value)}
+          />
+          <ExposureControl
+            label="Saturation"
+            options={options.saturation}
+            value={saturation}
+            disabled={canonControlsDisabled}
+            onChange={(value) => void setDropdownSetting(setSaturation, 'saturation', value)}
+          />
 
           {message && <Alert type={message.type}>{message.text}</Alert>}
 

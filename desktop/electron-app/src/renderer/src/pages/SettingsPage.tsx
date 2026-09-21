@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { JSX } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getApiErrorMessage } from '@/api/axios'
+import { getEventConfiguration } from '@/api/event'
 import { recordPrintJob } from '@/api/media'
 import { NeoButton } from '@/components/shared/button'
 import Alert from '@/components/ui/Alert'
@@ -10,6 +11,8 @@ import { authService } from '@/features/auth/services/authService'
 import CameraTestPanel from '@/features/camera/components/CameraTestPanel'
 import { NeoInput } from '@/components/shared/input'
 import { useDeviceStore } from '@/store/deviceStore'
+import { useSessionStore } from '@/store/sessionStore'
+import { eventStorage } from '@/features/event/services/eventStorage'
 import {
   type AppSettings,
   DEFAULT_APP_SETTINGS,
@@ -890,6 +893,31 @@ export default function SettingsPage(): JSX.Element {
   function handleEnterEvent(): void {
     navigate('/dashboard')
   }
+
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null)
+  const eventConfiguration = useSessionStore((state) => state.eventConfiguration)
+  const beginEvent = useSessionStore((state) => state.beginEvent)
+
+  async function handleRefreshEvent(): Promise<void> {
+    const eventCode = eventConfiguration?.event.event_code
+    if (!eventCode) {
+      setRefreshMessage('Tidak ada event yang sedang aktif.')
+      return
+    }
+    setRefreshing(true)
+    setRefreshMessage(null)
+    try {
+      const fresh = await getEventConfiguration(eventCode)
+      await eventStorage.save(fresh)
+      beginEvent(fresh)
+      setRefreshMessage('Event berhasil diperbarui dari server.')
+    } catch (cause) {
+      setRefreshMessage(getApiErrorMessage(cause, 'Gagal memperbarui event. Periksa koneksi.'))
+    } finally {
+      setRefreshing(false)
+    }
+  }
   if (!verified)
     return (
       <form
@@ -990,7 +1018,24 @@ export default function SettingsPage(): JSX.Element {
             Pilih driver DNP RX1HS dan kirim satu lembar test print 4R.
           </p>
         </NeoButton>
+        <NeoButton
+          type="button"
+          variant="outlined"
+          onClick={() => void handleRefreshEvent()}
+          disabled={refreshing || !eventConfiguration}
+          className="border-4 border-[var(--border)] bg-[var(--surface)] px-4 py-6 text-left shadow-[var(--shadow-neo)] [transition:none] hover:bg-[var(--primary)] disabled:opacity-50"
+        >
+          <span className="text-xl font-black">{refreshing ? 'Memperbarui...' : 'Refresh Event'}</span>
+          <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">
+            Ambil ulang data event dari server (template, filter, print options).
+          </p>
+        </NeoButton>
       </div>
+      {refreshMessage && (
+        <Alert type={refreshMessage.includes('berhasil') ? 'success' : 'error'}>
+          {refreshMessage}
+        </Alert>
+      )}
       <div className="mt-auto flex justify-between">
         <NeoButton
           variant="outlined"

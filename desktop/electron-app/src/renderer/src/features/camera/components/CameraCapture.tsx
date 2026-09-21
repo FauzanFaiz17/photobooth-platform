@@ -97,7 +97,12 @@ export default function CameraCapture({
         for (const [property, selected] of [
           ['iso', settings.iso],
           ['aperture', settings.aperture],
-          ['shutter', settings.shutter]
+          ['shutter', settings.shutter],
+          ['white_balance', settings.whiteBalance],
+          ['picture_style', settings.pictureStyle],
+          ['exposure', settings.exposure],
+          ['contrast', settings.contrast],
+          ['saturation', settings.saturation]
         ] as const) {
           if (selected)
             await window.api?.request('/set_property', 'POST', { property, value: selected.value })
