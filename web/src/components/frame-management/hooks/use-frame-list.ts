@@ -9,6 +9,7 @@ import { getTemplates } from "@/features/templates/template-service";
 import type {
   TemplateListResponse,
   TemplateStatus,
+  TemplateType,
 } from "@/features/templates/template.types";
 import { ApiError } from "@/lib/api-client";
 
@@ -23,6 +24,7 @@ interface UseFrameListResult {
   readonly errorMessage: string;
   readonly filtered: boolean;
   readonly canCreate: boolean;
+  readonly activeType: TemplateType;
   readonly refresh: () => void;
   readonly updateQuery: (
     updates: Readonly<Record<string, string | null>>,
@@ -43,6 +45,8 @@ export function useFrameList(): UseFrameListResult {
   const status: TemplateStatus | "all" = isStatus(statusParam)
     ? statusParam
     : "all";
+  const typeParam = searchParams.get("type");
+  const activeType: TemplateType = typeParam === "gif" ? "gif" : "photo";
   const page = parsePositiveInteger(searchParams.get("page"), 1);
 
   const [response, setResponse] = useState<TemplateListResponse | null>(null);
@@ -101,7 +105,7 @@ export function useFrameList(): UseFrameListResult {
               status: status === "all" ? undefined : status,
               sort: "updated_at",
               direction: "desc",
-              per_page: 12,
+              per_page: 100,
               page,
             },
             controller.signal,
@@ -115,16 +119,30 @@ export function useFrameList(): UseFrameListResult {
             : Promise.resolve(null),
         ]);
         if (controller.signal.aborted) return;
-        if (page > Math.max(1, framesResult.meta.last_page)) {
+
+        const filteredData = framesResult.data.filter(
+          (t) => t.type === activeType,
+        );
+        const filteredResponse: TemplateListResponse = {
+          ...framesResult,
+          data: filteredData,
+          meta: {
+            ...framesResult.meta,
+            total: filteredData.length,
+            last_page: Math.max(1, Math.ceil(filteredData.length / 12)),
+          },
+        };
+
+        if (page > Math.max(1, filteredResponse.meta.last_page)) {
           updateQuery({
             page:
-              framesResult.meta.last_page > 1
-                ? String(framesResult.meta.last_page)
+              filteredResponse.meta.last_page > 1
+                ? String(filteredResponse.meta.last_page)
                 : null,
           });
           return;
         }
-        setResponse(framesResult);
+        setResponse(filteredResponse);
         setPartners(partnersResult?.data ?? []);
         setLoadState("success");
       } catch (error: unknown) {
@@ -146,6 +164,7 @@ export function useFrameList(): UseFrameListResult {
     void loadFrames();
     return () => controller.abort();
   }, [
+    activeType,
     handleForbidden,
     handleUnauthorized,
     page,
@@ -170,6 +189,7 @@ export function useFrameList(): UseFrameListResult {
     errorMessage,
     filtered,
     canCreate,
+    activeType,
     refresh,
     updateQuery,
     handleUnauthorized,

@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { Button } from "../ui/button";
+import { Search } from "lucide-react";
+import { Input } from "../ui/input";
 
 type SectionHeaderProps = {
   heading: string;
@@ -47,14 +49,17 @@ const SectionHeader = ({
       {(showSearch || showAction) && (
         <div className="flex flex-wrap items-center gap-3">
           {showSearch && (
-            <input
-              type="search"
-              value={searchValue}
-              onChange={(e) => onSearchChange?.(e.target.value)}
-              placeholder={searchPlaceholder}
-              aria-label={searchAriaLabel}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:w-56"
-            />
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 opacity-60" />
+              <Input
+                type="search"
+                value={searchValue}
+                onChange={(e) => onSearchChange?.(e.target.value)}
+                placeholder={searchPlaceholder}
+                aria-label={searchAriaLabel}
+                className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:w-56"
+              />
+            </div>
           )}
  
           {showAction && (

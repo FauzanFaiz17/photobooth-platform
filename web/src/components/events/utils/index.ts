@@ -28,6 +28,7 @@ export function newPrintOption(): PrintOptionForm {
     unit_quantity: "1",
     quantity_step: "1",
     price: "0",
+    discount: "0",
   };
 }
 
@@ -40,6 +41,9 @@ export function initialForm(event: EventRecord | null): EventFormState {
           (template) => String(template.template_id),
         )
       : [],
+    gif_template_id: event?.configuration.gif_template
+      ? String(event.configuration.gif_template.template_id)
+      : null,
     filter_ids: event
       ? (event.configuration.filters ?? [event.configuration.filter]).map(
           (filter) => String(filter.filter_id),
@@ -54,9 +58,20 @@ export function initialForm(event: EventRecord | null): EventFormState {
     event_date: event?.event_date ?? "",
     start_time: event?.start_time.slice(0, 5) ?? "",
     end_time: event?.end_time.slice(0, 5) ?? "",
-    price: event ? String(event.price) : "0",
     print_count_limit: event ? String(event.print_count_limit) : "0",
-    print_options: [],
+    payment_mode: event?.payment_mode ?? "full",
+    video_enabled: event?.video_enabled ?? true,
+    gif_enabled: event?.gif_enabled ?? true,
+    print_options: event
+      ? (event.configuration.print_options ?? []).map((option) => ({
+          id: nextPrintOptionId++,
+          paper_size: option.paper_size,
+          unit_quantity: String(option.unit_quantity),
+          quantity_step: String(option.quantity_step),
+          price: String(option.price),
+          discount: option.discount === null ? "0" : String(option.discount),
+        }))
+      : [],
     status: event?.status ?? "draft",
   };
 }
@@ -85,9 +100,6 @@ export function validate(form: EventFormState, editing: boolean): EventFormError
   else if (form.start_time && form.end_time <= form.start_time)
     errors.end_time = "Jam selesai harus setelah jam mulai.";
 
-  const price = Number(form.price);
-  if (form.price.trim() !== "" && (!Number.isFinite(price) || price < 0))
-    errors.price = "Harga tidak boleh negatif.";
   const printLimit = Number(form.print_count_limit);
   if (
     form.print_count_limit.trim() !== "" &&
@@ -121,11 +133,17 @@ export function validatePrintOptions(
     const quantity = Number(option.unit_quantity);
     const step = Number(option.quantity_step);
     const price = Number(option.price);
+    const discount = Number(option.discount);
 
     if (!Number.isInteger(quantity) || quantity < 1)
       row.unit_quantity = "Minimal 1.";
     if (!Number.isInteger(step) || step < 1) row.quantity_step = "Minimal 1.";
     if (!Number.isFinite(price) || price < 0) row.price = "Minimal Rp0.";
+    if (
+      option.discount.trim() !== "" &&
+      (!Number.isFinite(discount) || discount < 0)
+    )
+      row.discount = "Diskon tidak boleh negatif.";
     if (Object.keys(row).length > 0) errors[option.id] = row;
   }
 

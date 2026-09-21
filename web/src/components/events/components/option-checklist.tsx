@@ -10,10 +10,12 @@ export function OptionChecklist({
   error,
   previewStyle,
   onChange,
+  className,
   onExpired,
 }: {
   readonly noun: string;
   readonly hint: string;
+  className?: string;
   readonly options: ReadonlyArray<EventConfigurationOption>;
   readonly values: ReadonlyArray<string>;
   readonly error?: string;
@@ -32,7 +34,7 @@ export function OptionChecklist({
 
   return (
     <fieldset
-      className="grid min-w-0 content-start gap-3 rounded-xl border p-3"
+      className={`grid min-w-0 content-start gap-3 rounded-xl border p-3 ${className}`}
       aria-label={noun}
       aria-invalid={Boolean(error)}
     >

@@ -1,12 +1,15 @@
 import { LoaderCircle } from "lucide-react"
 import { useState, type FormEvent } from "react"
 
+import samplePhoto from "@/assets/preview.webp"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/features/auth/auth-context"
+import { filterPreviewStyle } from "@/features/filters/filter-preview"
 import { createFilter, updateFilter } from "@/features/filters/filter-service"
 import type { FilterRecord } from "@/features/filters/filter.types"
 import { ApiError } from "@/lib/api-client"
@@ -26,11 +29,11 @@ interface FilterFormState {
 type FilterFormErrors = Partial<Record<keyof FilterFormState, string>>
 
 const adjustmentFields = [
-  ["brightness", "Brightness"],
-  ["contrast", "Contrast"],
-  ["saturation", "Saturation"],
-  ["sharpness", "Sharpness"],
-  ["white_balance", "White balance"],
+  ["brightness", "Brightness", -100, 100],
+  ["contrast", "Contrast", -100, 100],
+  ["saturation", "Saturation", -100, 100],
+  ["sharpness", "Sharpness", -100, 100],
+  ["white_balance", "White Balance", -100, 100],
 ] as const
 
 function initialForm(filter: FilterRecord | null): FilterFormState {
@@ -149,20 +152,105 @@ export function FilterFormDialog({
     }
   }
 
+  const previewFilter = filterPreviewStyle({
+    brightness: Number(form.brightness) || 0,
+    contrast: Number(form.contrast) || 0,
+    saturation: Number(form.saturation) || 0,
+    intensity: Number(form.intensity) || 0,
+  })
+
   return (
     <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
-      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader><DialogTitle>{filter ? "Edit Filter" : "Tambah Filter"}</DialogTitle><DialogDescription>Filter ini tersedia untuk seluruh Booth milik Partner yang sama.</DialogDescription></DialogHeader>
+      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>{filter ? "Edit Filter" : "Tambah Filter"}</DialogTitle>
+          <DialogDescription>Filter ini tersedia untuk seluruh Booth milik Partner yang sama.</DialogDescription>
+        </DialogHeader>
         <form className="grid gap-4" onSubmit={(event) => void handleSubmit(event)} noValidate>
-          <div className="grid gap-2"><Label htmlFor="filter-name">Nama Filter</Label><Input id="filter-name" value={form.name} maxLength={150} aria-invalid={Boolean(errors.name)} onChange={(event) => updateField("name", event.target.value)} />{errors.name && <p className="text-xs text-destructive">{errors.name}</p>}</div>
-          <div className="grid gap-2"><Label htmlFor="filter-lut">LUT path <span className="text-muted-foreground">(opsional)</span></Label><Input id="filter-lut" value={form.lut_path} maxLength={255} placeholder="Contoh: filters/warm.cube" aria-invalid={Boolean(errors.lut_path)} onChange={(event) => updateField("lut_path", event.target.value)} />{errors.lut_path && <p className="text-xs text-destructive">{errors.lut_path}</p>}</div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {adjustmentFields.map(([field, label]) => <div key={field} className="grid gap-2"><Label htmlFor={`filter-${field}`}>{label}</Label><Input id={`filter-${field}`} type="number" min={-100} max={100} step="0.01" value={form[field]} aria-invalid={Boolean(errors[field])} onChange={(event) => updateField(field, event.target.value)} />{errors[field] && <p className="text-xs text-destructive">{errors[field]}</p>}</div>)}
-            <div className="grid gap-2"><Label htmlFor="filter-intensity">Intensity</Label><Input id="filter-intensity" type="number" min={0} max={100} step="0.01" value={form.intensity} aria-invalid={Boolean(errors.intensity)} onChange={(event) => updateField("intensity", event.target.value)} />{errors.intensity && <p className="text-xs text-destructive">{errors.intensity}</p>}</div>
+          <div className="grid gap-2">
+            <Label htmlFor="filter-name">Nama Filter</Label>
+            <Input id="filter-name" value={form.name} maxLength={150} aria-invalid={Boolean(errors.name)} onChange={(event) => updateField("name", event.target.value)} />
+            {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
           </div>
-          <label className="flex items-center justify-between gap-3 rounded-lg border p-4 text-sm">Filter aktif<Switch checked={form.is_active} onCheckedChange={(checked) => updateField("is_active", checked)} /></label>
+          <div className="grid gap-2">
+            <Label htmlFor="filter-lut">LUT path <span className="text-muted-foreground">(opsional)</span></Label>
+            <Input id="filter-lut" value={form.lut_path} maxLength={255} placeholder="Contoh: filters/warm.cube" aria-invalid={Boolean(errors.lut_path)} onChange={(event) => updateField("lut_path", event.target.value)} />
+            {errors.lut_path && <p className="text-xs text-destructive">{errors.lut_path}</p>}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* Left: Sliders */}
+            <div className="grid gap-4">
+              {adjustmentFields.map(([field, label, min, max]) => (
+                <div key={field} className="grid gap-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor={`filter-${field}`}>{label}</Label>
+                    <span className="text-xs tabular-nums text-muted-foreground">{form[field]}</span>
+                  </div>
+                  <Slider
+                    id={`filter-${field}`}
+                    min={min}
+                    max={max}
+                    step={1}
+                    value={Number(form[field]) || 0}
+                    onValueChange={(value) => updateField(field, String(value))}
+                  />
+                </div>
+              ))}
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="filter-intensity">Intensity</Label>
+                  <span className="text-xs tabular-nums text-muted-foreground">{form.intensity}</span>
+                </div>
+                <Slider
+                  id="filter-intensity"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={Number(form.intensity) || 0}
+                  onValueChange={(value) => updateField("intensity", String(value))}
+                />
+              </div>
+            </div>
+
+            {/* Right: Preview */}
+            <div className="grid gap-2">
+              <Label>Pratinjau</Label>
+              <div
+                className="relative overflow-hidden rounded-lg border"
+                style={{
+                  backgroundImage:
+                    "repeating-conic-gradient(rgba(0,0,0,0.06) 0% 25%, transparent 0% 50%)",
+                  backgroundSize: "16px 16px",
+                }}
+              >
+                <img
+                  src={samplePhoto}
+                  alt="Pratinjau filter"
+                  className="w-full object-contain"
+                  style={{ filter: previewFilter }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                CSS filter only. LUT berlaku di desktop.
+              </p>
+            </div>
+          </div>
+
+          <label className="flex items-center justify-between gap-3 rounded-lg border p-4 text-sm">
+            Filter aktif
+            <Switch checked={form.is_active} onCheckedChange={(checked) => updateField("is_active", checked)} />
+          </label>
+
           {formError && <p role="alert" className="text-sm text-destructive">{formError}</p>}
-          <DialogFooter><Button type="button" variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>Batal</Button><Button type="submit" disabled={pending}>{pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}{filter ? "Simpan perubahan" : "Tambah Filter"}</Button></DialogFooter>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>Batal</Button>
+            <Button type="submit" disabled={pending}>
+              {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+              {filter ? "Simpan perubahan" : "Tambah Filter"}
+            </Button>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

@@ -75,10 +75,6 @@ function PaperPreview({
             height: '100%',
             objectFit: 'fill',
             transform: `translate(${horizontalPosition / 4}px, ${verticalPosition / 4}px) scale(${scalePct})`,
-            top: '50%',
-            left: '50%',
-            marginLeft: '-50%',
-            marginTop: '-50%'
           }}
         />
       ) : (

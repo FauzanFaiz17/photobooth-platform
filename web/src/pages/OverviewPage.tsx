@@ -38,6 +38,7 @@ import { getEvents } from "@/features/events/event-service";
 import type { EventRecord, EventStatus } from "@/features/events/event.types";
 import { getPartners } from "@/features/partners/partner-service";
 import { ApiError } from "@/lib/api-client";
+import SectionHeader from "@/components/shared/section-header";
 
 interface OverviewData {
   partnerTotal: number | null;
@@ -242,26 +243,22 @@ export default function OverviewPage() {
 
   return (
     <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Beranda</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Ringkasan operasional menggunakan data backend.
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          disabled={loadState === "loading"}
-          onClick={() => setRetryKey((value) => value + 1)}
-        >
-          <RefreshCw
-            className={loadState === "loading" ? "animate-spin" : ""}
-            aria-hidden="true"
-          />{" "}
-          Refresh
-        </Button>
-      </header>
-
+      <SectionHeader
+        heading="Beranda"
+        description="Ringkasan operasional menggunakan data backend."
+        onAction={() => setRetryKey((value) => value + 1)}
+        actionDisabled={loadState === "loading"}
+        actionLabel={
+          <>
+            <RefreshCw
+              className={loadState === "loading" ? "animate-spin" : ""}
+              aria-hidden="true"
+            />{" "}
+            Refresh
+          </>
+        }
+      />
+      
       {loadState === "loading" ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-busy>

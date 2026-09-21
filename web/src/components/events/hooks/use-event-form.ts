@@ -56,6 +56,7 @@ export function useEventForm(eventIdParam: string | undefined) {
   >(event ? "success" : "idle");
   const [options, setOptions] = useState<EventConfigurationOptions>({
     templates: [],
+    gif_templates: [],
     filters: [],
     cameras: [],
     printers: [],
@@ -72,9 +73,7 @@ export function useEventForm(eventIdParam: string | undefined) {
       eventId === null
         ? Promise.resolve(null)
         : getEvent(token, eventId, controller.signal);
-    const boothsRequest = editing
-      ? Promise.resolve(null)
-      : getBooths(token, { per_page: 100 }, controller.signal);
+    const boothsRequest = getBooths(token, { per_page: 100 }, controller.signal);
 
     void Promise.all([eventRequest, boothsRequest])
       .then(([loadedEvent, boothsResponse]) => {
@@ -83,7 +82,6 @@ export function useEventForm(eventIdParam: string | undefined) {
         if (loadedEvent) {
           setEvent(loadedEvent);
           setForm(initialForm(loadedEvent));
-          setConfigurationState("success");
         }
         setLoadState("ready");
       })
@@ -111,7 +109,8 @@ export function useEventForm(eventIdParam: string | undefined) {
   ]);
 
   useEffect(() => {
-    if (event || !token || !selectedBooth) return;
+    if (!token || !selectedBooth) return;
+    if (configurationState === "success") return;
     const accessToken = token;
     const partnerId = selectedBooth.partner.id;
     const controller = new AbortController();
@@ -143,8 +142,8 @@ export function useEventForm(eventIdParam: string | undefined) {
     void loadOptions();
 
     return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- configurationState is intentionally excluded: including it caused the effect to re-run when it sets "loading", aborting the in-flight request.
   }, [
-    event,
     handleApiError,
     optionsRetryKey,
     selectedBooth,
@@ -169,11 +168,13 @@ export function useEventForm(eventIdParam: string | undefined) {
       ...current,
       booth_id: value,
       template_ids: [],
+      gif_template_id: null,
       filter_ids: [],
       camera_profile_id: "",
       printer_profile_id: "",
     }));
-    setOptions({ templates: [], filters: [], cameras: [], printers: [] });
+    setOptions({ templates: [], gif_templates: [], filters: [], cameras: [], printers: [] });
+    setConfigurationState("idle");
     setErrors({});
   }
 
@@ -215,7 +216,7 @@ export function useEventForm(eventIdParam: string | undefined) {
     if (!token || pending) return;
 
     const validationErrors = validate(form, event !== null);
-    const optionErrors = event ? {} : validatePrintOptions(form.print_options);
+    const optionErrors = validatePrintOptions(form.print_options);
     if (
       Object.keys(validationErrors).length > 0 ||
       Object.keys(optionErrors).length > 0
@@ -235,21 +236,40 @@ export function useEventForm(eventIdParam: string | undefined) {
       event_date: form.event_date,
       start_time: form.start_time,
       end_time: form.end_time,
-      price: form.price.trim() === "" ? 0 : Number(form.price),
       print_count_limit:
         form.print_count_limit.trim() === ""
           ? 0
           : Number(form.print_count_limit),
+      payment_mode: form.payment_mode,
+      video_enabled: form.video_enabled,
+      gif_enabled: form.gif_enabled,
     };
 
     try {
       const saved = event
-        ? await updateEvent(token, event.id, { ...common, status: form.status })
+        ? await updateEvent(token, event.id, {
+            ...common,
+            status: form.status,
+            template_ids: form.template_ids.map(Number),
+            filter_ids: form.filter_ids.map(Number),
+            gif_template_id: form.gif_template_id ? Number(form.gif_template_id) : null,
+            print_options: form.print_options.map((option) => ({
+              paper_size: option.paper_size,
+              unit_quantity: Number(option.unit_quantity),
+              quantity_step: Number(option.quantity_step),
+              price: Number(option.price),
+              discount:
+                option.discount.trim() === ""
+                  ? null
+                  : Number(option.discount),
+            })),
+          })
         : await createEvent(token, {
             ...common,
             booth_id: Number(form.booth_id),
             template_id: Number(form.template_ids[0]),
             template_ids: form.template_ids.map(Number),
+            gif_template_id: form.gif_template_id ? Number(form.gif_template_id) : null,
             filter_id: Number(form.filter_ids[0]),
             filter_ids: form.filter_ids.map(Number),
             print_options: form.print_options.map((option) => ({
@@ -257,6 +277,10 @@ export function useEventForm(eventIdParam: string | undefined) {
               unit_quantity: Number(option.unit_quantity),
               quantity_step: Number(option.quantity_step),
               price: Number(option.price),
+              discount:
+                option.discount.trim() === ""
+                  ? null
+                  : Number(option.discount),
             })),
             camera_profile_id: Number(form.camera_profile_id),
             printer_profile_id: Number(form.printer_profile_id),

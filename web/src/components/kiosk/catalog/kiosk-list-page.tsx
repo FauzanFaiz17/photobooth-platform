@@ -41,6 +41,7 @@ import {
 } from "@/features/partners/partner-service"
 import type { PartnerRecord } from "@/features/partners/partner.types"
 import { ApiError } from "@/lib/api-client"
+import SectionHeader from "@/components/shared/section-header"
 
 const KIOSK_PATH = "/admin/kiosk"
 type LoadState = "loading" | "success" | "error"
@@ -233,14 +234,10 @@ export function KioskListPage(): ReactElement {
 
   return (
     <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Kiosk</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {loadState === "success" ? `${kiosks.length} kiosk terdaftar` : "Memuat data kiosk"}
-          </p>
-        </div>
-      </header>
+      <SectionHeader 
+      heading="Kiosk"
+      description={loadState === "success" ? `${kiosks.length} kiosk terdaftar` : "Memuat data kiosk"}
+      />
 
       {loadState === "loading" && <KioskLoadingState />}
 

@@ -50,6 +50,11 @@ export default function FrameCard({
           </div>
           <div className="flex flex-wrap justify-end gap-1">
             {frame.is_global && <Badge variant="outline">Global</Badge>}
+            {frame.type === "gif" && (
+              <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-200">
+                GIF
+              </Badge>
+            )}
             <Badge
               variant={frame.status === "published" ? "default" : "secondary"}
             >

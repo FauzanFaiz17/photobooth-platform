@@ -82,6 +82,7 @@ export interface EventConfiguration {
   print_options?: ReadonlyArray<EventPrintOptionRecord>;
   camera: EventCameraSnapshot;
   printer: EventPrinterSnapshot;
+  gif_template?: EventTemplateSnapshot | null;
 }
 
 export interface EventPrintOptionRecord {
@@ -90,6 +91,7 @@ export interface EventPrintOptionRecord {
   unit_quantity: number;
   quantity_step: number;
   price: string | number;
+  discount: string | number | null;
   is_active: boolean;
 }
 
@@ -100,8 +102,10 @@ export interface EventRecord {
   event_date: string;
   start_time: string;
   end_time: string;
-  price: string | number;
   print_count_limit: number;
+  payment_mode: "disabled" | "voucher_only" | "full";
+  video_enabled: boolean;
+  gif_enabled: boolean;
   status: EventStatus;
   partner: EventPartner;
   booth: EventBooth;
@@ -129,6 +133,7 @@ export interface CreateEventInput {
   event_name: string;
   template_id: number;
   template_ids: ReadonlyArray<number>;
+  gif_template_id?: number | null;
   filter_id: number;
   filter_ids: ReadonlyArray<number>;
   print_options: ReadonlyArray<EventPrintOptionInput>;
@@ -137,8 +142,10 @@ export interface CreateEventInput {
   event_date: string;
   start_time: string;
   end_time: string;
-  price?: number | null;
   print_count_limit?: number | null;
+  payment_mode?: "disabled" | "voucher_only" | "full";
+  video_enabled?: boolean;
+  gif_enabled?: boolean;
   status?: "draft" | "scheduled";
 }
 
@@ -147,6 +154,7 @@ export interface EventPrintOptionInput {
   unit_quantity: number;
   quantity_step: number;
   price: number;
+  discount?: number | null;
 }
 
 export interface UpdateEventInput {
@@ -154,8 +162,14 @@ export interface UpdateEventInput {
   event_date: string;
   start_time: string;
   end_time: string;
-  price?: number | null;
   print_count_limit?: number | null;
+  payment_mode?: "disabled" | "voucher_only" | "full";
+  video_enabled?: boolean;
+  gif_enabled?: boolean;
+  template_ids?: ReadonlyArray<number>;
+  filter_ids?: ReadonlyArray<number>;
+  gif_template_id?: number | null;
+  print_options?: ReadonlyArray<EventPrintOptionInput>;
   status: EventStatus;
 }
 
@@ -180,6 +194,8 @@ export interface EventConfigurationOption {
   id: number;
   name: string;
   is_global: boolean;
+  /** Template type (photo | gif). Hanya tersedia untuk Template. */
+  type?: string;
   /** Signed URL asset (hanya tersedia untuk Template). */
   image_url?: string | null;
   /** Nilai Filter untuk pratinjau; hanya terisi pada daftar Filter. */
@@ -195,20 +211,38 @@ export interface PrintOptionForm {
   unit_quantity: string;
   quantity_step: string;
   price: string;
+  discount: string;
 }
+
+export type PaymentMode = "disabled" | "voucher_only" | "full";
+
+export const PAYMENT_MODES: ReadonlyArray<PaymentMode> = [
+  "disabled",
+  "voucher_only",
+  "full",
+];
+
+export const PAYMENT_MODE_LABELS: Record<PaymentMode, string> = {
+  disabled: "Nonaktif",
+  voucher_only: "Voucher Saja",
+  full: "Penuh",
+};
 
 export interface EventFormState {
   booth_id: string;
   event_name: string;
   template_ids: ReadonlyArray<string>;
+  gif_template_id: string | null;
   filter_ids: ReadonlyArray<string>;
   camera_profile_id: string;
   printer_profile_id: string;
   event_date: string;
   start_time: string;
   end_time: string;
-  price: string;
   print_count_limit: string;
+  payment_mode: PaymentMode;
+  video_enabled: boolean;
+  gif_enabled: boolean;
   print_options: ReadonlyArray<PrintOptionForm>;
   status: EventStatus;
 }
@@ -222,6 +256,7 @@ export type PrintOptionErrors = Partial<
 
 export interface EventConfigurationOptions {
   templates: ReadonlyArray<EventConfigurationOption>;
+  gif_templates: ReadonlyArray<EventConfigurationOption>;
   filters: ReadonlyArray<EventConfigurationOption>;
   cameras: ReadonlyArray<EventConfigurationOption>;
   printers: ReadonlyArray<EventConfigurationOption>;
@@ -356,7 +391,6 @@ export function isEventRecord(value: unknown): value is EventRecord {
     typeof value.event_date === "string" &&
     typeof value.start_time === "string" &&
     typeof value.end_time === "string" &&
-    isNumeric(value.price) &&
     isNumber(value.print_count_limit) &&
     isEventStatus(value.status) &&
     isPartner(value.partner) &&
@@ -383,7 +417,10 @@ function isConfiguration(value: unknown): value is EventConfiguration {
       (Array.isArray(value.print_options) &&
         value.print_options.every(isPrintOption))) &&
     isCameraSnapshot(value.camera) &&
-    isPrinterSnapshot(value.printer)
+    isPrinterSnapshot(value.printer) &&
+    (value.gif_template === undefined ||
+      value.gif_template === null ||
+      isTemplateSnapshot(value.gif_template))
   );
 }
 

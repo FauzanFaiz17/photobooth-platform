@@ -30,6 +30,7 @@ export function FrameCreatePage(): ReactElement {
     partners,
     partnerId,
     name,
+    type,
     status,
     size,
     orientation,
@@ -41,6 +42,7 @@ export function FrameCreatePage(): ReactElement {
     mode,
     loadState,
     detection,
+    detecting,
     selectedSlot,
     canvasSize,
     displayWidth,
@@ -51,11 +53,15 @@ export function FrameCreatePage(): ReactElement {
     setCanvasDark,
     setPartnerId,
     setName,
+    setType,
     setStatus,
     setSelectedSlotId,
     setErrors,
     setMode,
+    setDetection,
     pickOverlay,
+    detectFromCurrent,
+    addSlot,
     applyDetected,
     applySlotRatio,
     updateSlot,
@@ -121,7 +127,6 @@ export function FrameCreatePage(): ReactElement {
         slots={slots}
         mode={mode}
         canvasDark={canvasDark}
-        superAdmin={superAdmin}
         pending={pending}
         setCanvasDark={setCanvasDark}
         setMode={setMode}
@@ -151,7 +156,9 @@ export function FrameCreatePage(): ReactElement {
           setSelectedSlotId={setSelectedSlotId}
           updateSlot={updateSlot}
           setOverlayBroken={setOverlayBroken}
-          pickOverlay={pickOverlay}
+          detecting={detecting}
+          detectFromCurrent={detectFromCurrent}
+          addSlot={addSlot}
         />
 
         {mode === "edit" && (
@@ -161,13 +168,16 @@ export function FrameCreatePage(): ReactElement {
               partners={partners}
               partnerId={partnerId}
               name={name}
+              type={type}
               size={size}
               orientation={orientation}
               status={status}
               errors={errors}
               canvasSize={canvasSize}
+              editing={editing}
               setPartnerId={setPartnerId}
               setName={setName}
+              setType={setType}
               setStatus={setStatus}
               changeFrameSize={changeFrameSize}
               changeOrientation={changeOrientation}
@@ -215,7 +225,7 @@ export function FrameCreatePage(): ReactElement {
           canvas={canvasSize}
           slots={detection.slots}
           replacedCount={slots.length}
-          onCancel={() => detection}
+          onCancel={() => setDetection(null)}
           onApply={applyDetected}
         />
       )}

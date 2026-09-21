@@ -12,14 +12,6 @@ function formatDate(value: string): string {
   );
 }
 
-function formatPrice(value: string | number): string {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(Number(value));
-}
-
 export function EventTableRow({
   event,
 }: {
@@ -58,7 +50,6 @@ export function EventTableRow({
           {statusLabels[event.status]}
         </Badge>
       </td>
-      <td className="p-4 align-middle">{formatPrice(event.price)}</td>
       <td className="p-4 align-middle text-right">
         <Button
           size="sm"

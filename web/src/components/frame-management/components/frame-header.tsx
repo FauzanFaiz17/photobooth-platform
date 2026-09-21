@@ -22,7 +22,6 @@ interface FrameHeaderProps {
   slots: ReadonlyArray<PhotoSlot>;
   mode: "edit" | "preview";
   canvasDark: boolean;
-  superAdmin: boolean;
   pending: boolean;
   setCanvasDark: (value: boolean) => void;
   setMode: (mode: "edit" | "preview") => void;
@@ -39,7 +38,6 @@ export function FrameHeader({
   slots,
   mode,
   canvasDark,
-  superAdmin,
   pending,
   setCanvasDark,
   setMode,
@@ -111,7 +109,7 @@ export function FrameHeader({
         </Button>
         <Button
           type="submit"
-          disabled={pending || (superAdmin)}
+          disabled={pending}
         >
           {pending ? (
             <LoaderCircle className="animate-spin" aria-hidden="true" />

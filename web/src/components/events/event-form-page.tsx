@@ -122,7 +122,7 @@ export function EventFormPage(): ReactElement {
           heading={event ? "Edit Event" : "Tambah Event"}
           description={
             event
-              ? "Konfigurasi snapshot tidak berubah saat jadwal Event diedit."
+              ? "Ubah jadwal dan Frame Photo event. Filter, Camera, dan Printer tidak dapat diubah setelah event dibuat."
               : "Pilih Booth, Frame, dan konfigurasi yang akan disalin menjadi snapshot Event."
           }
         />
@@ -142,19 +142,16 @@ export function EventFormPage(): ReactElement {
           onChangeBooth={changeBooth}
         />
 
-        {!event && (
+        {configurationState === "loading" && (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            {configurationState === "loading" && (
-              <>
-                <LoaderCircle className="size-4 animate-spin" /> Memuat
-                konfigurasi Partner...
-              </>
-            )}
+            <LoaderCircle className="size-4 animate-spin" /> Memuat
+            konfigurasi Partner...
           </p>
         )}
 
-        {!event && configurationState === "success" && (
+        {configurationState === "success" && (
           <ConfigurationSection
+            event={event}
             form={form}
             errors={errors}
             options={options}
@@ -174,18 +171,17 @@ export function EventFormPage(): ReactElement {
           event={event}
           form={form}
           errors={errors}
+          options={options}
           onUpdateField={updateField}
         />
 
-        {!event && (
-          <PrintOptionsSection
-            form={form}
-            printOptionErrors={printOptionErrors}
-            onAddPrintOption={addPrintOption}
-            onUpdatePrintOption={updatePrintOption}
-            onRemovePrintOption={removePrintOption}
-          />
-        )}
+        <PrintOptionsSection
+          form={form}
+          printOptionErrors={printOptionErrors}
+          onAddPrintOption={addPrintOption}
+          onUpdatePrintOption={updatePrintOption}
+          onRemovePrintOption={removePrintOption}
+        />
 
         {formError && (
           <p role="alert" className="text-sm text-destructive">

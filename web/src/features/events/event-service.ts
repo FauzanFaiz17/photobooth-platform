@@ -43,6 +43,9 @@ function normalizeEvent(event: EventRecord): EventRecord {
   return {
     ...event,
     event_date: event.event_date.slice(0, 10),
+    payment_mode: event.payment_mode ?? "full",
+    video_enabled: event.video_enabled ?? true,
+    gif_enabled: event.gif_enabled ?? true,
     configuration: {
       ...event.configuration,
       templates: event.configuration.templates?.length ? event.configuration.templates : [event.configuration.template],
@@ -75,6 +78,7 @@ function parseConfigurationOptions(payload: unknown, nameField: "name" | "printe
       id: record.id,
       name: record[nameField],
       is_global: record.is_global,
+      type: typeof record.type === "string" ? record.type : undefined,
       image_url: typeof imageUrl === "string" ? imageUrl : null,
       brightness: toFiniteNumber(record.brightness),
       contrast: toFiniteNumber(record.contrast),
@@ -88,7 +92,7 @@ async function getNamedConfigurations(
   token: string,
   path: "templates" | "filters",
   partnerId: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<ReadonlyArray<EventConfigurationOption>> {
   const domainFilter = path === "templates" ? "status=published" : "is_active=1"
   const [partnerPayload, globalPayload] = await Promise.all([
@@ -124,7 +128,7 @@ export async function deleteEvent(token: string, eventId: number): Promise<void>
 }
 
 export async function getEventConfigurationOptions(token: string, partnerId: number, signal?: AbortSignal): Promise<EventConfigurationOptions> {
-  const [templates, filters, partnerCameras, globalCameras, partnerPrinters, globalPrinters] = await Promise.all([
+  const [allTemplates, filters, partnerCameras, globalCameras, partnerPrinters, globalPrinters] = await Promise.all([
     getNamedConfigurations(token, "templates", partnerId, signal),
     getNamedConfigurations(token, "filters", partnerId, signal),
     getCameraProfiles(token, { scope: "partner", partner_id: partnerId, is_active: true, per_page: 100 }, signal),
@@ -134,7 +138,8 @@ export async function getEventConfigurationOptions(token: string, partnerId: num
   ])
 
   return {
-    templates,
+    templates: allTemplates.filter((t) => t.type === "photo"),
+    gif_templates: allTemplates.filter((t) => t.type === "gif"),
     filters,
     cameras: [...partnerCameras.data, ...globalCameras.data].map((profile) => ({ id: profile.id, name: profile.name, is_global: profile.is_global })),
     printers: parseConfigurationOptions({ data: [...partnerPrinters.data, ...globalPrinters.data] }, "printer_name"),

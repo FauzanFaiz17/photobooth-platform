@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Toaster } from "@/components/ui/sonner";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { TemplateRecord } from "@/features/templates/template.types";
 
 import { FrameDeleteDialog } from "./frame-delete-dialog";
@@ -36,6 +37,7 @@ export function FrameListPage(): ReactElement {
     errorMessage,
     filtered,
     canCreate,
+    activeType,
     refresh,
     updateQuery,
     handleUnauthorized,
@@ -62,6 +64,16 @@ export function FrameListPage(): ReactElement {
     [updateQuery],
   );
 
+  const handleTypeChange = useCallback(
+    (nextType: string) => {
+      updateQuery({
+        type: nextType === "photo" ? null : nextType,
+        page: null,
+      });
+    },
+    [updateQuery],
+  );
+
   const handleReset = useCallback(() => {
     setSearchParams(new URLSearchParams(), { replace: true });
   }, [setSearchParams]);
@@ -69,25 +81,33 @@ export function FrameListPage(): ReactElement {
   return (
     <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
       <SectionHeader
-        heading="Frame Photo"
+        heading={activeType === "gif" ? "Frame GIF" : "Frame Photo"}
         description="Kelola Frame yang digunakan sebagai Template konfigurasi Event."
         onAction={() => navigate("/frame-photo/create")}
         actionDisabled={loadState !== "success" || !canCreate}
         actionLabel={
           <>
             <Plus aria-hidden="true" />
-            Tambah Frame
+            {activeType === "gif" ? "Tambah Frame GIF" : "Tambah Frame"}
           </>
         }
       />
 
       <Card>
         <CardHeader className="gap-4 border-b">
-          <div>
-            <CardTitle>Daftar Frame</CardTitle>
-            <CardDescription>
-              Frame Global bersifat read-only; Frame Partner dapat dikelola.
-            </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Daftar Frame</CardTitle>
+              <CardDescription>
+                Frame Global bersifat read-only; Frame Partner dapat dikelola.
+              </CardDescription>
+            </div>
+            <Tabs value={activeType} onValueChange={handleTypeChange}>
+              <TabsList>
+                <TabsTrigger value="photo">Photo</TabsTrigger>
+                <TabsTrigger value="gif">GIF</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
           <FrameListToolbar
             initialSearch={querySearch}

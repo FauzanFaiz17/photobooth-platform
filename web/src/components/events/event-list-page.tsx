@@ -104,7 +104,6 @@ export function EventListPage() {
                       <TableHead>Jadwal</TableHead>
                       <TableHead>Booth</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Harga</TableHead>
                       <TableHead className="text-right">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>

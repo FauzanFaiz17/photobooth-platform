@@ -25,6 +25,7 @@ import {
   type SlotRatio,
   type TemplateRecord,
   type TemplateStatus,
+  type TemplateType,
 } from "@/features/templates/template.types";
 import { ApiError, resolveStorageUrl } from "@/lib/api-client";
 import {
@@ -61,6 +62,7 @@ export function useFrameForm() {
   const [partners, setPartners] = useState<ReadonlyArray<PartnerRecord>>([]);
   const [partnerId, setPartnerId] = useState(String(user?.partner?.id ?? ""));
   const [name, setName] = useState("");
+  const [type, setType] = useState<TemplateType>("photo");
   const [status, setStatus] = useState<TemplateStatus>("draft");
   const [size, setSize] = useState<FrameSize>("4R");
   const [orientation, setOrientation] = useState<FrameOrientation>("portrait");
@@ -100,6 +102,7 @@ export function useFrameForm() {
           setFrame(loadedFrame);
           setPartnerId(String(loadedFrame.partner?.id ?? ""));
           setName(loadedFrame.name);
+          setType(loadedFrame.type ?? "photo");
           setStatus(loadedFrame.status);
           setSize(layout.size);
           setOrientation(layout.orientation);
@@ -345,6 +348,7 @@ export function useFrameForm() {
       const payload = {
         partner_id: Number(partnerId),
         name: name.trim(),
+        type,
         paper_size: paperSizeForFrame(size),
         status,
         preview_path: frame?.preview_path ?? null,
@@ -415,6 +419,7 @@ export function useFrameForm() {
     partners,
     partnerId,
     name,
+    type,
     status,
     size,
     orientation,
@@ -443,6 +448,7 @@ export function useFrameForm() {
     setCanvasDark,
     setPartnerId,
     setName,
+    setType,
     setStatus,
     setSlots,
     setSelectedSlotId,

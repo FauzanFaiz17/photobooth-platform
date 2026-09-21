@@ -22,10 +22,12 @@ import {
 import type { PartnerRecord } from "@/features/partners/partner.types";
 import {
   TEMPLATE_PAPER_SIZES,
+  TEMPLATE_TYPES,
   type FormErrors,
   type FrameOrientation,
   type FrameSize,
   type TemplateStatus,
+  type TemplateType,
 } from "@/features/templates/template.types";
 import { FRAME_SIZES } from "@/constants";
 
@@ -34,13 +36,16 @@ interface FrameSettingsCardProps {
   partners: ReadonlyArray<PartnerRecord>;
   partnerId: string;
   name: string;
+  type: TemplateType;
   size: FrameSize;
   orientation: FrameOrientation;
   status: TemplateStatus;
   errors: FormErrors;
   canvasSize: { width: number; height: number };
+  editing: boolean;
   setPartnerId: (value: string) => void;
   setName: (value: string) => void;
+  setType: (value: TemplateType) => void;
   setStatus: (value: TemplateStatus) => void;
   changeFrameSize: (size: FrameSize) => void;
   changeOrientation: (orientation: FrameOrientation) => void;
@@ -52,13 +57,16 @@ export function FrameSettingsCard({
   partners,
   partnerId,
   name,
+  type,
   size,
   orientation,
   status,
   errors,
   canvasSize,
+  editing,
   setPartnerId,
   setName,
+  setType,
   setStatus,
   changeFrameSize,
   changeOrientation,
@@ -127,6 +135,31 @@ export function FrameSettingsCard({
             <p className="text-xs text-destructive">{errors.name}</p>
           )}
         </div>
+        {!editing && (
+          <div className="grid gap-2">
+            <Label htmlFor="create-frame-type">Tipe Frame</Label>
+            <Select<TemplateType>
+              value={type}
+              onValueChange={(value) =>
+                value !== null && setType(value)
+              }
+            >
+              <SelectTrigger id="create-frame-type" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TEMPLATE_TYPES.map((templateType) => (
+                  <SelectItem key={templateType} value={templateType}>
+                    {templateType === "photo" ? "Photo" : "GIF"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Tipe frame tidak dapat diubah setelah dibuat.
+            </p>
+          </div>
+        )}
         <div className="grid gap-2">
           <Label htmlFor="create-frame-size">Ukuran</Label>
           <Select<FrameSize>

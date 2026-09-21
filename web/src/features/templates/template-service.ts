@@ -15,6 +15,7 @@ function createListPath(filters: TemplateListFilters): string {
   if (filters.scope) params.set("scope", filters.scope)
   if (filters.partner_id !== undefined) params.set("partner_id", String(filters.partner_id))
   if (filters.status) params.set("status", filters.status)
+  if (filters.type) params.set("type", filters.type)
   if (filters.sort) params.set("sort", filters.sort)
   if (filters.direction) params.set("direction", filters.direction)
   if (filters.per_page !== undefined) params.set("per_page", String(filters.per_page))

@@ -20,6 +20,7 @@ import type { EventRecord } from "@/features/events/event.types"
 import { ApiError } from "@/lib/api-client"
 
 import { GalleryDetailDialog } from "./gallery-detail-dialog"
+import SectionHeader from "../shared/section-header"
 
 const dateFormat = new Intl.DateTimeFormat("id-ID", { dateStyle: "medium", timeStyle: "short" })
 
@@ -96,7 +97,7 @@ function GalleryCover({ gallery }: { readonly gallery: GalleryRecord }): ReactEl
   }, [cover, token])
 
   return (
-    <div className="relative aspect-[4/3] w-full overflow-hidden border-b bg-muted/40">
+    <div className="relative aspect-4/3 w-full overflow-hidden border-b bg-muted/40">
       {objectUrl ? (
         <img src={objectUrl} alt={`Media sesi ${gallery.id}`} className="absolute inset-0 size-full object-contain p-2" />
       ) : (
@@ -279,15 +280,17 @@ export function GalleryListPage(): ReactElement {
 
   return (
     <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Gallery</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Sesi foto yang sudah selesai beserta link Public Gallery untuk customer.</p>
-        </div>
-        <Button variant="outline" disabled={loadState === "loading"} onClick={() => setRetryKey((value) => value + 1)}>
+      <SectionHeader 
+      heading="Gallery"
+      description="Sesi foto yang sudah selesai beserta link Public Gallery untuk customer."
+      onAction={() => setRetryKey((value) => value + 1)}
+      actionDisabled={loadState === "loading"}
+      actionLabel={
+        <>
           <RefreshCw aria-hidden="true" /> Muat ulang
-        </Button>
-      </header>
+        </>
+      }
+      />
 
       <Card>
         <CardHeader className="gap-4 border-b">

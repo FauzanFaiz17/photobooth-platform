@@ -25,6 +25,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { formatDate, formatPrice, parseId } from "../utils";
 import { useEventDetail } from "../hooks/use-event-detail";
 import { statusLabels } from "@/features/events/event.constants";
+import { PAYMENT_MODE_LABELS } from "@/features/events/event.types";
 import { DetailItem } from "./detail-item";
 import { ConfigurationItems } from "./configuration-item";
 
@@ -158,13 +159,19 @@ export function EventDetailPage() {
                   <DetailItem label="Waktu">
                     {event.start_time.slice(0, 5)}–{event.end_time.slice(0, 5)}
                   </DetailItem>
-                  <DetailItem label="Harga">
-                    {formatPrice(event.price)}
+                  <DetailItem label="Mode Pembayaran">
+                    {PAYMENT_MODE_LABELS[event.payment_mode]}
                   </DetailItem>
                   <DetailItem label="Batas cetak">
                     {event.print_count_limit === 0
                       ? "Tanpa batas"
                       : `${event.print_count_limit} cetak`}
+                  </DetailItem>
+                  <DetailItem label="Video">
+                    {event.video_enabled ? "Aktif" : "Nonaktif"}
+                  </DetailItem>
+                  <DetailItem label="GIF">
+                    {event.gif_enabled ? "Aktif" : "Nonaktif"}
                   </DetailItem>
                 </dl>
               </CardContent>
@@ -270,6 +277,12 @@ export function EventDetailPage() {
                       <p className="mt-3 text-lg font-semibold">
                         {formatPrice(option.price)}
                       </p>
+                      {option.discount != null &&
+                        Number(option.discount) > 0 && (
+                          <p className="mt-1 text-sm text-green-600">
+                            Diskon: {formatPrice(option.discount)}
+                          </p>
+                        )}
                       <p className="mt-1 text-sm text-muted-foreground">
                         {option.unit_quantity} cetak dasar · tambah per{" "}
                         {option.quantity_step}
