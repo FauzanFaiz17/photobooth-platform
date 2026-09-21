@@ -33,6 +33,18 @@ class UpdateEventRequest extends FormRequest
             'template_ids' => ['nullable', 'array', 'min:1'],
             'template_ids.*' => ['integer', 'exists:templates,id'],
 
+            'filter_ids' => ['nullable', 'array', 'min:1'],
+            'filter_ids.*' => ['integer', 'exists:filters,id'],
+
+            'gif_template_id' => ['nullable', 'integer', 'exists:templates,id'],
+
+            'print_options' => ['nullable', 'array'],
+            'print_options.*.paper_size' => ['required_with:print_options', 'in:2r,4r'],
+            'print_options.*.unit_quantity' => ['required_with:print_options', 'integer', 'min:1'],
+            'print_options.*.quantity_step' => ['nullable', 'integer', 'min:1'],
+            'print_options.*.price' => ['required_with:print_options', 'numeric', 'min:0'],
+            'print_options.*.discount' => ['nullable', 'numeric', 'min:0'],
+
             'status' => [
                 'required',
                 'in:draft,scheduled,ongoing,completed,cancelled',

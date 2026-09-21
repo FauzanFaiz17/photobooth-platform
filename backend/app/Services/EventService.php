@@ -168,10 +168,32 @@ class EventService
         $templateIds = $data['template_ids'] ?? null;
         unset($data['template_ids']);
 
+        $filterIds = $data['filter_ids'] ?? null;
+        unset($data['filter_ids']);
+
+        $gifTemplateId = $data['gif_template_id'] ?? null;
+        $hasGifTemplateKey = array_key_exists('gif_template_id', $data);
+        unset($data['gif_template_id']);
+
+        $printOptions = $data['print_options'] ?? null;
+        unset($data['print_options']);
+
         $event->update($data);
 
         if ($templateIds !== null) {
             $this->syncEventTemplates($event, $templateIds);
+        }
+
+        if ($filterIds !== null) {
+            $this->syncEventFilters($event, $filterIds);
+        }
+
+        if ($hasGifTemplateKey) {
+            $this->syncGifTemplate($event, $gifTemplateId);
+        }
+
+        if ($printOptions !== null) {
+            $this->syncPrintOptions($event, $printOptions);
         }
 
         return $event->fresh()->load($this->relations());
@@ -213,6 +235,72 @@ class EventService
         $firstSnapshotId = $newSnapshots[0]['snapshot_id'];
         if ($event->template_snapshot_id !== $firstSnapshotId) {
             $event->update(['template_snapshot_id' => $firstSnapshotId]);
+        }
+    }
+
+    private function syncEventFilters(Event $event, array $filterIds): void
+    {
+        $filterIds = array_values(array_unique($filterIds));
+
+        if (empty($filterIds)) {
+            throw ValidationException::withMessages([
+                'filter_ids' => 'At least one filter is required.',
+            ]);
+        }
+
+        $partner = $event->partner;
+
+        $newSnapshots = [];
+        foreach ($filterIds as $order => $filterId) {
+            $filter = $this->availableConfiguration(
+                Filter::query(),
+                $filterId,
+                $partner,
+                fn (Builder $q) => $q->where('is_active', true)
+            );
+            $snapshotId = $this->snapshotService->createFilter($filter);
+            $newSnapshots[] = ['snapshot_id' => $snapshotId, 'order' => $order];
+        }
+
+        $event->filterSnapshots()->detach();
+
+        foreach ($newSnapshots as $item) {
+            $event->filterSnapshots()->attach($item['snapshot_id'], [
+                'sort_order' => $item['order'],
+                'is_default' => $item['order'] === 0,
+            ]);
+        }
+
+        $firstSnapshotId = $newSnapshots[0]['snapshot_id'];
+        if ($event->filter_snapshot_id !== $firstSnapshotId) {
+            $event->update(['filter_snapshot_id' => $firstSnapshotId]);
+        }
+    }
+
+    private function syncGifTemplate(Event $event, ?int $gifTemplateId): void
+    {
+        if ($gifTemplateId === null) {
+            $event->update(['gif_template_snapshot_id' => null]);
+            return;
+        }
+
+        $partner = $event->partner;
+        $gifTemplate = $this->availableConfiguration(
+            Template::query(),
+            $gifTemplateId,
+            $partner,
+            fn (Builder $q) => $q->where('status', 'published')->where('type', 'gif')
+        );
+        $gifSnapshotId = $this->snapshotService->createTemplate($gifTemplate);
+        $event->update(['gif_template_snapshot_id' => $gifSnapshotId]);
+    }
+
+    private function syncPrintOptions(Event $event, array $printOptions): void
+    {
+        $event->printOptions()->delete();
+
+        foreach ($printOptions as $option) {
+            $event->printOptions()->create($option);
         }
     }
 
