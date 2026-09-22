@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import type { PartnerRecord } from "@/features/partners/partner.types";
 import type { PrintJobRecord } from "@/features/print-jobs/print-job.types";
-import { date } from "../utils";
+import { date } from "@/lib/utils"; 
 import { labels, variants } from "@/constants";
 
 export function PrintJobsTable({

@@ -1,3 +1,4 @@
+import type { PaymentGateway, PaymentStatus } from "@/features/payments/payment.types"
 import type { PrintJobStatus } from "@/features/print-jobs/print-job.types"
 import type { TemplateStatus } from "@/features/templates/template.types"
 import {
@@ -14,6 +15,7 @@ import {
   TicketPercent,
   UsersRound,
   type LucideIcon,
+  GitPullRequest,
 } from "lucide-react"
 
 export type AdminNavItem = {
@@ -82,6 +84,11 @@ export const adminNavItems: AdminNavItem[] = [
 
 export const superAdminSettingsNavItems: AdminNavItem[] = [
   {
+    title: "Request",
+    url: "/admin/request",
+    icon: GitPullRequest,
+  },
+  {
     title: "Audit Log",
     url: "/admin/audit-logs",
     icon: ScrollText,
@@ -142,4 +149,30 @@ export const variants: Record<
   success: "default",
   failed: "destructive",
   cancelled: "outline",
+};
+
+export const gatewayLabels: Record<PaymentGateway, string> = {
+  midtrans_qris: "QRIS Midtrans",
+  voucher: "Voucher",
+  cash: "Tunai",
+  other: "Lainnya",
+};
+
+export const statusLabelsPayment: Record<PaymentStatus, string> = {
+  pending: "Pending",
+  paid: "Dibayar",
+  failed: "Gagal",
+  expired: "Kedaluwarsa",
+  refunded: "Dikembalikan",
+};
+
+export const statusVariants: Record<
+  PaymentStatus,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  pending: "secondary",
+  paid: "default",
+  failed: "destructive",
+  expired: "outline",
+  refunded: "secondary",
 };

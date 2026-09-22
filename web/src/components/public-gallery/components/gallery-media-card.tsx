@@ -1,13 +1,6 @@
 import { Download } from "lucide-react";
 import type { ReactElement } from "react";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import type { PublicGalleryMedia } from "@/features/public-gallery/public-gallery.types";
 import { GalleryMediaPreview } from "./gallery-media-preview";
 import { formatSize } from "../utils";
@@ -20,37 +13,35 @@ export function GalleryMediaCard({
   readonly media: PublicGalleryMedia;
 }): ReactElement {
   return (
-    <Card className="overflow-hidden pt-0">
+    <article className="group overflow-hidden rounded-xl border border-border bg-white shadow-sm transition-shadow hover:shadow-md">
       <GalleryMediaPreview token={token} media={media} />
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <CardTitle
-            className="truncate text-base"
+      <div className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-2">
+          <h3
+            className="min-w-0 truncate text-sm font-semibold text-foreground"
             title={media.filename}
           >
             {media.filename}
-          </CardTitle>
-          <span className="shrink-0 text-xs text-muted-foreground">
+          </h3>
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
             {formatSize(media.size_bytes)}
           </span>
         </div>
-        <CardDescription>
-          {media.type} · {media.mime_type}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <dl className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
+          {media.type} &middot; {media.mime_type}
+        </p>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
           <div>
-            <dt>Ukuran</dt>
-            <dd>
+            <dt className="text-muted-foreground">Ukuran</dt>
+            <dd className="mt-0.5 font-medium text-foreground">
               {media.width && media.height
                 ? `${media.width} × ${media.height}`
                 : "—"}
             </dd>
           </div>
           <div>
-            <dt>Durasi</dt>
-            <dd>
+            <dt className="text-muted-foreground">Durasi</dt>
+            <dd className="mt-0.5 font-medium text-foreground">
               {media.duration_seconds
                 ? `${media.duration_seconds} detik`
                 : "—"}
@@ -60,11 +51,11 @@ export function GalleryMediaCard({
         <a
           href={media.download_url}
           download={media.filename}
-          className="inline-flex w-full items-center justify-center rounded-lg border border-transparent bg-primary px-2.5 py-1.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/80 active:translate-y-px"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-foreground px-3 py-2 text-sm font-medium text-background transition-colors hover:bg-foreground/90 active:bg-foreground/80"
         >
-          <Download aria-hidden="true" /> Download
+          <Download className="size-4" aria-hidden="true" /> Download
         </a>
-      </CardContent>
-    </Card>
+      </div>
+    </article>
   );
 }

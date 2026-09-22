@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   CalendarDays,
   CircleAlert,
+  Copy,
   Pencil,
   RefreshCw,
   Trash2,
@@ -104,9 +105,22 @@ export function EventDetailPage() {
             </Button>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="font-mono text-sm text-muted-foreground">
-                  {event.event_code}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="font-mono text-sm text-muted-foreground">
+                    {event.event_code}
+                  </p>
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    aria-label="Salin kode event"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(event.event_code);
+                      toast.success("Kode event disalin.");
+                    }}
+                  >
+                    <Copy aria-hidden="true" />
+                  </Button>
+                </div>
                 <h1 className="mt-1 text-3xl font-semibold tracking-tight">
                   {event.event_name}
                 </h1>
@@ -233,6 +247,19 @@ export function EventDetailPage() {
                   }))}
                 />
               </div>
+              {event.gif_enabled && event.configuration.gif_template && (
+                <div>
+                  <h3 className="mb-3 text-sm font-medium">GIF Template</h3>
+                  <ConfigurationItems
+                    items={[
+                      {
+                        name: event.configuration.gif_template.name,
+                        detail: `Versi ${event.configuration.gif_template.version}`,
+                      },
+                    ]}
+                  />
+                </div>
+              )}
               <dl className="grid gap-5 sm:grid-cols-2 lg:col-span-2">
                 <DetailItem label="Camera">
                   Profile #{event.configuration.camera.camera_profile_id} · ISO{" "}

@@ -42,12 +42,12 @@ export function GalleryMediaPreview({
   }, [media.id, token]);
 
   return (
-    <div className="relative aspect-4/3 w-full overflow-hidden border-b bg-muted/40">
+    <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted/30">
       {url && !isVideo && (
         <img
           src={url}
           alt={media.filename}
-          className="absolute inset-0 size-full object-contain p-2"
+          className="absolute inset-0 size-full object-contain"
         />
       )}
       {url && isVideo && (
@@ -58,10 +58,12 @@ export function GalleryMediaPreview({
         />
       )}
       {!url && (
-        <div className="absolute inset-0 grid place-items-center gap-1 text-center">
-          {mediaIcon(media)}
+        <div className="absolute inset-0 grid place-items-center gap-2 text-center">
+          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+            {mediaIcon(media)}
+          </div>
           {failed && (
-            <span className="px-3 text-[11px] leading-tight text-muted-foreground">
+            <span className="max-w-[10rem] px-4 text-xs leading-tight text-muted-foreground">
               Media belum bisa dimuat
             </span>
           )}

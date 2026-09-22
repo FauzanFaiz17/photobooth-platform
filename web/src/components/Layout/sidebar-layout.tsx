@@ -15,6 +15,7 @@ import {
 import { Separator } from "../ui/separator";
 import { SidebarProvider, SidebarTrigger } from "../ui/sidebar";
 import { TooltipProvider } from "../ui/tooltip";
+import { useBreadcrumbLabels } from "./hooks/use-breadcrumb-labels";
 
 interface LayoutBreadcrumbItem {
   readonly label: string;
@@ -49,6 +50,7 @@ function formatPathSegment(segment: string): string {
 function createBreadcrumbItems(
   pathname: string,
   searchParams: URLSearchParams,
+  labels?: Map<string, string>,
 ): ReadonlyArray<LayoutBreadcrumbItem> {
   if (pathname === "/admin" || pathname === "/admin/") {
     return [{ label: "Overview" }];
@@ -84,10 +86,11 @@ function createBreadcrumbItems(
   }
 
   if (section === "kiosk" && detail) {
+    const partnerLabel = labels?.get(`partner:${detail}`) ?? formatPathSegment(detail);
     return [
       root,
       { label: "Kiosk", href: "/admin/kiosk" },
-      { label: formatPathSegment(detail) },
+      { label: partnerLabel },
     ];
   }
 
@@ -127,18 +130,20 @@ function createBreadcrumbItems(
     const partnerId = searchParams.get("partner_id");
     const eventId = searchParams.get("event_id");
     if (eventId && partnerId) {
+      const partnerLabel = labels?.get(`partner:${partnerId}`) ?? `Kiosk #${partnerId}`;
       return [
         root,
         { label: "Gallery", href: "/admin/gallery" },
-        { label: `Kiosk #${partnerId}`, href: `/admin/gallery?partner_id=${encodeURIComponent(partnerId)}` },
+        { label: partnerLabel, href: `/admin/gallery?partner_id=${encodeURIComponent(partnerId)}` },
         { label: `Event #${eventId}` },
       ];
     }
     if (partnerId) {
+      const partnerLabel = labels?.get(`partner:${partnerId}`) ?? `Kiosk #${partnerId}`;
       return [
         root,
         { label: "Gallery", href: "/admin/gallery" },
-        { label: `Kiosk #${partnerId}` },
+        { label: partnerLabel },
       ];
     }
   }
@@ -170,7 +175,8 @@ function createBreadcrumbItems(
 export function SidebarLayout() {
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
-  const breadcrumbItems = createBreadcrumbItems(pathname, searchParams);
+  const labels = useBreadcrumbLabels(pathname, searchParams);
+  const breadcrumbItems = createBreadcrumbItems(pathname, searchParams, labels);
 
   return (
     <SidebarProvider className="bg-sidebar flex gap-2" style={{ "--sidebar-width": "14rem" } as CSSProperties}>
