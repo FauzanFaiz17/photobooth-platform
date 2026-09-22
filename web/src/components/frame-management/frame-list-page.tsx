@@ -38,6 +38,7 @@ export function FrameListPage(): ReactElement {
     filtered,
     canCreate,
     activeType,
+    activePaperSize,
     refresh,
     updateQuery,
     handleUnauthorized,
@@ -68,6 +69,16 @@ export function FrameListPage(): ReactElement {
     (nextType: string) => {
       updateQuery({
         type: nextType === "photo" ? null : nextType,
+        page: null,
+      });
+    },
+    [updateQuery],
+  );
+
+  const handlePaperSizeChange = useCallback(
+    (nextSize: string) => {
+      updateQuery({
+        paper_size: nextSize === "all" ? null : nextSize,
         page: null,
       });
     },
@@ -112,9 +123,11 @@ export function FrameListPage(): ReactElement {
           <FrameListToolbar
             initialSearch={querySearch}
             status={statusParam as "all" | "draft" | "published" | "archived"}
+            paperSize={activePaperSize}
             canReset={filtered}
             onSearchChange={handleSearchChange}
             onStatusChange={handleStatusChange}
+            onPaperSizeChange={handlePaperSizeChange}
             onReset={handleReset}
           />
         </CardHeader>

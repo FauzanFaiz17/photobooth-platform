@@ -1,3 +1,4 @@
+import type { PrintJobStatus } from "@/features/print-jobs/print-job.types"
 import type { TemplateStatus } from "@/features/templates/template.types"
 import {
   CalendarDays,
@@ -119,3 +120,26 @@ export const statusLabels: Record<TemplateStatus, string> = {
   archived: "Archived",
 };
 
+export const dateFormat = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+export const labels: Record<PrintJobStatus, string> = {
+  queued: "Queued",
+  printing: "Printing",
+  success: "Success",
+  failed: "Failed",
+  cancelled: "Cancelled",
+};
+
+export const variants: Record<
+  PrintJobStatus,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  queued: "secondary",
+  printing: "default",
+  success: "default",
+  failed: "destructive",
+  cancelled: "outline",
+};

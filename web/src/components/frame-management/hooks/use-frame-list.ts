@@ -8,6 +8,7 @@ import type { PartnerRecord } from "@/features/partners/partner.types";
 import { getTemplates } from "@/features/templates/template-service";
 import type {
   TemplateListResponse,
+  TemplatePaperSize,
   TemplateStatus,
   TemplateType,
 } from "@/features/templates/template.types";
@@ -25,6 +26,7 @@ interface UseFrameListResult {
   readonly filtered: boolean;
   readonly canCreate: boolean;
   readonly activeType: TemplateType;
+  readonly activePaperSize: TemplatePaperSize | "all";
   readonly refresh: () => void;
   readonly updateQuery: (
     updates: Readonly<Record<string, string | null>>,
@@ -47,6 +49,9 @@ export function useFrameList(): UseFrameListResult {
     : "all";
   const typeParam = searchParams.get("type");
   const activeType: TemplateType = typeParam === "gif" ? "gif" : "photo";
+  const paperSizeParam = searchParams.get("paper_size");
+  const activePaperSize: TemplatePaperSize | "all" =
+    paperSizeParam === "2r" || paperSizeParam === "4r" ? paperSizeParam : "all";
   const page = parsePositiveInteger(searchParams.get("page"), 1);
 
   const [response, setResponse] = useState<TemplateListResponse | null>(null);
@@ -121,7 +126,9 @@ export function useFrameList(): UseFrameListResult {
         if (controller.signal.aborted) return;
 
         const filteredData = framesResult.data.filter(
-          (t) => t.type === activeType,
+          (t) =>
+            (t.type ?? "photo") === activeType &&
+            (activePaperSize === "all" || t.paper_size === activePaperSize),
         );
         const filteredResponse: TemplateListResponse = {
           ...framesResult,
@@ -164,6 +171,7 @@ export function useFrameList(): UseFrameListResult {
     void loadFrames();
     return () => controller.abort();
   }, [
+    activePaperSize,
     activeType,
     handleForbidden,
     handleUnauthorized,
@@ -176,7 +184,7 @@ export function useFrameList(): UseFrameListResult {
     updateQuery,
   ]);
 
-  const filtered = Boolean(querySearch || status !== "all");
+  const filtered = Boolean(querySearch || status !== "all" || activePaperSize !== "all");
   const defaultPartnerId = user?.partner?.id ?? null;
   const canCreate = !superAdmin
     ? defaultPartnerId !== null
@@ -190,6 +198,7 @@ export function useFrameList(): UseFrameListResult {
     filtered,
     canCreate,
     activeType,
+    activePaperSize,
     refresh,
     updateQuery,
     handleUnauthorized,
