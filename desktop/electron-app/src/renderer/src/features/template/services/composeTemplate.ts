@@ -13,6 +13,13 @@ interface TemplateFrame {
   shot: number
 }
 
+interface TemplateQr {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 interface ComposeTemplateOptions {
   shots: CapturedShot[]
   jsonLayout: Record<string, unknown>
@@ -20,6 +27,8 @@ interface ComposeTemplateOptions {
   overlayPath: string | null
   cssFilter?: string
   frameIndex?: number
+  /** Data URL QR gallery; digambar di atas overlay bila json_layout.qr ada. */
+  qrDataUrl?: string | null
 }
 
 export interface ComposedImage {
@@ -44,6 +53,21 @@ function positiveNumber(value: unknown): number | null {
 
 function finiteNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function readQrLayout(jsonLayout: Record<string, unknown>): TemplateQr | null {
+  const raw = jsonLayout.qr
+  if (!isRecord(raw)) return null
+  const x = finiteNumber(raw.x)
+  const y = finiteNumber(raw.y)
+  const width = positiveNumber(raw.width)
+  const height = positiveNumber(raw.height)
+  if (x === null || y === null || width === null || height === null) return null
+  return { x, y, width, height }
+}
+
+export function getQrLayout(jsonLayout: Record<string, unknown>): TemplateQr | null {
+  return readQrLayout(jsonLayout)
 }
 
 export function getCanvasSize(jsonLayout: Record<string, unknown>): CanvasSize {
@@ -219,7 +243,8 @@ export async function composeTemplateImage({
   layout,
   overlayPath,
   cssFilter = 'none',
-  frameIndex
+  frameIndex,
+  qrDataUrl
 }: ComposeTemplateOptions): Promise<ComposedImage> {
   if (shots.length === 0) throw new Error('Tidak ada foto untuk dikomposisikan.')
 
@@ -255,6 +280,13 @@ export async function composeTemplateImage({
   if (overlayPath) {
     const overlay = await loadOverlay(overlayPath)
     context.drawImage(overlay, 0, 0, canvas.width, canvas.height)
+  }
+
+  // QR digambar setelah overlay agar selalu terlihat pada hasil cetak.
+  const qrLayout = readQrLayout(jsonLayout)
+  if (qrDataUrl && qrLayout) {
+    const qrImage = await loadImage(qrDataUrl, 'QR gallery')
+    context.drawImage(qrImage, qrLayout.x, qrLayout.y, qrLayout.width, qrLayout.height)
   }
 
   return {

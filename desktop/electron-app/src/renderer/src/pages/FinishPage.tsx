@@ -11,7 +11,7 @@ import {
   getPrinterSettings,
   getDeviceNameForPaperSize
 } from '@/features/settings/deviceSettings'
-import { composeTemplateImage } from '@/features/template/services/composeTemplate'
+import { composeTemplateImage, getQrLayout } from '@/features/template/services/composeTemplate'
 import { createSessionGif } from '@/features/gif/services/createSessionGif'
 import { useSessionStore } from '@/store/sessionStore'
 import { useDeviceStore } from '@/store/deviceStore'
@@ -184,11 +184,16 @@ export default function FinishPage(): JSX.Element {
 
     try {
       let sessionId = useSessionStore.getState().remoteSessionId
+      let earlyGalleryUrl = useSessionStore.getState().galleryUrl
 
       if (!sessionId) {
         const session = await createPhotoSession(eventConfiguration.event.id)
         sessionId = session.id
         setRemoteSession(session.id)
+        if (session.gallery?.url && !earlyGalleryUrl) {
+          earlyGalleryUrl = session.gallery.url
+          setGalleryUrl(session.gallery.url)
+        }
       }
 
       const firstPendingIndex = useSessionStore.getState().uploadedShotCount
@@ -258,6 +263,41 @@ export default function FinishPage(): JSX.Element {
         setComposedVideoUploaded(true)
       }
 
+      // QR pada hasil cetak: gallery URL harus sudah ada sejak createPhotoSession.
+      const qrLayout = template ? getQrLayout(template.jsonLayout) : null
+      let printDataUrl = useSessionStore.getState().printImage?.dataUrl ?? printImage.dataUrl
+      let printWidth = useSessionStore.getState().printImage?.width ?? printImage.width
+      let printHeight = useSessionStore.getState().printImage?.height ?? printImage.height
+
+      if (qrLayout) {
+        if (!earlyGalleryUrl) {
+          setSyncStatus(
+            'failed',
+            'URL gallery belum tersedia untuk QR cetak. Coba sinkronkan lagi.'
+          )
+          setProcessing(false)
+          return
+        }
+
+        const qrDataUrl = await QRCode.toDataURL(earlyGalleryUrl, {
+          width: 512,
+          margin: 1,
+          errorCorrectionLevel: 'M'
+        })
+        const recomposed = await composeTemplateImage({
+          shots,
+          jsonLayout: template!.jsonLayout,
+          layout: template!.layout,
+          overlayPath: template!.overlayPath,
+          cssFilter: filter?.cssFilter ?? 'none',
+          qrDataUrl
+        })
+        printDataUrl = recomposed.dataUrl
+        printWidth = recomposed.width
+        printHeight = recomposed.height
+        setPrintImage(recomposed)
+      }
+
       let printAccepted = useSessionStore.getState().printedLocally
       let printWarning: string | null = null
       if (!printAccepted) {
@@ -266,14 +306,14 @@ export default function FinishPage(): JSX.Element {
           printWarning = 'Printer belum dipilih; sesi tetap disimpan ke gallery.'
         } else if (printer.autoPrint) {
           try {
-            const printDataUrl = await applyPrinterTransform(
-              printImage.dataUrl,
+            const transformedPrintDataUrl = await applyPrinterTransform(
+              printDataUrl,
               printer.scale,
               printer.horizontalPosition,
               printer.verticalPosition
             )
             await window.electron.printer.printImage({
-              dataUrl: printDataUrl,
+              dataUrl: transformedPrintDataUrl,
               deviceName: getDeviceNameForPaperSize(printer, paperSize),
               copies: Math.max(1, quantity),
               orientation: eventConfiguration.printer.orientation
@@ -299,9 +339,15 @@ export default function FinishPage(): JSX.Element {
       }
 
       await completePhotoSession(sessionId, printAccepted).then((session) => {
-        setGalleryUrl(session.gallery?.url ?? null)
+        if (session.gallery?.url) {
+          setGalleryUrl(session.gallery.url)
+        }
       })
       setSyncStatus('synced', [localSaveError, printWarning].filter(Boolean).join(' ') || null)
+      // Simpan print image yang sudah ber-QR agar handleManualPrint ikut konsisten.
+      if (qrLayout) {
+        setPrintImage({ dataUrl: printDataUrl, width: printWidth, height: printHeight })
+      }
     } catch (error) {
       const message = getApiErrorMessage(error, 'Foto belum dapat disinkronkan ke server.')
 
@@ -331,7 +377,10 @@ export default function FinishPage(): JSX.Element {
     setComposedVideoUploaded,
     setPrintedLocally,
     setGalleryUrl,
-    shots
+    setPrintImage,
+    shots,
+    template,
+    filter
   ])
 
   useEffect(() => {
@@ -406,7 +455,8 @@ export default function FinishPage(): JSX.Element {
   }
 
   async function handleManualPrint(): Promise<void> {
-    if (!printImage || !paperSize || !eventConfiguration) return
+    const currentPrintImage = useSessionStore.getState().printImage
+    if (!currentPrintImage || !paperSize || !eventConfiguration) return
     const printer = await getPrinterSettings()
     if (!printer) return
 
@@ -414,7 +464,7 @@ export default function FinishPage(): JSX.Element {
     setManualPrintError(null)
     try {
       const printDataUrl = await applyPrinterTransform(
-        printImage.dataUrl,
+        currentPrintImage.dataUrl,
         printer.scale,
         printer.horizontalPosition,
         printer.verticalPosition

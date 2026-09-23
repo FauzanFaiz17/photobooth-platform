@@ -17,11 +17,13 @@ import {
   uploadTemplateAsset,
 } from "@/features/templates/template-service";
 import {
+  QR_SLOT_ID,
   SLOT_RATIOS,
   type FormErrors,
   type FrameOrientation,
   type FrameSize,
   type PhotoSlot,
+  type QrRect,
   type SlotRatio,
   type TemplateRecord,
   type TemplateStatus,
@@ -67,6 +69,7 @@ export function useFrameForm() {
   const [size, setSize] = useState<FrameSize>("4R");
   const [orientation, setOrientation] = useState<FrameOrientation>("portrait");
   const [slots, setSlots] = useState<ReadonlyArray<PhotoSlot>>([]);
+  const [qr, setQr] = useState<QrRect | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [formError, setFormError] = useState("");
@@ -108,6 +111,7 @@ export function useFrameForm() {
           setOrientation(layout.orientation);
           setSlots(layout.slots);
           setSlotsInFront(layout.slotsInFront);
+          setQr(layout.qr);
           setOverlayUrl(loadedFrame.png_url ?? resolveStorageUrl(loadedFrame.png_path));
           nextSlotId.current = Math.max(0, ...layout.slots.map((slot) => slot.id)) + 1;
         }
@@ -193,7 +197,10 @@ export function useFrameForm() {
     setDetection(null);
   }
 
-  const selectedSlot = slots.find((slot) => slot.id === selectedSlotId) ?? null;
+  const selectedSlot =
+    selectedSlotId === QR_SLOT_ID
+      ? null
+      : (slots.find((slot) => slot.id === selectedSlotId) ?? null);
   const canvasSize = frameDimensions(size, orientation);
   const canvasWidth = canvasSize.width;
   const canvasHeight = canvasSize.height;
@@ -274,6 +281,56 @@ export function useFrameForm() {
     setSelectedSlotId((current) => (current === slotId ? null : current));
   }
 
+  function addQr() {
+    const size = Math.round(Math.min(canvasSize.width, canvasSize.height) * 0.16);
+    setQr({
+      x: clamp(canvasSize.width - size - Math.round(canvasSize.width * 0.04), 0, canvasSize.width - size),
+      y: clamp(canvasSize.height - size - Math.round(canvasSize.height * 0.04), 0, canvasSize.height - size),
+      width: size,
+      height: size,
+    });
+    setSelectedSlotId(QR_SLOT_ID);
+    setErrors((current) => ({ ...current, qr: undefined }));
+  }
+
+  function removeQr() {
+    setQr(null);
+    setSelectedSlotId((current) => (current === QR_SLOT_ID ? null : current));
+  }
+
+  const updateQr = useCallback(
+    (updates: Partial<QrRect>) => {
+      setQr((current) => {
+        if (!current) return current;
+        const next = { ...current, ...updates };
+        const width = clamp(next.width, 24, canvasSize.width);
+        const height = clamp(next.height, 24, canvasSize.height);
+        return {
+          ...next,
+          width,
+          height,
+          x: clamp(next.x, 0, canvasSize.width - width),
+          y: clamp(next.y, 0, canvasSize.height - height),
+        };
+      });
+    },
+    [canvasSize.height, canvasSize.width],
+  );
+
+  function changeQrNumber(field: keyof QrRect, value: string) {
+    if (!qr) return;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return;
+    const maximum =
+      field === "x" ? canvasSize.width - qr.width
+        : field === "y" ? canvasSize.height - qr.height
+          : field === "width" ? canvasSize.width - qr.x
+            : canvasSize.height - qr.y;
+    updateQr({
+      [field]: clamp(parsed, field === "x" || field === "y" ? 0 : 24, maximum),
+    });
+  }
+
   function changeSlotNumber(field: "shot" | "x" | "y" | "width" | "height", value: string) {
     if (!selectedSlot) return;
     const parsed = Number(value);
@@ -300,6 +357,7 @@ export function useFrameForm() {
     if (nextOrientation !== orientation) {
       setSlots([]);
       setSelectedSlotId(null);
+      setQr(null);
     } else {
       setSlots((current) =>
         current.map((slot) => {
@@ -314,6 +372,17 @@ export function useFrameForm() {
           };
         }),
       );
+      setQr((current) => {
+        if (!current) return current;
+        const width = clamp(Math.round((current.width * next.width) / previous.width), 24, next.width);
+        const height = clamp(Math.round((current.height * next.height) / previous.height), 24, next.height);
+        return {
+          x: clamp(Math.round((current.x * next.width) / previous.width), 0, next.width - width),
+          y: clamp(Math.round((current.y * next.height) / previous.height), 0, next.height - height),
+          width,
+          height,
+        };
+      });
     }
     setSize(nextSize);
     setOrientation(nextOrientation);
@@ -324,6 +393,7 @@ export function useFrameForm() {
     setOrientation(nextOrientation);
     setSlots([]);
     setSelectedSlotId(null);
+    setQr(null);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -372,6 +442,16 @@ export function useFrameForm() {
             height: Math.round(slot.height),
             shot: Math.max(1, Math.round(slot.shot)),
           })),
+          ...(qr
+            ? {
+                qr: {
+                  x: Math.round(qr.x),
+                  y: Math.round(qr.y),
+                  width: Math.round(qr.width),
+                  height: Math.round(qr.height),
+                },
+              }
+            : {}),
         },
       };
       const saved = editing ? await updateTemplate(token, frameId, payload) : await createTemplate(token, payload);
@@ -424,6 +504,7 @@ export function useFrameForm() {
     size,
     orientation,
     slots,
+    qr,
     selectedSlotId,
     errors,
     formError,
@@ -451,6 +532,7 @@ export function useFrameForm() {
     setType,
     setStatus,
     setSlots,
+    setQr,
     setSelectedSlotId,
     setErrors,
     setFormError,
@@ -468,6 +550,10 @@ export function useFrameForm() {
     updateSlot,
     duplicateSlot,
     removeSlot,
+    addQr,
+    removeQr,
+    updateQr,
+    changeQrNumber,
     changeSlotNumber,
     changeFrameSize,
     changeOrientation,

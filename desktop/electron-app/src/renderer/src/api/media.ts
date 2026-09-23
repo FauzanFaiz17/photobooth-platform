@@ -11,6 +11,7 @@ export interface RemotePhotoSession {
   event_id: number | null
   status: 'started' | 'completed'
   folder_slug?: string | null
+  download_token?: string
   gallery?: {
     url: string
     expires_at: string

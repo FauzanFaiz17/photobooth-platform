@@ -8,11 +8,13 @@ import { cn } from "@/lib/utils";
 import { FrameCanvasArea } from "./components/frame-canvas-area";
 import { FrameHeader } from "./components/frame-header";
 import { FrameImageCard } from "./components/frame-image-card";
+import { FrameQrCard } from "./components/frame-qr-card";
 import { FrameSettingsCard } from "./components/frame-settings-card";
 import { FrameSlotEditorCard } from "./components/frame-slot-editor-card";
 import { FrameSlotDetectDialog } from "./frame-slot-detect-dialog";
 import { useFrameForm } from "./hooks/use-frame-form";
 import { useFrameKeyboard } from "./hooks/use-frame-keyboard";
+import { QR_SLOT_ID } from "@/features/templates/template.types";
 
 export function FrameCreatePage(): ReactElement {
   const form = useFrameForm();
@@ -35,6 +37,7 @@ export function FrameCreatePage(): ReactElement {
     size,
     orientation,
     slots,
+    qr,
     selectedSlotId,
     errors,
     formError,
@@ -67,6 +70,10 @@ export function FrameCreatePage(): ReactElement {
     updateSlot,
     duplicateSlot,
     removeSlot,
+    addQr,
+    removeQr,
+    updateQr,
+    changeQrNumber,
     changeSlotNumber,
     changeFrameSize,
     changeOrientation,
@@ -146,6 +153,7 @@ export function FrameCreatePage(): ReactElement {
           displayWidth={displayWidth}
           displayHeight={displayHeight}
           slots={slots}
+          qr={qr}
           selectedSlotId={selectedSlotId}
           overlayUrl={overlayUrl}
           overlayBroken={overlayBroken}
@@ -155,6 +163,7 @@ export function FrameCreatePage(): ReactElement {
           errors={errors}
           setSelectedSlotId={setSelectedSlotId}
           updateSlot={updateSlot}
+          updateQr={updateQr}
           setOverlayBroken={setOverlayBroken}
           detecting={detecting}
           detectFromCurrent={detectFromCurrent}
@@ -193,6 +202,16 @@ export function FrameCreatePage(): ReactElement {
               removeSlot={removeSlot}
               applySlotRatio={applySlotRatio}
               changeSlotNumber={changeSlotNumber}
+            />
+
+            <FrameQrCard
+              qr={qr}
+              canvasSize={canvasSize}
+              selectedSlotId={selectedSlotId}
+              onSelectQr={() => setSelectedSlotId(QR_SLOT_ID)}
+              addQr={addQr}
+              removeQr={removeQr}
+              changeQrNumber={changeQrNumber}
             />
 
             <FrameImageCard

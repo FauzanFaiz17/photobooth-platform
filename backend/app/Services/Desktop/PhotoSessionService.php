@@ -37,7 +37,7 @@ class PhotoSessionService
         $this->validateReferences($device, $data);
 
         return DB::transaction(function () use ($user, $device, $data) {
-            return PhotoSession::create([
+            $photoSession = PhotoSession::create([
                 'partner_id' => $device->partner_id,
                 'booth_id' => $device->booth_id,
                 'device_id' => $device->id,
@@ -49,6 +49,12 @@ class PhotoSessionService
                 'folder_slug' => null,
                 'status' => 'started',
             ]);
+
+            // Gallery URL harus tersedia sejak sesi dibuat agar QR bisa masuk cetakan
+            // sebelum completePhotoSession.
+            $this->ensureDownloadToken($photoSession);
+
+            return $photoSession->load('downloadAccess');
         });
     }
 

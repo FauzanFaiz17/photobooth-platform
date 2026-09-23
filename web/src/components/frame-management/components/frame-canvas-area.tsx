@@ -4,7 +4,11 @@ import samplePhoto from "@/assets/preview.webp";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { shotColor } from "@/features/templates/shot-colors";
-import type { FormErrors, PhotoSlot } from "@/features/templates/template.types";
+import type {
+  FormErrors,
+  PhotoSlot,
+  QrRect,
+} from "@/features/templates/template.types";
 import { cn } from "@/lib/utils";
 import FrameCanvas from "./frame-canvas";
 
@@ -15,6 +19,7 @@ export interface FrameCanvasAreaProps {
   displayWidth: number;
   displayHeight: number;
   slots: ReadonlyArray<PhotoSlot>;
+  qr: QrRect | null;
   selectedSlotId: number | null;
   overlayUrl: string | null;
   overlayBroken: boolean;
@@ -25,6 +30,7 @@ export interface FrameCanvasAreaProps {
   errors: FormErrors;
   setSelectedSlotId: (id: number | null) => void;
   updateSlot: (slotId: number, updates: Partial<Omit<PhotoSlot, "id">>) => void;
+  updateQr: (updates: Partial<QrRect>) => void;
   setOverlayBroken: (broken: boolean) => void;
   detectFromCurrent: () => void;
   addSlot: () => void;
@@ -37,6 +43,7 @@ export function FrameCanvasArea({
   displayWidth,
   displayHeight,
   slots,
+  qr,
   selectedSlotId,
   overlayUrl,
   overlayBroken,
@@ -47,6 +54,7 @@ export function FrameCanvasArea({
   errors,
   setSelectedSlotId,
   updateSlot,
+  updateQr,
   setOverlayBroken,
   detectFromCurrent,
   addSlot,
@@ -121,9 +129,11 @@ export function FrameCanvasArea({
                 overlayUrl={overlayUrl}
                 slotsInFront={slotsInFront}
                 slots={slots}
+                qr={qr}
                 selectedSlotId={selectedSlotId}
                 onSelect={setSelectedSlotId}
                 onChange={updateSlot}
+                onQrChange={updateQr}
                 onOverlayError={() => setOverlayBroken(true)}
               />
               {(!overlayUrl || overlayBroken) && (
@@ -201,6 +211,20 @@ export function FrameCanvasArea({
                     className="pointer-events-none absolute inset-0 size-full object-contain"
                     style={{ zIndex: slotsInFront ? 1 : 2 }}
                   />
+                )}
+                {qr && (
+                  <div
+                    className="pointer-events-none absolute grid place-items-center border-2 border-dashed border-slate-700 bg-slate-900/80 text-xs font-black uppercase text-white"
+                    style={{
+                      left: `${(qr.x / canvasWidth) * 100}%`,
+                      top: `${(qr.y / canvasHeight) * 100}%`,
+                      width: `${(qr.width / canvasWidth) * 100}%`,
+                      height: `${(qr.height / canvasHeight) * 100}%`,
+                      zIndex: 3,
+                    }}
+                  >
+                    QR
+                  </div>
                 )}
                 {slots.length === 0 && (
                   <div className="absolute inset-0 grid place-items-center p-6 text-center">

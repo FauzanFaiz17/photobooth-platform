@@ -99,14 +99,25 @@ export interface PhotoSlot {
   shot: number;
 }
 
+/** Rect QR gallery di kanvas template; tanpa field shot. */
+export interface QrRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface FormErrors {
   partner_id?: string;
   name?: string;
   png?: string;
   slots?: string;
+  qr?: string;
 }
 
 export type SlotRect = Rect & { slotId: number };
+
+export const QR_SLOT_ID = -1;
 
 export interface FrameCanvasProps {
   canvasWidth: number;
@@ -116,9 +127,11 @@ export interface FrameCanvasProps {
   overlayUrl: string | null;
   slotsInFront: boolean;
   slots: ReadonlyArray<PhotoSlot>;
+  qr: QrRect | null;
   selectedSlotId: number | null;
   onSelect: (slotId: number | null) => void;
   onChange: (slotId: number, updates: Partial<Omit<PhotoSlot, "id">>) => void;
+  onQrChange: (updates: Partial<QrRect>) => void;
   onOverlayError: () => void;
 }
 
@@ -137,6 +150,7 @@ export interface FrameLayoutInfo {
   paperSize: TemplatePaperSize;
   slotsInFront: boolean;
   slots: ReadonlyArray<LayoutSlot>;
+  qr: QrRect | null;
 }
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null

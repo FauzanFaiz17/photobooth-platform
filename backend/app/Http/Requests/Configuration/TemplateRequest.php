@@ -34,6 +34,11 @@ class TemplateRequest extends FormRequest
             'json_layout.frames.*.width' => ['sometimes', 'integer', 'min:1'],
             'json_layout.frames.*.height' => ['sometimes', 'integer', 'min:1'],
             'json_layout.frames.*.shot' => ['sometimes', 'integer', 'min:1'],
+            'json_layout.qr' => ['sometimes', 'nullable', 'array'],
+            'json_layout.qr.x' => ['required_with:json_layout.qr', 'integer', 'min:0'],
+            'json_layout.qr.y' => ['required_with:json_layout.qr', 'integer', 'min:0'],
+            'json_layout.qr.width' => ['required_with:json_layout.qr', 'integer', 'min:1'],
+            'json_layout.qr.height' => ['required_with:json_layout.qr', 'integer', 'min:1'],
             'psd_path' => ['nullable', 'string', 'max:255'],
             // The PNG is uploaded as multipart data and stored by TemplateService.
             'image' => ['nullable', 'file', 'mimes:png', 'max:10240'],

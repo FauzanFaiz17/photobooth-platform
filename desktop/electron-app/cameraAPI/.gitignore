@@ -1,0 +1,21 @@
+# Build artifacts (compiled binary — rebuild with build.bat)
+main.exe
+build/
+build_tmp/
+dist/
+*.spec
+
+# Canon EDSDK DLLs (proprietary — copy from shared/Windows/EDSDK_64/Dll/)
+EDSDK.dll
+EdsImage.dll
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Runtime output
+captures/
+
+# Logs
+*.log
+*.log.*

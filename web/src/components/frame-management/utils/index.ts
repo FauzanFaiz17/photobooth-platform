@@ -7,6 +7,7 @@ import {
   type FrameSize,
   type LayoutSlot,
   type PhotoSlot,
+  type QrRect,
   type SlotRatio,
   type SlotRect,
   type TemplatePaperSize,
@@ -83,16 +84,43 @@ export function paperSizeForFrame(size: FrameSize): TemplatePaperSize {
   return size === "2R" ? "2r" : "4r";
 }
 
+export function readQrRect(
+  value: unknown,
+  scaleX: number,
+  scaleY: number,
+  target: { width: number; height: number },
+): QrRect | null {
+  if (!isRecord(value)) return null;
+  const rawX = finiteNumber(value.x);
+  const rawY = finiteNumber(value.y);
+  const rawWidth = positiveNumber(value.width);
+  const rawHeight = positiveNumber(value.height);
+  if (rawX === null || rawY === null || rawWidth === null || rawHeight === null) {
+    return null;
+  }
+
+  const width = clamp(rawWidth * scaleX, 10, target.width);
+  const height = clamp(rawHeight * scaleY, 10, target.height);
+
+  return {
+    x: clamp(rawX * scaleX, 0, target.width - width),
+    y: clamp(rawY * scaleY, 0, target.height - height),
+    width,
+    height,
+  };
+}
+
 export function readFrameLayout(frame: TemplateRecord): {
   size: FrameSize;
   orientation: FrameOrientation;
   slots: ReadonlyArray<PhotoSlot>;
   slotsInFront: boolean;
+  qr: QrRect | null;
 } {
   const preferredSize = readFrameSize(frame);
   const size = preferredSize ?? "4R";
   if (!isRecord(frame.json_layout))
-    return { size, orientation: "portrait", slots: [], slotsInFront: false };
+    return { size, orientation: "portrait", slots: [], slotsInFront: false, qr: null };
   const slotsInFront = frame.json_layout.slots_on_top === true;
 
   const canvas = isRecord(frame.json_layout.canvas)
@@ -147,7 +175,8 @@ export function readFrameLayout(frame: TemplateRecord): {
       },
     ];
   });
-  return { size, orientation, slots, slotsInFront };
+  const qr = readQrRect(frame.json_layout.qr, scaleX, scaleY, target);
+  return { size, orientation, slots, slotsInFront, qr };
 }
 
 export function determineLayout(
@@ -214,6 +243,7 @@ export function readLayout(frame: TemplateRecord): FrameLayoutInfo {
     paperSize,
     slotsInFront: layout?.slots_on_top === true,
     slots,
+    qr: layout && isRecord(layout.qr) ? readQrRect(layout.qr, 1, 1, { width, height }) : null,
   };
 }
 

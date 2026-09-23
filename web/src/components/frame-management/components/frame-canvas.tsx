@@ -1,4 +1,5 @@
 import type { FrameCanvasProps, SlotRect } from "@/features/templates/template.types";
+import { QR_SLOT_ID } from "@/features/templates/template.types";
 import { Canvas, FabricImage, Rect } from "fabric";
 import { useEffect, useRef, type ReactElement } from "react";
 import { clamp, isSlotRect } from "../utils";
@@ -12,15 +13,17 @@ export default function FrameCanvas({
   overlayUrl,
   slotsInFront,
   slots,
+  qr,
   selectedSlotId,
   onSelect,
   onChange,
+  onQrChange,
   onOverlayError,
 }: FrameCanvasProps): ReactElement {
   const containerRef = useRef<HTMLDivElement>(null);
   const fabricRef = useRef<Canvas | null>(null);
   const overlayRef = useRef<FabricImage | null>(null);
-  const callbacksRef = useRef({ onSelect, onChange, onOverlayError });
+  const callbacksRef = useRef({ onSelect, onChange, onQrChange, onOverlayError });
 
   /** Slot digambar sebagai object biasa, jadi urutannya relatif terhadap overlay bisa dibalik. */
   function applyOverlayOrder(canvas: Canvas, inFront: boolean) {
@@ -31,8 +34,8 @@ export default function FrameCanvas({
   }
 
   useEffect(() => {
-    callbacksRef.current = { onSelect, onChange, onOverlayError };
-  }, [onChange, onOverlayError, onSelect]);
+    callbacksRef.current = { onSelect, onChange, onQrChange, onOverlayError };
+  }, [onChange, onOverlayError, onQrChange, onSelect]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -101,12 +104,21 @@ export default function FrameCanvas({
         scaleY: 1,
       });
       object.setCoords();
-      callbacksRef.current.onChange(object.slotId, {
-        x: left,
-        y: top,
-        width: objectWidth,
-        height: objectHeight,
-      });
+      if (object.slotId === QR_SLOT_ID) {
+        callbacksRef.current.onQrChange({
+          x: left,
+          y: top,
+          width: objectWidth,
+          height: objectHeight,
+        });
+      } else {
+        callbacksRef.current.onChange(object.slotId, {
+          x: left,
+          y: top,
+          width: objectWidth,
+          height: objectHeight,
+        });
+      }
     });
 
     return () => {
@@ -222,8 +234,67 @@ export default function FrameCanvas({
       }
     });
 
+    const preservedQr = current.get(QR_SLOT_ID);
+    current.delete(QR_SLOT_ID);
     current.forEach((object) => canvas.remove(object));
+
+    // QR digambar terpisah di atas overlay (urutan diatur applyOverlayOrder).
+    const qrObject = preservedQr ?? canvas
+      .getObjects()
+      .filter(isSlotRect)
+      .find((object) => object.slotId === QR_SLOT_ID) ?? null;
+    if (qr) {
+      const qrValues = {
+        left: qr.x,
+        top: qr.y,
+        width: qr.width,
+        height: qr.height,
+        fill: "rgba(15, 23, 42, 0.85)",
+        stroke: "#2563eb",
+      };
+      if (qrObject) {
+        qrObject.set({
+          ...qrValues,
+          originX: "left",
+          originY: "top",
+          scaleX: 1,
+          scaleY: 1,
+        });
+        qrObject.setCoords();
+      } else {
+        const object = new Rect({
+          ...qrValues,
+          originX: "left",
+          originY: "top",
+          strokeWidth: 2 * visualScale,
+          cornerColor: "#ffffff",
+          cornerStrokeColor: "#2563eb",
+          borderColor: "#2563eb",
+          transparentCorners: false,
+          cornerSize: 12 * visualScale,
+          borderScaleFactor: 2,
+          padding: 2 * visualScale,
+          strokeUniform: true,
+          lockScalingFlip: true,
+          lockRotation: true,
+        }) as SlotRect;
+        object.slotId = QR_SLOT_ID;
+        object.setControlsVisibility({ mtr: false });
+        canvas.add(object);
+      }
+    } else if (qrObject) {
+      canvas.remove(qrObject);
+    }
+
     applyOverlayOrder(canvas, slotsInFront);
+    // QR selalu di atas overlay PNG.
+    if (qr) {
+      const qrFront = canvas
+        .getObjects()
+        .filter(isSlotRect)
+        .find((object) => object.slotId === QR_SLOT_ID);
+      if (qrFront) canvas.bringObjectToFront(qrFront);
+    }
     const selected = canvas
       .getObjects()
       .filter(isSlotRect)
@@ -236,6 +307,7 @@ export default function FrameCanvas({
     canvasHeight,
     canvasWidth,
     displayWidth,
+    qr,
     selectedSlotId,
     slots,
     slotsInFront,
@@ -262,6 +334,18 @@ export default function FrameCanvas({
           {slot.shot}
         </span>
       ))}
+      {qr && (
+        <span
+          className="pointer-events-none absolute grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded px-2 py-1 text-xs font-black uppercase tracking-wider text-white ring-2 ring-white/70"
+          style={{
+            left: `${((qr.x + qr.width / 2) / canvasWidth) * 100}%`,
+            top: `${((qr.y + qr.height / 2) / canvasHeight) * 100}%`,
+            backgroundColor: "#0f172a",
+          }}
+        >
+          QR
+        </span>
+      )}
     </div>
   );
 }
