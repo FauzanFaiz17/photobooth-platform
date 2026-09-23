@@ -38,10 +38,10 @@ export function EventListPage() {
     boothId,
     dateFrom,
     dateTo,
-    updateQuery,
+    updateParams,
     submitSearch,
     setRetryKey,
-    setSearchParams,
+    setParams,
   } = useEventList();
 
   return (
@@ -74,9 +74,9 @@ export function EventListPage() {
             filtered={filtered}
             booths={booths}
             onSubmitSearch={submitSearch}
-            onUpdateQuery={updateQuery}
+            onUpdateQuery={updateParams}
             onReset={() =>
-              setSearchParams(new URLSearchParams(), { replace: true })
+              setParams(new URLSearchParams(), { replace: true })
             }
           />
         </CardHeader>
@@ -116,7 +116,7 @@ export function EventListPage() {
               </div>
               <EventPagination
                 meta={response.meta}
-                onUpdateQuery={updateQuery}
+                onUpdateQuery={updateParams}
               />
             </>
           )}

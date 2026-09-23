@@ -10,28 +10,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TEMPLATE_STATUSES, type TemplateStatus } from "@/features/templates/template.types";
+import { TEMPLATE_STATUSES, TEMPLATE_PAPER_SIZES, type TemplateStatus, type TemplatePaperSize } from "@/features/templates/template.types";
 import { statusLabels } from "@/constants";
 
 export type FrameStatusFilter = TemplateStatus | "all";
+export type FramePaperSizeFilter = TemplatePaperSize | "all";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
 interface FrameListToolbarProps {
   readonly initialSearch: string;
   readonly status: FrameStatusFilter;
+  readonly paperSize: FramePaperSizeFilter;
   readonly canReset: boolean;
   readonly onSearchChange: (value: string) => void;
   readonly onStatusChange: (value: FrameStatusFilter) => void;
+  readonly onPaperSizeChange: (value: FramePaperSizeFilter) => void;
   readonly onReset: () => void;
 }
 
 export function FrameListToolbar({
   initialSearch,
   status,
+  paperSize,
   canReset,
   onSearchChange,
   onStatusChange,
+  onPaperSizeChange,
   onReset,
 }: FrameListToolbarProps) {
   const [search, setSearch] = useState(initialSearch);
@@ -48,7 +53,7 @@ export function FrameListToolbar({
   }, [initialSearch, onSearchChange, search]);
 
   return (
-    <div className="grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_12rem_auto]">
+    <div className="grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_10rem_10rem_auto]">
       <div className="relative">
         <Search
           className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
@@ -77,6 +82,25 @@ export function FrameListToolbar({
           {TEMPLATE_STATUSES.map((item) => (
             <SelectItem key={item} value={item}>
               {statusLabels[item]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select<FramePaperSizeFilter>
+        value={paperSize}
+        onValueChange={(value) => {
+          if (value !== null) onPaperSizeChange(value);
+        }}
+      >
+        <SelectTrigger className="h-9 w-full" aria-label="Filter ukuran kertas">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Semua ukuran</SelectItem>
+          {TEMPLATE_PAPER_SIZES.map((size) => (
+            <SelectItem key={size} value={size}>
+              {size.toUpperCase()}
             </SelectItem>
           ))}
         </SelectContent>

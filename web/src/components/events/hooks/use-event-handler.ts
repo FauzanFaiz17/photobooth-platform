@@ -15,13 +15,17 @@ export function useEventHandler(options?: UseEventHandlerOptions) {
   const navigate = useNavigate();
   const { token, logout } = useAuth();
 
-  const loginPath = options?.loginRedirect ?? location.pathname;
+  const loginRedirect = options?.loginRedirect;
   const forbiddenFrom = options?.forbiddenFrom ?? location.pathname;
 
   const handleUnauthorized = useCallback(async () => {
     await logout();
-    navigate("/login", { replace: true, state: { from: loginPath } });
-  }, [loginPath, logout, navigate]);
+    const from =
+      loginRedirect !== undefined
+        ? { pathname: loginRedirect, search: "" }
+        : { pathname: location.pathname, search: location.search };
+    navigate("/login", { replace: true, state: { from } });
+  }, [location, loginRedirect, logout, navigate]);
 
   const handleForbidden = useCallback(() => {
     navigate("/admin/forbidden", {

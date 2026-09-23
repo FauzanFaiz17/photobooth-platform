@@ -1,4 +1,7 @@
+import type { PaymentGateway, PaymentStatus } from "@/features/payments/payment.types"
+import type { PrintJobStatus } from "@/features/print-jobs/print-job.types"
 import type { TemplateStatus } from "@/features/templates/template.types"
+import type { VoucherStatus } from "@/features/vouchers/voucher.types"
 import {
   CalendarDays,
   ChartNoAxesCombined,
@@ -13,6 +16,7 @@ import {
   TicketPercent,
   UsersRound,
   type LucideIcon,
+  GitPullRequest,
 } from "lucide-react"
 
 export type AdminNavItem = {
@@ -77,6 +81,11 @@ export const adminNavItems: AdminNavItem[] = [
     url: "/voucher",
     icon: TicketPercent,
   },
+  {
+    title: "Request",
+    url: "/admin/request",
+    icon: GitPullRequest,
+  },
 ]
 
 export const superAdminSettingsNavItems: AdminNavItem[] = [
@@ -119,3 +128,61 @@ export const statusLabels: Record<TemplateStatus, string> = {
   archived: "Archived",
 };
 
+export const dateFormat = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+export const labels: Record<PrintJobStatus, string> = {
+  queued: "Queued",
+  printing: "Printing",
+  success: "Success",
+  failed: "Failed",
+  cancelled: "Cancelled",
+};
+
+export const variants: Record<
+  PrintJobStatus,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  queued: "secondary",
+  printing: "default",
+  success: "default",
+  failed: "destructive",
+  cancelled: "outline",
+};
+
+export const gatewayLabels: Record<PaymentGateway, string> = {
+  midtrans_qris: "QRIS Midtrans",
+  voucher: "Voucher",
+  cash: "Tunai",
+  other: "Lainnya",
+};
+
+export const statusLabelsPayment: Record<PaymentStatus, string> = {
+  pending: "Pending",
+  paid: "Dibayar",
+  failed: "Gagal",
+  expired: "Kedaluwarsa",
+  refunded: "Dikembalikan",
+};
+
+export const statusVariants: Record<
+  PaymentStatus,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  pending: "secondary",
+  paid: "default",
+  failed: "destructive",
+  expired: "outline",
+  refunded: "secondary",
+};
+
+
+// Voucher
+export const statusLabelsVoucher: Record<VoucherStatus, string> = {
+  unused: "Belum dipakai",
+  redeemed: "Sudah dipakai",
+  expired: "Kedaluwarsa",
+  void: "Dibatalkan",
+};

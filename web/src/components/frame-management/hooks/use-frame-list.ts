@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { isSuperAdmin } from "@/features/auth/auth-access";
 import { useAuth } from "@/features/auth/auth-context";
@@ -8,12 +7,15 @@ import type { PartnerRecord } from "@/features/partners/partner.types";
 import { getTemplates } from "@/features/templates/template-service";
 import type {
   TemplateListResponse,
+  TemplatePaperSize,
   TemplateStatus,
   TemplateType,
 } from "@/features/templates/template.types";
 import { ApiError } from "@/lib/api-client";
 
 import { isStatus, parsePositiveInteger } from "../utils";
+import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
+import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
 
 type LoadState = "loading" | "success" | "error";
 
@@ -25,8 +27,12 @@ interface UseFrameListResult {
   readonly filtered: boolean;
   readonly canCreate: boolean;
   readonly activeType: TemplateType;
+  readonly activePaperSize: TemplatePaperSize | "all";
+  readonly querySearch: string;
+  readonly status: TemplateStatus | "all";
   readonly refresh: () => void;
-  readonly updateQuery: (
+  readonly reset: () => void;
+  readonly updateParams: (
     updates: Readonly<Record<string, string | null>>,
   ) => void;
   readonly handleUnauthorized: () => Promise<void>;
@@ -34,20 +40,23 @@ interface UseFrameListResult {
 }
 
 export function useFrameList(): UseFrameListResult {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { token, user, logout } = useAuth();
+  const {params, setParams, updateParams} = useUpdateSearchParams()
+  const {handleForbidden, handleUnauthorized, handleApiError, token} =
+    useApiErrorHandler({ forbiddenFrom: "/frame-photo" })
+  const { user } = useAuth();
   const superAdmin = isSuperAdmin(user);
 
-  const querySearch = searchParams.get("search") ?? "";
-  const statusParam = searchParams.get("status");
+  const querySearch = params.get("search") ?? "";
+  const statusParam = params.get("status");
   const status: TemplateStatus | "all" = isStatus(statusParam)
     ? statusParam
     : "all";
-  const typeParam = searchParams.get("type");
+  const typeParam = params.get("type");
   const activeType: TemplateType = typeParam === "gif" ? "gif" : "photo";
-  const page = parsePositiveInteger(searchParams.get("page"), 1);
+  const paperSizeParam = params.get("paper_size");
+  const activePaperSize: TemplatePaperSize | "all" =
+    paperSizeParam === "2r" || paperSizeParam === "4r" ? paperSizeParam : "all";
+  const page = parsePositiveInteger(params.get("page"), 1);
 
   const [response, setResponse] = useState<TemplateListResponse | null>(null);
   const [partners, setPartners] = useState<ReadonlyArray<PartnerRecord>>([]);
@@ -55,38 +64,14 @@ export function useFrameList(): UseFrameListResult {
   const [errorMessage, setErrorMessage] = useState("");
   const [retryKey, setRetryKey] = useState(0);
 
-  const updateQuery = useCallback(
-    (updates: Readonly<Record<string, string | null>>) => {
-      setSearchParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          for (const [key, value] of Object.entries(updates)) {
-            if (value) next.set(key, value);
-            else next.delete(key);
-          }
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
-
-  const handleUnauthorized = useCallback(async () => {
-    await logout();
-    navigate("/login", { replace: true, state: { from: location } });
-  }, [location, logout, navigate]);
-
-  const handleForbidden = useCallback(() => {
-    navigate("/admin/forbidden", {
-      replace: true,
-      state: { from: location.pathname },
-    });
-  }, [location.pathname, navigate]);
 
   const refresh = useCallback(() => {
     setRetryKey((value) => value + 1);
   }, []);
+
+  const reset = useCallback(() => {
+    setParams(new URLSearchParams(), { replace: true });
+  }, [setParams]);
 
   useEffect(() => {
     if (!token) return;
@@ -121,7 +106,9 @@ export function useFrameList(): UseFrameListResult {
         if (controller.signal.aborted) return;
 
         const filteredData = framesResult.data.filter(
-          (t) => t.type === activeType,
+          (t) =>
+            (t.type ?? "photo") === activeType &&
+            (activePaperSize === "all" || t.paper_size === activePaperSize),
         );
         const filteredResponse: TemplateListResponse = {
           ...framesResult,
@@ -134,7 +121,7 @@ export function useFrameList(): UseFrameListResult {
         };
 
         if (page > Math.max(1, filteredResponse.meta.last_page)) {
-          updateQuery({
+          updateParams({
             page:
               filteredResponse.meta.last_page > 1
                 ? String(filteredResponse.meta.last_page)
@@ -147,10 +134,7 @@ export function useFrameList(): UseFrameListResult {
         setLoadState("success");
       } catch (error: unknown) {
         if (controller.signal.aborted) return;
-        if (error instanceof ApiError && error.status === 401)
-          return void handleUnauthorized();
-        if (error instanceof ApiError && error.status === 403)
-          return handleForbidden();
+        if (handleApiError(error)) return;
         setResponse(null);
         setErrorMessage(
           error instanceof ApiError
@@ -164,19 +148,19 @@ export function useFrameList(): UseFrameListResult {
     void loadFrames();
     return () => controller.abort();
   }, [
+    activePaperSize,
     activeType,
-    handleForbidden,
-    handleUnauthorized,
     page,
     querySearch,
     retryKey,
     status,
     superAdmin,
     token,
-    updateQuery,
+    updateParams,
+    handleApiError
   ]);
 
-  const filtered = Boolean(querySearch || status !== "all");
+  const filtered = Boolean(querySearch || status !== "all" || activePaperSize !== "all");
   const defaultPartnerId = user?.partner?.id ?? null;
   const canCreate = !superAdmin
     ? defaultPartnerId !== null
@@ -190,9 +174,13 @@ export function useFrameList(): UseFrameListResult {
     filtered,
     canCreate,
     activeType,
+    activePaperSize,
+    querySearch,
+    status,
     refresh,
-    updateQuery,
+    reset,
     handleUnauthorized,
     handleForbidden,
+    updateParams,
   };
 }

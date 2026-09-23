@@ -3,10 +3,10 @@ import type { BoothRecord } from "@/features/booths/booth.types";
 import { getEvents } from "@/features/events/event-service";
 import type { EventListResponse } from "@/features/events/event.types";
 import { ApiError } from "@/lib/api-client";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
 import { isEventStatus } from "@/features/events/event.types";
 import { useEventHandler } from "./use-event-handler";
+import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
 
 function parsePositiveInteger(value: string | null, fallback: number): number {
   const parsed = Number(value);
@@ -14,41 +14,24 @@ function parsePositiveInteger(value: string | null, fallback: number): number {
 }
 
 export function useEventList() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params, setParams, updateParams } = useUpdateSearchParams();
   const { token, handleApiError } = useEventHandler();
 
-  const querySearch = searchParams.get("search") ?? "";
-  const statusParam = searchParams.get("status");
+  const querySearch = params.get("search") ?? "";
+  const statusParam = params.get("status");
   const status = isEventStatus(statusParam) ? statusParam : "all";
-  const boothId = parsePositiveInteger(searchParams.get("booth_id"), 0);
-  const dateFrom = searchParams.get("date_from") ?? "";
-  const dateTo = searchParams.get("date_to") ?? "";
-  const page = parsePositiveInteger(searchParams.get("page"), 1);
+  const boothId = parsePositiveInteger(params.get("booth_id"), 0);
+  const dateFrom = params.get("date_from") ?? "";
+  const dateTo = params.get("date_to") ?? "";
+  const page = parsePositiveInteger(params.get("page"), 1);
 
   const [response, setResponse] = useState<EventListResponse | null>(null);
   const [booths, setBooths] = useState<ReadonlyArray<BoothRecord>>([]);
-  const [loadState, setLoadState] = useState<
-    "loading" | "success" | "error"
-  >("loading");
+  const [loadState, setLoadState] = useState<"loading" | "success" | "error">(
+    "loading",
+  );
   const [errorMessage, setErrorMessage] = useState("");
   const [retryKey, setRetryKey] = useState(0);
-
-  const updateQuery = useCallback(
-    (updates: Readonly<Record<string, string | null>>) => {
-      setSearchParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          for (const [key, value] of Object.entries(updates)) {
-            if (value) next.set(key, value);
-            else next.delete(key);
-          }
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
 
   useEffect(() => {
     if (!token) return;
@@ -79,7 +62,7 @@ export function useEventList() {
         ]);
         if (controller.signal.aborted) return;
         if (page > Math.max(1, eventsResult.meta.last_page)) {
-          updateQuery({
+          updateParams({
             page:
               eventsResult.meta.last_page > 1
                 ? String(eventsResult.meta.last_page)
@@ -116,13 +99,13 @@ export function useEventList() {
     retryKey,
     status,
     token,
-    updateQuery,
+    updateParams,
   ]);
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const value = new FormData(event.currentTarget).get("search");
-    updateQuery({
+    updateParams({
       search: typeof value === "string" ? value.trim() || null : null,
       page: null,
     });
@@ -145,9 +128,9 @@ export function useEventList() {
     dateFrom,
     dateTo,
     page,
-    updateQuery,
+    updateParams,
     submitSearch,
     setRetryKey,
-    setSearchParams,
+    setParams,
   };
 }

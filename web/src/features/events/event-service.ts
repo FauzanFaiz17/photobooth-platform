@@ -138,7 +138,7 @@ export async function getEventConfigurationOptions(token: string, partnerId: num
   ])
 
   return {
-    templates: allTemplates.filter((t) => t.type === "photo"),
+    templates: allTemplates.filter((t) => (t.type ?? "photo") === "photo"),
     gif_templates: allTemplates.filter((t) => t.type === "gif"),
     filters,
     cameras: [...partnerCameras.data, ...globalCameras.data].map((profile) => ({ id: profile.id, name: profile.name, is_global: profile.is_global })),

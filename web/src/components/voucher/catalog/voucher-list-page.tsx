@@ -86,13 +86,13 @@ export function VoucherListPage(): ReactElement {
 
   return (
     <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
-      <SectionHeader 
-      heading="Voucher"
-      description="Pilih Partner untuk mengelola package dan voucher."
-      onSearchChange={(value) => setQuery(value)}
-      searchPlaceholder="Cari Partner"
-      searchAriaLabel="Cari Partner"
-      searchValue={query}
+      <SectionHeader
+        heading="Voucher"
+        description="Pilih Partner untuk mengelola package dan voucher."
+        onSearchChange={(value) => setQuery(value)}
+        searchPlaceholder="Cari Partner"
+        searchAriaLabel="Cari Partner"
+        searchValue={query}
       />
       {state === "loading" && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
