@@ -44,6 +44,7 @@ class EventConfigurationService
                 'templateSnapshots',
                 'filterSnapshots',
                 'printOptions',
+                'gifTemplateSnapshot',
             ])
             ->where('event_code', strtoupper($eventCode))
             ->where('partner_id', $device->partner_id)

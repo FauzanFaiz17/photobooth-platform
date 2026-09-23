@@ -84,6 +84,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/print-jobs/{printJob}/media', [DesktopPrintJobController::class, 'media'])
                 ->name('desktop.print-jobs.media');
             Route::post('/photo-sessions', [PhotoSessionController::class, 'store']);
+            Route::get('/photo-sessions/{photoSession}', [PhotoSessionController::class, 'show']);
             Route::post('/photo-sessions/{photoSession}/media', [PhotoSessionController::class, 'media']);
             Route::post('/photo-sessions/{photoSession}/complete', [PhotoSessionController::class, 'complete']);
             Route::get('/events/{eventCode}/configuration', [EventConfigurationController::class, 'show']);

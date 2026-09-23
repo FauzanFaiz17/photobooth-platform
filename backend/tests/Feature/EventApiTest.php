@@ -114,6 +114,94 @@ class EventApiTest extends ApiTestCase
         $this->assertDatabaseHas('template_snapshots', ['id' => $snapshotId]);
     }
 
+    public function test_event_video_gif_and_payment_flags_persist_across_updates(): void
+    {
+        $partner = $this->createPartner();
+        $this->activateSubscription($partner);
+        $booth = $this->createEventBooth($partner->id);
+        [$template, $filter, $camera, $printer] = $this->configurations();
+
+        $gifTemplate = Template::create([
+            'partner_id' => null,
+            'name' => 'Boomerang GIF',
+            'type' => 'gif',
+            'json_layout' => ['frames' => []],
+            'png_path' => 'templates/boomerang.png',
+            'version' => 1,
+            'status' => 'published',
+        ]);
+
+        $this->authenticateAsSuperAdmin();
+
+        $created = $this->postJson('/api/v1/events', [
+            'booth_id' => $booth->id,
+            'event_name' => 'Media Flags Event',
+            'template_id' => $template->id,
+            'gif_template_id' => $gifTemplate->id,
+            'filter_id' => $filter->id,
+            'camera_profile_id' => $camera->id,
+            'printer_profile_id' => $printer->id,
+            'event_date' => now()->toDateString(),
+            'start_time' => '10:00',
+            'end_time' => '18:00',
+            'payment_mode' => 'disabled',
+            'video_enabled' => false,
+            'gif_enabled' => true,
+            'status' => 'scheduled',
+        ])->assertCreated()
+            ->assertJsonPath('data.payment_mode', 'disabled')
+            ->assertJsonPath('data.video_enabled', false)
+            ->assertJsonPath('data.gif_enabled', true)
+            ->assertJsonPath('data.configuration.gif_template.template_id', $gifTemplate->id);
+
+        $eventId = $created->json('data.id');
+        $eventCode = $created->json('data.event_code');
+
+        $this->putJson("/api/v1/events/{$eventId}", [
+            'event_name' => 'Media Flags Event Updated',
+            'event_date' => now()->toDateString(),
+            'start_time' => '11:00',
+            'end_time' => '19:00',
+            'payment_mode' => 'voucher_only',
+            'video_enabled' => true,
+            'gif_enabled' => false,
+            'gif_template_id' => null,
+            'template_ids' => [$template->id],
+            'filter_ids' => [$filter->id],
+            'status' => 'ongoing',
+        ])->assertOk()
+            ->assertJsonPath('data.payment_mode', 'voucher_only')
+            ->assertJsonPath('data.video_enabled', true)
+            ->assertJsonPath('data.gif_enabled', false)
+            ->assertJsonPath('data.configuration.gif_template', null);
+
+        $this->getJson("/api/v1/events/{$eventId}")
+            ->assertOk()
+            ->assertJsonPath('data.payment_mode', 'voucher_only')
+            ->assertJsonPath('data.video_enabled', true)
+            ->assertJsonPath('data.gif_enabled', false)
+            ->assertJsonPath('data.configuration.gif_template', null);
+
+        [$operator, $device] = $this->desktopContext($partner->id, $booth->id);
+        Sanctum::actingAs($operator);
+
+        $this->withHeader('X-Device-UUID', $device->device_uuid)
+            ->getJson("/api/v1/desktop/events/{$eventCode}/configuration")
+            ->assertOk()
+            ->assertJsonPath('data.event.payment_mode', 'voucher_only')
+            ->assertJsonPath('data.event.video_enabled', true)
+            ->assertJsonPath('data.event.gif_enabled', false)
+            ->assertJsonPath('data.gif_template', null);
+
+        $this->assertDatabaseHas('events', [
+            'id' => $eventId,
+            'payment_mode' => 'voucher_only',
+            'video_enabled' => true,
+            'gif_enabled' => false,
+            'gif_template_snapshot_id' => null,
+        ]);
+    }
+
     public function test_partner_cannot_create_event_for_another_tenant_booth(): void
     {
         $partnerA = $this->createPartner();

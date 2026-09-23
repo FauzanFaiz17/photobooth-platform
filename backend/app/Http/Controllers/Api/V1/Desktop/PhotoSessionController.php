@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Desktop;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Desktop\CompletePhotoSessionRequest;
+use App\Http\Requests\Desktop\ShowPhotoSessionRequest;
 use App\Http\Requests\Desktop\StoreMediaRequest;
 use App\Http\Requests\Desktop\StorePhotoSessionRequest;
 use App\Http\Resources\Desktop\MediaResource;
@@ -30,6 +31,22 @@ class PhotoSessionController extends Controller
             new PhotoSessionResource($photoSession),
             'Photo session created.',
             201
+        );
+    }
+
+    public function show(
+        ShowPhotoSessionRequest $request,
+        PhotoSession $photoSession
+    ) {
+        $photoSession = $this->photoSessionService->show(
+            $photoSession,
+            $request->user(),
+            $request->deviceUuid()
+        );
+
+        return ApiResponse::success(
+            new PhotoSessionResource($photoSession),
+            'Photo session loaded.'
         );
     }
 

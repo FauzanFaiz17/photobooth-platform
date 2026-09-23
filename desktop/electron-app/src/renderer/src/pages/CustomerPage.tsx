@@ -15,6 +15,7 @@ export default function CustomerPage(): JSX.Element | null {
   const paymentId = useSessionStore((s) => s.paymentId)
   const setCustomerId = useSessionStore((s) => s.setCustomerId)
   const setRemoteSession = useSessionStore((s) => s.setRemoteSession)
+  const setGalleryUrl = useSessionStore((s) => s.setGalleryUrl)
   const setSyncStatus = useSessionStore((s) => s.setSyncStatus)
   const startSessionTimer = useSessionStore((s) => s.startSessionTimer)
   const [name, setName] = useState('')
@@ -27,9 +28,22 @@ export default function CustomerPage(): JSX.Element | null {
     void getAppSettings().then((settings) => startSessionTimer(settings.sessionTimerMinutes))
   }, [startSessionTimer])
 
-  if (!configuration || !paymentId) return null
+  const paymentMode = configuration?.event.payment_mode ?? 'full'
+  const paymentRequired = paymentMode !== 'disabled'
+
+  useEffect(() => {
+    if (!configuration) return
+    if (paymentRequired && !paymentId) {
+      navigate('/payment', { replace: true })
+    }
+  }, [configuration, navigate, paymentId, paymentRequired])
+
+  if (!configuration) return null
+  if (paymentRequired && !paymentId) return null
+
   async function submit(skip = false): Promise<void> {
-    if (!configuration || !paymentId) return
+    if (!configuration) return
+    if (paymentRequired && !paymentId) return
     setLoading(true)
     setError(null)
     try {
@@ -45,10 +59,13 @@ export default function CustomerPage(): JSX.Element | null {
       setCustomerId(customer?.id ?? null)
       const session = await createPhotoSession(
         configuration.event.id,
-        paymentId,
+        paymentId ?? undefined,
         customer?.id ?? undefined
       )
       setRemoteSession(session.id)
+      if (session.gallery?.url) {
+        setGalleryUrl(session.gallery.url)
+      }
       setSyncStatus('ready')
       navigate('/camera')
     } catch (cause) {

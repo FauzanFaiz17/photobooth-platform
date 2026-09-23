@@ -81,13 +81,38 @@ export default function PaymentPage(): JSX.Element | null {
       ? selectedOption
       : options[0]
 
-  if (!configuration || !paperSize || !option) return null
+  useEffect(() => {
+    if (!configuration) return
+    const mode = configuration.event.payment_mode ?? 'full'
+    if (mode === 'disabled') {
+      navigate('/customer', { replace: true })
+    }
+  }, [configuration, navigate])
+
+  if (!configuration || !paperSize) return null
 
   const paymentMode = configuration.event.payment_mode ?? 'full'
+  if (paymentMode === 'disabled') return null
 
-  if (paymentMode === 'disabled') {
-    navigate('/customer', { replace: true })
-    return null
+  if (!option) {
+    return (
+      <main className="flex h-full flex-col items-center justify-center gap-6 bg-(--background) p-5 text-(--foreground) md:p-8">
+        <div className="w-full max-w-2xl border-4 border-(--border) bg-(--surface) p-6 text-center shadow-[12px_12px_0_0_var(--border)] md:p-10">
+          <Alert type="error">
+            Tidak ada paket cetak aktif untuk ukuran {paperSize.toUpperCase()}. Hubungi operator.
+          </Alert>
+          <div className="mt-6">
+            <NeoButton
+              onClick={() => navigate('/template')}
+              variant="outlined"
+              className="[transition:none]"
+            >
+              Kembali ke Template
+            </NeoButton>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   const hasPrintOption = option.id > 0

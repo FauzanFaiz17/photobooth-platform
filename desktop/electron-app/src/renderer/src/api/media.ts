@@ -39,6 +39,14 @@ export async function createPhotoSession(
   return response.data.data
 }
 
+export async function getPhotoSession(sessionId: number): Promise<RemotePhotoSession> {
+  const response = await api.get<ApiEnvelope<RemotePhotoSession>>(
+    `/v1/desktop/photo-sessions/${sessionId}`
+  )
+
+  return response.data.data
+}
+
 export async function uploadSessionMedia(
   sessionId: number,
   payload: {

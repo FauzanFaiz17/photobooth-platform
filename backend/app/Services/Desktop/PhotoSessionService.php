@@ -58,6 +58,17 @@ class PhotoSessionService
         });
     }
 
+    public function show(
+        PhotoSession $photoSession,
+        User $user,
+        string $deviceUuid
+    ): PhotoSession {
+        $this->ensureSessionAccess($photoSession, $user, $deviceUuid);
+        $this->ensureDownloadToken($photoSession);
+
+        return $photoSession->load('downloadAccess');
+    }
+
     public function storeMedia(
         PhotoSession $photoSession,
         User $user,

@@ -200,7 +200,25 @@ class DesktopApiTest extends ApiTestCase
             ->assertJsonPath('data.device_id', $device->id);
 
         $sessionId = $created->json('data.id');
+        $createdGalleryUrl = $created->json('data.gallery.url');
+        $this->assertIsString($createdGalleryUrl);
+        $this->assertNotEmpty($createdGalleryUrl);
         $binary = 'image-bytes';
+
+        $shown = $this->withHeaders($headers)
+            ->getJson("/api/v1/desktop/photo-sessions/{$sessionId}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $sessionId)
+            ->assertJsonPath('data.status', 'started');
+
+        $this->assertSame(
+            $createdGalleryUrl,
+            $shown->json('data.gallery.url')
+        );
+
+        $this->withHeaders($headers)
+            ->getJson('/api/v1/desktop/photo-sessions/999999')
+            ->assertNotFound();
 
         $media = $this->withHeaders($headers)
             ->postJson("/api/v1/desktop/photo-sessions/{$sessionId}/media", [

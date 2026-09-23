@@ -7,6 +7,7 @@ import { getApiErrorMessage } from '@/api/axios'
 import {
   completePhotoSession,
   createPhotoSession,
+  getPhotoSession,
   uploadSessionMedia,
   recordPrintJob
 } from '@/api/media'
@@ -198,6 +199,16 @@ export default function FinishPage(): JSX.Element {
         if (session.gallery?.url && !earlyGalleryUrl) {
           earlyGalleryUrl = session.gallery.url
           setGalleryUrl(session.gallery.url)
+        }
+      } else if (!earlyGalleryUrl) {
+        try {
+          const existing = await getPhotoSession(sessionId)
+          if (existing.gallery?.url) {
+            earlyGalleryUrl = existing.gallery.url
+            setGalleryUrl(existing.gallery.url)
+          }
+        } catch {
+          // Biarkan penanganan error QR di bawah yang memberi pesan ke user.
         }
       }
 
