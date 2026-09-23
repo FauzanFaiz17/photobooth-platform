@@ -1,6 +1,6 @@
 import { Plus } from "lucide-react";
 import { useCallback, useState, type ReactElement } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import {
@@ -28,7 +28,6 @@ import SectionHeader from "../shared/section-header";
 
 export function FrameListPage(): ReactElement {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const [deleteTarget, setDeleteTarget] = useState<TemplateRecord | null>(null);
 
   const {
@@ -39,55 +38,51 @@ export function FrameListPage(): ReactElement {
     canCreate,
     activeType,
     activePaperSize,
+    querySearch,
+    status,
+    reset,
     refresh,
-    updateQuery,
+    updateParams,
     handleUnauthorized,
     handleForbidden,
   } = useFrameList();
 
-  const querySearch = searchParams.get("search") ?? "";
-  const statusParam = searchParams.get("status") ?? "all";
-
   const handleSearchChange = useCallback(
     (search: string) => {
-      updateQuery({ search: search || null, page: null });
+      updateParams({ search: search || null, page: null });
     },
-    [updateQuery],
+    [updateParams],
   );
 
   const handleStatusChange = useCallback(
     (nextStatus: string) => {
-      updateQuery({
+      updateParams({
         status: nextStatus === "all" ? null : nextStatus,
         page: null,
       });
     },
-    [updateQuery],
+    [updateParams],
   );
 
   const handleTypeChange = useCallback(
     (nextType: string) => {
-      updateQuery({
+      updateParams({
         type: nextType === "photo" ? null : nextType,
         page: null,
       });
     },
-    [updateQuery],
+    [updateParams],
   );
 
   const handlePaperSizeChange = useCallback(
     (nextSize: string) => {
-      updateQuery({
+      updateParams({
         paper_size: nextSize === "all" ? null : nextSize,
         page: null,
       });
     },
-    [updateQuery],
+    [updateParams],
   );
-
-  const handleReset = useCallback(() => {
-    setSearchParams(new URLSearchParams(), { replace: true });
-  }, [setSearchParams]);
 
   return (
     <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
@@ -122,13 +117,13 @@ export function FrameListPage(): ReactElement {
           </div>
           <FrameListToolbar
             initialSearch={querySearch}
-            status={statusParam as "all" | "draft" | "published" | "archived"}
+            status={status}
             paperSize={activePaperSize}
             canReset={filtered}
             onSearchChange={handleSearchChange}
             onStatusChange={handleStatusChange}
             onPaperSizeChange={handlePaperSizeChange}
-            onReset={handleReset}
+            onReset={reset}
           />
         </CardHeader>
         <CardContent>
@@ -141,7 +136,7 @@ export function FrameListPage(): ReactElement {
           {loadState === "success" && response && (
             <>
               {response.data.length === 0 ? (
-                <FrameListEmptyState filtered={filtered} onReset={handleReset} />
+                <FrameListEmptyState filtered={filtered} onReset={reset} />
               ) : (
                 <>
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -166,7 +161,7 @@ export function FrameListPage(): ReactElement {
                   <FrameListPagination
                     meta={response.meta}
                     onPageChange={(nextPage) =>
-                      updateQuery({
+                      updateParams({
                         page: nextPage === 1 ? null : String(nextPage),
                       })
                     }

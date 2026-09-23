@@ -2,16 +2,16 @@ import type { ReactElement } from "react";
 
 export default function RequestPage(): ReactElement {
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden  px-6 text-center">
+    <main className="relative flex h-full  flex-col items-center justify-center overflow-hidden  px-6 text-center">
       <div className="relative z-10 max-w-3xl space-y-10">
         <div className="space-y-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#fafaf9]/40">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em]">
             Segera Hadir
           </p>
-          <h1 className="text-5xl font-bold leading-[0.95] tracking-tight text-[#fafaf9] sm:text-7xl lg:text-8xl">
+          <h1 className="text-5xl font-bold leading-[0.95] tracking-tight  sm:text-7xl lg:text-8xl">
             Fitur Berikutnya
           </h1>
-          <p className="mx-auto max-w-lg text-base leading-relaxed text-[#fafaf9]/50 sm:text-lg">
+          <p className="mx-auto max-w-lg text-base leading-relaxed  sm:text-lg">
             Kami sedang menyiapkan sesuatu yang istimewa untuk pengalaman
             photobooth Anda. Tetap tunggu.
           </p>

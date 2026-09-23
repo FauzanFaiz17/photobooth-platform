@@ -9,15 +9,17 @@ import {
   type PaymentListResponse,
   type PaymentRecord,
 } from "@/features/payments/payment.types";
+import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
+import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
 import { ApiError } from "@/lib/api-client";
 import { positiveInteger } from "@/lib/utils";
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 export function useTransaction() {
-  const navigate = useNavigate();
-  const [params, setParams] = useSearchParams();
-  const { token, user, logout } = useAuth();
+  const { params, setParams, updateParams } = useUpdateSearchParams();
+  const { handleForbidden, handleUnauthorized, handleApiError, token } =
+    useApiErrorHandler();
+  const { user } = useAuth();
   const superAdmin = isSuperAdmin(user);
   const page = positiveInteger(params.get("page"), 1);
   const perPage = positiveInteger(params.get("per_page"), 10);
@@ -37,34 +39,6 @@ export function useTransaction() {
   const [detail, setDetail] = useState<PaymentRecord | null>(null);
   const [transitioning, setTransitioning] = useState<PaymentRecord | null>(
     null,
-  );
-  const updateParams = useCallback(
-    (updates: Readonly<Record<string, string | null>>) => {
-      setParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          for (const [key, value] of Object.entries(updates)) {
-            if (value) next.set(key, value);
-            else next.delete(key);
-          }
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setParams],
-  );
-  const unauthorized = useCallback(async () => {
-    await logout();
-    navigate("/login", { replace: true });
-  }, [logout, navigate]);
-  const forbidden = useCallback(
-    () =>
-      navigate("/admin/forbidden", {
-        replace: true,
-        state: { from: "/transactions" },
-      }),
-    [navigate],
   );
 
   useEffect(() => {
@@ -109,10 +83,7 @@ export function useTransaction() {
         setState("success");
       } catch (caught: unknown) {
         if (controller.signal.aborted) return;
-        if (caught instanceof ApiError && caught.status === 401)
-          return void unauthorized();
-        if (caught instanceof ApiError && caught.status === 403)
-          return forbidden();
+        if (handleApiError(caught)) return;
         setResponse(null);
         setError(
           caught instanceof ApiError
@@ -125,8 +96,8 @@ export function useTransaction() {
     void load();
     return () => controller.abort();
   }, [
-    forbidden,
     gateway,
+    handleApiError,
     page,
     partnerId,
     perPage,
@@ -135,7 +106,6 @@ export function useTransaction() {
     status,
     superAdmin,
     token,
-    unauthorized,
     updateParams,
   ]);
 
@@ -158,8 +128,8 @@ export function useTransaction() {
     setTransitioning,
     updateParams,
     setParams,
-    unauthorized,
+    handleUnauthorized,
     setResponse,
-    forbidden,
+    handleForbidden,
   };
 }

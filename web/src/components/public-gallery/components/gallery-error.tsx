@@ -10,20 +10,21 @@ export function GalleryError({
   readonly onRetry?: () => void;
 }): ReactElement {
   return (
-    <div className="grid min-h-[28rem] place-items-center rounded-2xl border border-dashed border-border bg-white/50">
-      <div className="text-center">
-        <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-destructive/10">
+    <div role="alert" className="grid min-h-80 place-items-center rounded-[2rem] border-2 border-dashed border-border bg-card px-6 py-12">
+      <div className="max-w-md text-center">
+        <div className="mx-auto flex size-20 -rotate-6 items-center justify-center rounded-3xl bg-muted text-primary">
           <TriangleAlert
-            className="size-7 text-destructive"
+            className="size-8"
+            strokeWidth={1.5}
             aria-hidden="true"
           />
         </div>
-        <p className="mt-5 text-base font-semibold text-foreground">
-          Gallery tidak dapat dibuka
+        <p className="mt-6 text-2xl font-bold leading-tight tracking-tight text-foreground sm:text-3xl">
+          Ups, albumnya belum terbuka.
         </p>
-        <p className="mt-1.5 text-sm text-muted-foreground">{message}</p>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{message}</p>
         {onRetry && (
-          <Button className="mt-5" variant="outline" onClick={onRetry}>
+          <Button className="mt-6 h-12 gap-2 rounded-full px-6 transition-none active:not-aria-[haspopup]:translate-y-0" onClick={onRetry}>
             <RefreshCw aria-hidden="true" /> Coba lagi
           </Button>
         )}

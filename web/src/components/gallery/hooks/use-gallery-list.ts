@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { isSuperAdmin } from "@/features/auth/auth-access";
 import { useAuth } from "@/features/auth/auth-context";
@@ -12,19 +11,20 @@ import type { PartnerRecord } from "@/features/partners/partner.types";
 import { ApiError } from "@/lib/api-client";
 
 import { parsePositiveInteger } from "../utils";
+import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
+import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
 
 type LoadState = "loading" | "success" | "error";
 
 export function useGalleryList() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { token, user, logout } = useAuth();
+  const { params, setParams, updateParams } = useUpdateSearchParams()
+  const {handleForbidden, handleApiError, handleUnauthorized, token} = useApiErrorHandler()
+  const { user } = useAuth();
   const superAdmin = isSuperAdmin(user);
 
-  const partnerParam = searchParams.get("partner_id");
-  const eventParam = searchParams.get("event_id");
-  const page = parsePositiveInteger(searchParams.get("page"), 1);
+  const partnerParam = params.get("partner_id");
+  const eventParam = params.get("event_id");
+  const page = parsePositiveInteger(params.get("page"), 1);
 
   const [response, setResponse] = useState<GalleryListResponse | null>(null);
   const [partners, setPartners] = useState<ReadonlyArray<PartnerRecord>>([]);
@@ -33,34 +33,6 @@ export function useGalleryList() {
   const [errorMessage, setErrorMessage] = useState("");
   const [retryKey, setRetryKey] = useState(0);
 
-  const updateQuery = useCallback(
-    (updates: Readonly<Record<string, string | null>>) => {
-      setSearchParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          for (const [key, value] of Object.entries(updates)) {
-            if (value) next.set(key, value);
-            else next.delete(key);
-          }
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
-
-  const handleUnauthorized = useCallback(async () => {
-    await logout();
-    navigate("/login", { replace: true, state: { from: location } });
-  }, [location, logout, navigate]);
-
-  const handleForbidden = useCallback(() => {
-    navigate("/admin/forbidden", {
-      replace: true,
-      state: { from: location.pathname },
-    });
-  }, [location.pathname, navigate]);
 
   const refresh = useCallback(() => {
     setRetryKey((value) => value + 1);
@@ -100,7 +72,7 @@ export function useGalleryList() {
           ]);
         if (controller.signal.aborted) return;
         if (page > Math.max(1, galleriesResult.meta.last_page)) {
-          updateQuery({
+          updateParams({
             page:
               galleriesResult.meta.last_page > 1
                 ? String(galleriesResult.meta.last_page)
@@ -114,10 +86,7 @@ export function useGalleryList() {
         setLoadState("success");
       } catch (error: unknown) {
         if (controller.signal.aborted) return;
-        if (error instanceof ApiError && error.status === 401)
-          return void handleUnauthorized();
-        if (error instanceof ApiError && error.status === 403)
-          return handleForbidden();
+        if(handleApiError(error)) return;
         setResponse(null);
         setErrorMessage(
           error instanceof ApiError
@@ -132,14 +101,13 @@ export function useGalleryList() {
     return () => controller.abort();
   }, [
     eventParam,
-    handleForbidden,
-    handleUnauthorized,
     page,
     partnerParam,
     retryKey,
     superAdmin,
     token,
-    updateQuery,
+    updateParams,
+    handleApiError
   ]);
 
   const filtered = Boolean(partnerParam);
@@ -172,15 +140,15 @@ export function useGalleryList() {
     : [];
 
   function openPartner(id: number) {
-    updateQuery({ partner_id: String(id), page: null });
+    updateParams({ partner_id: String(id), page: null });
   }
 
   function openEvent(id: number) {
-    updateQuery({ event_id: String(id), page: null });
+    updateParams({ event_id: String(id), page: null });
   }
 
   function resetFilters() {
-    setSearchParams(new URLSearchParams(), { replace: true });
+    setParams(new URLSearchParams(), { replace: true });
   }
 
   return {
@@ -196,7 +164,7 @@ export function useGalleryList() {
     partnerOptions,
     eventGroups,
     visibleGalleries,
-    updateQuery,
+    updateParams,
     openPartner,
     openEvent,
     resetFilters,

@@ -12,19 +12,8 @@ import {
   Trash2,
   Eye,
 } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useState,
-  type FormEvent,
-  type ReactElement,
-} from "react";
-import {
-  Link,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
+import { type ReactElement } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 import {
@@ -71,291 +60,52 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useAuth } from "@/features/auth/auth-context";
-import { isSuperAdmin } from "@/features/auth/auth-access";
-import { getPartner } from "@/features/partners/partner-service";
-import {
-  deleteVoucherPackage,
-  getVoucherPackages,
-  getVouchers,
-  voidVoucher,
-} from "@/features/vouchers/voucher-service";
 import {
   VOUCHER_STATUSES,
-  type VoucherListResponse,
-  type VoucherPackageRecord,
-  type VoucherRecord,
-  type VoucherStatus,
   voucherUsage,
 } from "@/features/vouchers/voucher.types";
-import { ApiError } from "@/lib/api-client";
 import { VoucherIssueDialog } from "./voucher-issue-dialog";
 import { VoucherDetailDialog } from "./voucher-detail-dialog";
 import { VoucherPackageFormDialog } from "./voucher-package-form-dialog";
-
-const statusLabels: Record<VoucherStatus, string> = {
-  unused: "Belum dipakai",
-  redeemed: "Sudah dipakai",
-  expired: "Kedaluwarsa",
-  void: "Dibatalkan",
-};
-function parseId(value: string | undefined): number {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 0;
-}
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
+import { currency, date } from "@/lib/utils";
+import { statusLabelsVoucher } from "@/constants";
+import { useVoucherDetail } from "../hooks/use-voucher-detail";
 
 export function VoucherKioskDetailPage(): ReactElement {
-  const { kioskId } = useParams<{ kioskId: string }>();
-  const partnerId = parseId(kioskId);
-  const navigate = useNavigate();
-  const [params, setParams] = useSearchParams();
-  const { token, user, logout } = useAuth();
-  const superAdmin = isSuperAdmin(user);
-  const page = Math.max(1, Number(params.get("page")) || 1);
-  const statusParam = params.get("status");
-  const status = VOUCHER_STATUSES.find((item) => item === statusParam);
-  const packageFilter = Math.max(0, Number(params.get("package_id")) || 0);
-  const search = params.get("search") ?? "";
-  const [partnerName, setPartnerName] = useState("");
-  const [packages, setPackages] = useState<ReadonlyArray<VoucherPackageRecord>>(
-    [],
-  );
-  const [vouchers, setVouchers] = useState<VoucherListResponse | null>(null);
-  const [state, setState] = useState<
-    "loading" | "success" | "error" | "not-found"
-  >("loading");
-  const [error, setError] = useState("");
-  const [retry, setRetry] = useState(0);
-  const [packageDialog, setPackageDialog] = useState(false);
-  const [editingPackage, setEditingPackage] =
-    useState<VoucherPackageRecord | null>(null);
-  const [deletingPackage, setDeletingPackage] =
-    useState<VoucherPackageRecord | null>(null);
-  const [issueOpen, setIssueOpen] = useState(false);
-  const [voidingVoucher, setVoidingVoucher] = useState<VoucherRecord | null>(
-    null,
-  );
-  const [detailVoucher, setDetailVoucher] = useState<VoucherRecord | null>(
-    null,
-  );
-  const [actionPending, setActionPending] = useState(false);
-
-  const updateParams = useCallback(
-    (updates: Readonly<Record<string, string | null>>) => {
-      setParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          for (const [key, value] of Object.entries(updates)) {
-            if (value) next.set(key, value);
-            else next.delete(key);
-          }
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setParams],
-  );
-  const unauthorized = useCallback(async () => {
-    await logout();
-    navigate("/login", { replace: true });
-  }, [logout, navigate]);
-  const forbidden = useCallback(
-    () =>
-      navigate("/admin/forbidden", {
-        replace: true,
-        state: { from: `/voucher/${partnerId}` },
-      }),
-    [navigate, partnerId],
-  );
-
-  useEffect(() => {
-    if (!token || !partnerId) return;
-    const controller = new AbortController();
-    const accessToken = token;
-    async function load(): Promise<void> {
-      setState("loading");
-      setError("");
-      try {
-        const packageRequests = superAdmin
-          ? [
-              getVoucherPackages(
-                accessToken,
-                { partner_id: partnerId, per_page: 100 },
-                controller.signal,
-              ),
-              getVoucherPackages(
-                accessToken,
-                { scope: "global", per_page: 100 },
-                controller.signal,
-              ),
-            ]
-          : [
-              getVoucherPackages(
-                accessToken,
-                { per_page: 100 },
-                controller.signal,
-              ),
-            ];
-        const [partnerResult, packageResults, voucherResult] =
-          await Promise.all([
-            superAdmin
-              ? getPartner(accessToken, partnerId, controller.signal)
-              : Promise.resolve(null),
-            Promise.all(packageRequests),
-            getVouchers(
-              accessToken,
-              {
-                partner_id: partnerId,
-                status,
-                voucher_package_id: packageFilter || undefined,
-                search: search || undefined,
-                per_page: 10,
-                page,
-              },
-              controller.signal,
-            ),
-          ]);
-        if (controller.signal.aborted) return;
-        if (!superAdmin && user?.partner?.id !== partnerId) {
-          setState("not-found");
-          return;
-        }
-        if (page > Math.max(1, voucherResult.meta.last_page)) {
-          updateParams({
-            page:
-              voucherResult.meta.last_page > 1
-                ? String(voucherResult.meta.last_page)
-                : null,
-          });
-          return;
-        }
-        const uniquePackages = Array.from(
-          new Map(
-            packageResults
-              .flatMap((result) => result.data)
-              .map((item) => [item.id, item]),
-          ).values(),
-        );
-        setPartnerName(
-          partnerResult?.brand_name ||
-            partnerResult?.company_name ||
-            user?.partner?.brand_name ||
-            user?.partner?.company_name ||
-            "Partner",
-        );
-        setPackages(uniquePackages);
-        setVouchers(voucherResult);
-        setState("success");
-      } catch (caught: unknown) {
-        if (controller.signal.aborted) return;
-        if (caught instanceof ApiError && caught.status === 401)
-          return void unauthorized();
-        if (caught instanceof ApiError && caught.status === 403)
-          return forbidden();
-        if (caught instanceof ApiError && caught.status === 404)
-          return setState("not-found");
-        setError(
-          caught instanceof ApiError
-            ? caught.message
-            : "Tidak dapat terhubung ke server.",
-        );
-        setState("error");
-      }
-    }
-    void load();
-    return () => controller.abort();
-  }, [
-    forbidden,
-    packageFilter,
-    page,
+  const {
+    partnerName,
     partnerId,
-    retry,
-    search,
-    status,
+    packages,
     superAdmin,
-    token,
-    unauthorized,
+    search,
+    deletingPackage,
+    voidingVoucher,
     updateParams,
-    user,
-  ]);
-
-  function submitSearch(event: FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    const value = new FormData(event.currentTarget).get("search");
-    updateParams({
-      search: typeof value === "string" ? value.trim() || null : null,
-      page: null,
-    });
-  }
-  async function confirmDelete(): Promise<void> {
-    if (!token || !deletingPackage || actionPending) return;
-    setActionPending(true);
-    try {
-      await deleteVoucherPackage(token, deletingPackage.id);
-      setPackages((current) =>
-        current.filter((item) => item.id !== deletingPackage.id),
-      );
-      toast.success(`Package ${deletingPackage.name} dihapus.`);
-      setDeletingPackage(null);
-    } catch (caught: unknown) {
-      if (caught instanceof ApiError && caught.status === 401)
-        return void unauthorized();
-      if (caught instanceof ApiError && caught.status === 403)
-        return forbidden();
-      toast.error(
-        caught instanceof ApiError
-          ? (caught.validationErrors.voucher_package?.[0] ?? caught.message)
-          : "Tidak dapat terhubung ke server.",
-      );
-    } finally {
-      setActionPending(false);
-    }
-  }
-  async function confirmVoid(): Promise<void> {
-    if (!token || !voidingVoucher || actionPending) return;
-    setActionPending(true);
-    try {
-      const saved = await voidVoucher(token, voidingVoucher.id);
-      setVouchers((current) =>
-        current
-          ? {
-              ...current,
-              data: current.data.map((item) =>
-                item.id === saved.id ? saved : item,
-              ),
-            }
-          : current,
-      );
-      toast.success(`Voucher ${saved.code} dibatalkan.`);
-      setVoidingVoucher(null);
-    } catch (caught: unknown) {
-      if (caught instanceof ApiError && caught.status === 401)
-        return void unauthorized();
-      if (caught instanceof ApiError && caught.status === 403)
-        return forbidden();
-      toast.error(
-        caught instanceof ApiError
-          ? caught.message
-          : "Tidak dapat terhubung ke server.",
-      );
-    } finally {
-      setActionPending(false);
-    }
-  }
+    packageFilter,
+    setParams,
+    page,
+    setVoidingVoucher,
+    actionPending,
+    vouchers,
+    state,
+    error,
+    setPackages,
+    setRetry,
+    packageDialog,
+    setPackageDialog,
+    editingPackage,
+    setEditingPackage,
+    issueOpen,
+    setIssueOpen,
+    detailVoucher,
+    setDetailVoucher,
+    submitSearch,
+    confirmDelete,
+    confirmVoid,
+    setDeletingPackage,
+    handleForbidden,
+    handleUnauthorized
+  } = useVoucherDetail();
 
   if (!partnerId || state === "not-found")
     return (
@@ -474,7 +224,7 @@ export function VoucherKioskDetailPage(): ReactElement {
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <p className="text-xl font-semibold">
-                            {formatCurrency(item.price)}
+                            {currency(item.price)}
                           </p>
                           <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
                             <span>{item.persons} orang</span>
@@ -556,7 +306,7 @@ export function VoucherKioskDetailPage(): ReactElement {
                     <SelectItem value="all">Semua status</SelectItem>
                     {VOUCHER_STATUSES.map((item) => (
                       <SelectItem key={item} value={item}>
-                        {statusLabels[item]}
+                        {statusLabelsVoucher[item]}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -625,7 +375,7 @@ export function VoucherKioskDetailPage(): ReactElement {
                               <TableCell>
                                 <div>{voucher.package.name}</div>
                                 <div className="text-xs text-muted-foreground">
-                                  {formatCurrency(voucher.package.price)}
+                                  {currency(voucher.package.price)}
                                 </div>
                               </TableCell>
                               <TableCell>
@@ -643,7 +393,7 @@ export function VoucherKioskDetailPage(): ReactElement {
                                 >
                                   {usage.partial
                                     ? "Terpakai sebagian"
-                                    : statusLabels[voucher.status]}
+                                    : statusLabelsVoucher[voucher.status]}
                                 </Badge>
                               </TableCell>
                               <TableCell>
@@ -657,12 +407,8 @@ export function VoucherKioskDetailPage(): ReactElement {
                                   />
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                {formatDate(voucher.expired_at)}
-                              </TableCell>
-                              <TableCell>
-                                {formatDate(voucher.created_at)}
-                              </TableCell>
+                              <TableCell>{date(voucher.expired_at)}</TableCell>
+                              <TableCell>{date(voucher.created_at)}</TableCell>
                               <TableCell className="text-right">
                                 <DropdownMenu>
                                   <DropdownMenuTrigger
@@ -735,8 +481,8 @@ export function VoucherKioskDetailPage(): ReactElement {
         <VoucherDetailDialog
           voucher={detailVoucher}
           onClose={() => setDetailVoucher(null)}
-          onUnauthorized={() => void unauthorized()}
-          onForbidden={forbidden}
+          onUnauthorized={() => void handleUnauthorized()}
+          onForbidden={handleForbidden}
         />
       )}
       {packageDialog && (
@@ -753,8 +499,8 @@ export function VoucherKioskDetailPage(): ReactElement {
             );
             toast.success(`Package ${saved.name} disimpan.`);
           }}
-          onUnauthorized={() => void unauthorized()}
-          onForbidden={forbidden}
+          onUnauthorized={() => void handleUnauthorized()}
+          onForbidden={handleForbidden}
         />
       )}
       {issueOpen && (
@@ -767,8 +513,8 @@ export function VoucherKioskDetailPage(): ReactElement {
             toast.success(`${issued.length} voucher berhasil diterbitkan.`);
             setRetry((value) => value + 1);
           }}
-          onUnauthorized={() => void unauthorized()}
-          onForbidden={forbidden}
+          onUnauthorized={() => void handleUnauthorized()}
+          onForbidden={handleForbidden}
         />
       )}
       <AlertDialog

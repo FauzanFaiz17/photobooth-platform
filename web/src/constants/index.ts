@@ -1,6 +1,7 @@
 import type { PaymentGateway, PaymentStatus } from "@/features/payments/payment.types"
 import type { PrintJobStatus } from "@/features/print-jobs/print-job.types"
 import type { TemplateStatus } from "@/features/templates/template.types"
+import type { VoucherStatus } from "@/features/vouchers/voucher.types"
 import {
   CalendarDays,
   ChartNoAxesCombined,
@@ -80,14 +81,14 @@ export const adminNavItems: AdminNavItem[] = [
     url: "/voucher",
     icon: TicketPercent,
   },
-]
-
-export const superAdminSettingsNavItems: AdminNavItem[] = [
   {
     title: "Request",
     url: "/admin/request",
     icon: GitPullRequest,
   },
+]
+
+export const superAdminSettingsNavItems: AdminNavItem[] = [
   {
     title: "Audit Log",
     url: "/admin/audit-logs",
@@ -175,4 +176,13 @@ export const statusVariants: Record<
   failed: "destructive",
   expired: "outline",
   refunded: "secondary",
+};
+
+
+// Voucher
+export const statusLabelsVoucher: Record<VoucherStatus, string> = {
+  unused: "Belum dipakai",
+  redeemed: "Sudah dipakai",
+  expired: "Kedaluwarsa",
+  void: "Dibatalkan",
 };

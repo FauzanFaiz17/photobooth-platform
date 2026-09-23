@@ -45,7 +45,7 @@ export function GalleryListPage(): ReactElement {
     partnerOptions,
     eventGroups,
     visibleGalleries,
-    updateQuery,
+    updateParams,
     openPartner,
     openEvent,
     resetFilters,
@@ -165,7 +165,7 @@ export function GalleryListPage(): ReactElement {
                     <Pagination
                       meta={response.meta}
                       onPageChange={(nextPage) =>
-                        updateQuery({
+                        updateParams({
                           page: nextPage === 1 ? null : String(nextPage),
                         })
                       }

@@ -42,7 +42,7 @@ export function GalleryMediaPreview({
   }, [media.id, token]);
 
   return (
-    <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted/30">
+    <div className="relative aspect-4/3 w-full overflow-hidden bg-muted/30">
       {url && !isVideo && (
         <img
           src={url}
@@ -63,8 +63,8 @@ export function GalleryMediaPreview({
             {mediaIcon(media)}
           </div>
           {failed && (
-            <span className="max-w-[10rem] px-4 text-xs leading-tight text-muted-foreground">
-              Media belum bisa dimuat
+            <span className="max-w-40 px-4 text-xs leading-tight text-muted-foreground">
+              Media belum bisa dimuat, refresh untuk memuat ulang media
             </span>
           )}
         </div>

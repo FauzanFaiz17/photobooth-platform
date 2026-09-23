@@ -51,9 +51,9 @@ export function TransactionsPageContent(): ReactElement {
     setTransitioning,
     updateParams,
     setParams,
-    unauthorized,
+    handleUnauthorized,
     setResponse,
-    forbidden,
+    handleForbidden,
   } = useTransaction();
 
   const summary = useMemo(() => {
@@ -200,8 +200,8 @@ export function TransactionsPageContent(): ReactElement {
           payment={detail}
           open
           onOpenChange={(open) => !open && setDetail(null)}
-          onUnauthorized={() => void unauthorized()}
-          onForbidden={forbidden}
+          onUnauthorized={() => void handleUnauthorized()}
+          onForbidden={handleForbidden}
         />
       )}
 
@@ -228,8 +228,8 @@ export function TransactionsPageContent(): ReactElement {
               `Payment ${saved.reference} menjadi ${statusLabelsPayment[saved.status]}.`,
             );
           }}
-          onUnauthorized={() => void unauthorized()}
-          onForbidden={forbidden}
+          onUnauthorized={() => void handleUnauthorized()}
+          onForbidden={handleForbidden}
         />
       )}
 

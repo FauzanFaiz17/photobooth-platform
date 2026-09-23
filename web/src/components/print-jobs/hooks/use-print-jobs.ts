@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 
 import { isSuperAdmin } from "@/features/auth/auth-access";
 import { useAuth } from "@/features/auth/auth-context";
@@ -17,12 +16,15 @@ import { getPrinters } from "@/features/printers/printer-service";
 import type { PrinterRecord } from "@/features/printers/printer.types";
 import { ApiError } from "@/lib/api-client";
 import { positive } from "../utils";
+import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
+import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
 
 export function usePrintJobs() {
-  const navigate = useNavigate();
-  const [params, setParams] = useSearchParams();
-  const { token, user, logout } = useAuth();
+  const { user } = useAuth();
   const superAdmin = isSuperAdmin(user);
+  const { params, updateParams } = useUpdateSearchParams();
+  const { handleApiError, handleForbidden, handleUnauthorized, token } =
+    useApiErrorHandler();
 
   const page = positive(params.get("page"), 1);
   const statusParam = params.get("status");
@@ -40,36 +42,6 @@ export function usePrintJobs() {
   const [retryKey, setRetryKey] = useState(0);
   const [detail, setDetail] = useState<PrintJobRecord | null>(null);
   const [action, setAction] = useState<PrintJobRecord | null>(null);
-
-  const update = useCallback(
-    (values: Readonly<Record<string, string | null>>) =>
-      setParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          for (const [key, value] of Object.entries(values)) {
-            if (value) next.set(key, value);
-            else next.delete(key);
-          }
-          return next;
-        },
-        { replace: true },
-      ),
-    [setParams],
-  );
-
-  const unauthorized = useCallback(async () => {
-    await logout();
-    navigate("/login", { replace: true });
-  }, [logout, navigate]);
-
-  const forbidden = useCallback(
-    () =>
-      navigate("/admin/forbidden", {
-        replace: true,
-        state: { from: "/print-jobs" },
-      }),
-    [navigate],
-  );
 
   useEffect(() => {
     if (!token) return;
@@ -103,9 +75,8 @@ export function usePrintJobs() {
         ]);
         if (controller.signal.aborted) return;
         if (page > Math.max(1, jobs.meta.last_page)) {
-          update({
-            page:
-              jobs.meta.last_page > 1 ? String(jobs.meta.last_page) : null,
+          updateParams({
+            page: jobs.meta.last_page > 1 ? String(jobs.meta.last_page) : null,
           });
           return;
         }
@@ -115,10 +86,7 @@ export function usePrintJobs() {
         setState("success");
       } catch (caught: unknown) {
         if (controller.signal.aborted) return;
-        if (caught instanceof ApiError && caught.status === 401)
-          return void unauthorized();
-        if (caught instanceof ApiError && caught.status === 403)
-          return forbidden();
+        if (handleApiError(caught)) return;
         setResponse(null);
         setError(
           caught instanceof ApiError
@@ -132,7 +100,7 @@ export function usePrintJobs() {
     void load();
     return () => controller.abort();
   }, [
-    forbidden,
+    handleApiError,
     page,
     partnerId,
     printerId,
@@ -140,8 +108,7 @@ export function usePrintJobs() {
     status,
     superAdmin,
     token,
-    unauthorized,
-    update,
+    updateParams,
   ]);
 
   const counts = useMemo(() => {
@@ -171,11 +138,11 @@ export function usePrintJobs() {
     status,
     counts,
     filtered,
-    update,
+    updateParams,
     setRetryKey,
     setDetail,
     setAction,
-    unauthorized,
-    forbidden,
+    handleUnauthorized,
+    handleForbidden,
   };
 }

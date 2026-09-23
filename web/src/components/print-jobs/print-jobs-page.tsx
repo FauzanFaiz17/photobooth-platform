@@ -39,12 +39,12 @@ export function PrintJobsPage(): ReactElement {
     status,
     counts,
     filtered,
-    update,
+    updateParams,
     setRetryKey,
     setDetail,
     setAction,
-    unauthorized,
-    forbidden,
+    handleUnauthorized,
+    handleForbidden,
   } = usePrintJobs();
 
   return (
@@ -108,8 +108,8 @@ export function PrintJobsPage(): ReactElement {
             filtered={filtered}
             partners={partners}
             printers={printers}
-            onFilterChange={(values) => update(values)}
-            onReset={() => update({
+            onFilterChange={(values) => updateParams(values)}
+            onReset={() => updateParams({
               partner_id: null,
               printer_id: null,
               status: null,
@@ -143,7 +143,7 @@ export function PrintJobsPage(): ReactElement {
                     meta={response.meta}
                     page={page}
                     onPageChange={(nextPage) =>
-                      update({
+                      updateParams({
                         page: nextPage === null ? null : String(nextPage),
                       })
                     }
@@ -159,8 +159,8 @@ export function PrintJobsPage(): ReactElement {
         <PrintDetailDialog
           job={detail}
           onClose={() => setDetail(null)}
-          onUnauthorized={() => void unauthorized()}
-          onForbidden={forbidden}
+          onUnauthorized={() => void handleUnauthorized()}
+          onForbidden={handleForbidden}
         />
       )}
 
@@ -176,8 +176,8 @@ export function PrintJobsPage(): ReactElement {
             );
             setRetryKey((value) => value + 1);
           }}
-          onUnauthorized={() => void unauthorized()}
-          onForbidden={forbidden}
+          onUnauthorized={() => void handleUnauthorized()}
+          onForbidden={handleForbidden}
         />
       )}
 

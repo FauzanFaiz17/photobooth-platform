@@ -35,3 +35,8 @@ export function positiveInteger(value: string | null, fallback: number): number 
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+
+export function parseId(value: string | undefined): number | null {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}

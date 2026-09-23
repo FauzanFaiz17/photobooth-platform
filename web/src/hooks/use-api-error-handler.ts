@@ -1,16 +1,16 @@
-import { useAuth } from "@/features/auth/auth-context";
-import { ApiError } from "@/lib/api-client";
 import { useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/features/auth/auth-context";
+import { ApiError } from "@/lib/api-client";
 
-interface UseEventHandlerOptions {
-  /** Path to navigate after logout. Defaults to current location. */
+interface UseApiErrorHandlerOptions {
+  /** Override tujuan redirect setelah login (default: halaman saat ini) */
   loginRedirect?: string;
-  /** Value for `state.from` when navigating to forbidden page. Defaults to current pathname. */
+  /** Override "from" saat forbidden (default: pathname saat ini) */
   forbiddenFrom?: string;
 }
 
-export function useEventHandler(options?: UseEventHandlerOptions) {
+export function useApiErrorHandler(options?: UseApiErrorHandlerOptions) {
   const location = useLocation();
   const navigate = useNavigate();
   const { token, logout } = useAuth();
@@ -25,7 +25,7 @@ export function useEventHandler(options?: UseEventHandlerOptions) {
         ? { pathname: loginRedirect, search: "" }
         : { pathname: location.pathname, search: location.search };
     navigate("/login", { replace: true, state: { from } });
-  }, [location, loginRedirect, logout, navigate]);
+  }, [location.pathname, location.search, loginRedirect, logout, navigate]);
 
   const handleForbidden = useCallback(() => {
     navigate("/admin/forbidden", {
