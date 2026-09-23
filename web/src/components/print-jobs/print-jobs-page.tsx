@@ -55,14 +55,13 @@ export function PrintJobsPage(): ReactElement {
           Pantau antrean dan hasil cetak dari printer fisik.
         </p>
       </header>
-      {/* ponytail: printed_locally hanya flag request dan tidak disimpan backend, jadi cetak lokal tak bisa dihitung. Ganti catatan ini dengan kolom sumber begitu photo_sessions menyimpan flag tersebut. */}
       <Alert role="note">
         <Info aria-hidden="true" />
-        <AlertTitle>Cetak lokal kiosk tidak masuk antrean</AlertTitle>
+        <AlertTitle>Sumber data print job</AlertTitle>
         <AlertDescription>
-          Sesi yang dicetak langsung oleh aplikasi desktop tidak membuat Print
-          Job di backend, sehingga tidak muncul pada daftar maupun ringkasan
-          status di halaman ini.
+          Cetak lokal kiosk dicatat lewat POST /v1/desktop/print-jobs/record
+          sebagai status success; antrean remote muncul sebagai queued. Pastikan
+          printer aktif di Kiosk → Printer agar device/booth match.
         </AlertDescription>
       </Alert>
 

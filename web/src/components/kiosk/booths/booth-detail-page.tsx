@@ -91,12 +91,16 @@ function PaperAlertSection({
   const { token } = useAuth()
   const { setting, summary } = alertData
   const [resetValue, setResetValue] = useState("")
+  const [thresholdValue, setThresholdValue] = useState(
+    String(setting?.low_stock_threshold ?? summary.low_stock_threshold ?? 15),
+  )
   const [recipientEmail, setRecipientEmail] = useState("")
   const [pending, setPending] = useState(false)
   const [error, setError] = useState("")
 
   const totalLimit = setting?.total_print_limit ?? summary.total_print_limit ?? 0
   const remaining = summary.remaining_prints
+  const lowThreshold = setting?.low_stock_threshold ?? summary.low_stock_threshold ?? 15
   const lastSetAt = setting?.created_at ?? null
   const recipients = setting?.recipients ?? []
 
@@ -112,21 +116,51 @@ function PaperAlertSection({
 
   async function handleReset(e: FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault()
-    if (!token || pending || !resetValue.trim()) return
+    if (!token || pending) return
     const val = Number(resetValue)
-    if (!Number.isInteger(val) || val < 1) {
-      setError("Masukkan angka bulat minimal 1.")
+    const threshold = Number(thresholdValue)
+    if (resetValue.trim() && (!Number.isInteger(val) || val < 1)) {
+      setError("Masukkan angka bulat minimal 1 untuk jumlah kertas.")
+      return
+    }
+    if (!Number.isInteger(threshold) || threshold < 0) {
+      setError("Minimal stok harus angka bulat ≥ 0.")
       return
     }
     setPending(true)
     setError("")
     try {
       const result = await saveAlertSetting(token, printer.id, {
-        total_print_limit: val,
-        low_stock_threshold: setting?.low_stock_threshold ?? 15,
+        total_print_limit: resetValue.trim() ? val : (setting?.total_print_limit ?? summary.total_print_limit ?? 1),
+        low_stock_threshold: threshold,
         is_active: setting?.is_active ?? true,
       })
       setResetValue("")
+      onSaved(result.alert_setting, result.summary)
+    } catch (caught: unknown) {
+      if (caught instanceof ApiError && caught.status === 401) return onUnauthorized()
+      if (caught instanceof ApiError && caught.status === 403) return onForbidden()
+      setError(caught instanceof ApiError ? caught.message : "Gagal menyimpan.")
+    } finally {
+      setPending(false)
+    }
+  }
+
+  async function handleSaveThreshold(): Promise<void> {
+    if (!token || pending) return
+    const threshold = Number(thresholdValue)
+    if (!Number.isInteger(threshold) || threshold < 0) {
+      setError("Minimal stok harus angka bulat ≥ 0.")
+      return
+    }
+    setPending(true)
+    setError("")
+    try {
+      const result = await saveAlertSetting(token, printer.id, {
+        total_print_limit: setting?.total_print_limit ?? summary.total_print_limit ?? 1,
+        low_stock_threshold: threshold,
+        is_active: setting?.is_active ?? true,
+      })
       onSaved(result.alert_setting, result.summary)
     } catch (caught: unknown) {
       if (caught instanceof ApiError && caught.status === 401) return onUnauthorized()
@@ -225,6 +259,43 @@ function PaperAlertSection({
             <Button type="submit" disabled={pending || !resetValue.trim()}>
               {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
               Atur
+            </Button>
+          </form>
+        </div>
+
+        {/* Low stock threshold */}
+        <div>
+          <div className="mb-2">
+            <p className="text-sm font-medium">
+              Notifikasi saat sisa kertas ≤{" "}
+              <span className="font-semibold text-amber-600">{lowThreshold}</span>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Email dikirim ke penerima di bawah ketika sisa cetak mencapai batas
+              ini (cooldown default 60 menit).
+            </p>
+          </div>
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void handleSaveThreshold()
+            }}
+          >
+            <Input
+              type="number"
+              min={0}
+              placeholder="e.g. 15"
+              value={thresholdValue}
+              onChange={(e) => {
+                setThresholdValue(e.target.value)
+                setError("")
+              }}
+              className="flex-1"
+            />
+            <Button type="submit" disabled={pending}>
+              {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+              Simpan Ambang
             </Button>
           </form>
         </div>

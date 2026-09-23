@@ -4,7 +4,12 @@ import { useNavigate } from 'react-router-dom'
 import QRCode from 'qrcode'
 
 import { getApiErrorMessage } from '@/api/axios'
-import { completePhotoSession, createPhotoSession, uploadSessionMedia, recordPrintJob } from '@/api/media'
+import {
+  completePhotoSession,
+  createPhotoSession,
+  uploadSessionMedia,
+  recordPrintJob
+} from '@/api/media'
 import { NeoButton } from '@/components/shared/button'
 import {
   getAppSettings,
@@ -322,12 +327,23 @@ export default function FinishPage(): JSX.Element {
             setPrintedLocally(true)
             const deviceUuid = useDeviceStore.getState().fingerprint?.deviceUuid
             if (deviceUuid) {
-              recordPrintJob({
-                device_uuid: deviceUuid,
-                photo_session_id: sessionId,
-                paper_size: paperSize,
-                copies: Math.max(1, quantity)
-              }).catch(() => {})
+              try {
+                await recordPrintJob({
+                  device_uuid: deviceUuid,
+                  photo_session_id: sessionId,
+                  paper_size: paperSize,
+                  copies: Math.max(1, quantity)
+                })
+              } catch (recordError) {
+                console.error('[print] Gagal mencatat print_jobs:', recordError)
+                printWarning = getApiErrorMessage(
+                  recordError,
+                  'Print berhasil, tetapi riwayat ke server gagal dicatat.'
+                )
+              }
+            } else {
+              printWarning =
+                'Print berhasil, tetapi device UUID tidak tersedia untuk mencatat riwayat.'
             }
           } catch (error) {
             printWarning = getApiErrorMessage(
@@ -478,12 +494,26 @@ export default function FinishPage(): JSX.Element {
       setPrintedLocally(true)
       const deviceUuid = useDeviceStore.getState().fingerprint?.deviceUuid
       if (deviceUuid) {
-        recordPrintJob({
-          device_uuid: deviceUuid,
-          photo_session_id: useSessionStore.getState().remoteSessionId,
-          paper_size: paperSize,
-          copies: Math.max(1, manualQuantity)
-        }).catch(() => {})
+        try {
+          await recordPrintJob({
+            device_uuid: deviceUuid,
+            photo_session_id: useSessionStore.getState().remoteSessionId,
+            paper_size: paperSize,
+            copies: Math.max(1, manualQuantity)
+          })
+        } catch (recordError) {
+          console.error('[print] Gagal mencatat print_jobs:', recordError)
+          setManualPrintError(
+            getApiErrorMessage(
+              recordError,
+              'Print berhasil, tetapi riwayat ke server gagal dicatat.'
+            )
+          )
+        }
+      } else {
+        setManualPrintError(
+          'Print berhasil, tetapi device UUID tidak tersedia untuk mencatat riwayat.'
+        )
       }
     } catch (error) {
       setManualPrintError(error instanceof Error ? error.message : 'Print gagal.')

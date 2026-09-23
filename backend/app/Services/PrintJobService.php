@@ -251,14 +251,16 @@ class PrintJobService
     {
         $device = $this->activeDevice($user, $data['device_uuid']);
 
+        // Prefer printer yang menempel langsung ke device ini.
         $printer = Printer::query()
             ->where('partner_id', $device->partner_id)
-            ->where('device_id', $device->device_id ?? $device->id)
+            ->where('device_id', $device->id)
             ->where('is_active', true)
             ->oldest('id')
             ->first();
 
-        if (! $printer) {
+        // Fallback: printer aktif di booth yang sama.
+        if (! $printer && $device->booth_id) {
             $printer = Printer::query()
                 ->where('partner_id', $device->partner_id)
                 ->where('booth_id', $device->booth_id)
@@ -267,8 +269,19 @@ class PrintJobService
                 ->first();
         }
 
+        // Fallback terakhir: printer aktif partner ini (single-printer setup).
         if (! $printer) {
-            throw ValidationException::withMessages(['printer_id' => 'No active printer found for this device.']);
+            $printer = Printer::query()
+                ->where('partner_id', $device->partner_id)
+                ->where('is_active', true)
+                ->oldest('id')
+                ->first();
+        }
+
+        if (! $printer) {
+            throw ValidationException::withMessages([
+                'printer_id' => 'Tidak ada printer aktif untuk device/booth ini. Tambahkan printer di admin (Kiosk → Printer) agar riwayat cetak tercatat.',
+            ]);
         }
 
         $photoSessionId = $data['photo_session_id'] ?? null;

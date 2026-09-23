@@ -418,14 +418,25 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
         sampleDataUrl: currentSample?.dataUrl
       })
       const deviceUuid = useDeviceStore.getState().fingerprint?.deviceUuid
+      let recordNote = ''
       if (deviceUuid) {
-        recordPrintJob({
-          device_uuid: deviceUuid,
-          paper_size: paperSize,
-          copies: 1
-        }).catch(() => {})
+        try {
+          await recordPrintJob({
+            device_uuid: deviceUuid,
+            paper_size: paperSize,
+            copies: 1
+          })
+        } catch (recordError) {
+          console.error('[print] Gagal mencatat print_jobs:', recordError)
+          recordNote = ` ${getApiErrorMessage(recordError, 'Riwayat ke server gagal dicatat.')}`
+        }
+      } else {
+        recordNote = ' Device UUID tidak tersedia untuk mencatat riwayat.'
       }
-      setMessage({ type: 'success', text: `Test print ${paperSize.toUpperCase()} dikirim ke printer.` })
+      setMessage({
+        type: recordNote ? 'error' : 'success',
+        text: `Test print ${paperSize.toUpperCase()} dikirim ke printer.${recordNote}`
+      })
     } catch (cause) {
       setMessage({
         type: 'error',
@@ -762,15 +773,23 @@ function DnpPresetTest({ onBack }: { onBack: () => void }): JSX.Element {
         mediaFormat: preset.mediaFormat
       })
       const deviceUuid = useDeviceStore.getState().fingerprint?.deviceUuid
+      let recordNote = ''
       if (deviceUuid) {
-        recordPrintJob({
-          device_uuid: deviceUuid,
-          paper_size: '4r',
-          copies: 1
-        }).catch(() => {})
+        try {
+          await recordPrintJob({
+            device_uuid: deviceUuid,
+            paper_size: '4r',
+            copies: 1
+          })
+        } catch (recordError) {
+          console.error('[print] Gagal mencatat print_jobs:', recordError)
+          recordNote = ` ${getApiErrorMessage(recordError, 'Riwayat ke server gagal dicatat.')}`
+        }
+      } else {
+        recordNote = ' Device UUID tidak tersedia untuk mencatat riwayat.'
       }
       setMessage(
-        `Test 4R ${preset.label} dikirim memakai sample "${sample.name}" pada media 101,6 x 152,4 mm.`
+        `Test 4R ${preset.label} dikirim memakai sample "${sample.name}" pada media 101,6 x 152,4 mm.${recordNote}`
       )
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : 'Test print gagal.')
