@@ -1,25 +1,17 @@
 import { profileRequest } from "@/features/auth/auth-api";
-import { useAuth } from "@/features/auth/auth-context";
 import type { AuthUser } from "@/features/auth/auth.types";
+import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
 import { ApiError } from "@/lib/api-client";
-import { useCallback, useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 export function useProfile() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { token, logout } = useAuth();
+  const { handleApiError, token } = useApiErrorHandler();
   const [profile, setProfile] = useState<AuthUser | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "success" | "error">(
     "loading",
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [retryKey, setRetryKey] = useState(0);
-
-  const handleUnauthorized = useCallback(async () => {
-    await logout();
-    navigate("/login", { replace: true, state: { from: location } });
-  }, [location, logout, navigate]);
 
   useEffect(() => {
     if (!token) return;
@@ -36,8 +28,7 @@ export function useProfile() {
         setLoadState("success");
       } catch (error: unknown) {
         if (controller.signal.aborted) return;
-        if (error instanceof ApiError && error.status === 401)
-          return void handleUnauthorized();
+        if(handleApiError(error)) return;
         setProfile(null);
         setErrorMessage(
           error instanceof ApiError
@@ -50,7 +41,7 @@ export function useProfile() {
 
     void loadProfile();
     return () => controller.abort();
-  }, [handleUnauthorized, retryKey, token]);
+  }, [retryKey, token, handleApiError]);
 
   return {
     profile,

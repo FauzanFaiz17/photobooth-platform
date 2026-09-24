@@ -114,11 +114,13 @@ function StatCard({
   readonly description: string;
 }) {
   return (
-    <Card>
+    <Card className="bg-background border border-border rounded-xl shadow-[0_4px_0_var(--border)]">
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <CardDescription>{label}</CardDescription>
-          <Icon className="size-5 text-muted-foreground" aria-hidden="true" />
+          <div className="border border-border p-1 rounded-lg shadow-[0px_2px_0_var(--border)]">
+            <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
+          </div>
         </div>
         <CardTitle className="text-3xl tabular-nums">{value}</CardTitle>
       </CardHeader>
@@ -287,7 +289,7 @@ export default function OverviewPage() {
               icon={Monitor}
               label="Booth"
               value={data.boothTotal?.toLocaleString("id-ID") ?? "—"}
-              description={`${data.activeBooths ?? 0} Booth berstatus aktif pada data termuat`}
+              description={`${data.activeBooths ?? 0} Booth berstatus aktif`}
             />
             <StatCard
               icon={CalendarDays}

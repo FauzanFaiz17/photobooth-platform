@@ -38,7 +38,8 @@ import {
   readFrameLayout,
   slotRatioOf,
 } from "../utils";
-import { useEventHandler } from "@/components/events/hooks/use-event-handler";
+import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
+
 
 export function useFrameForm() {
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ export function useFrameForm() {
   const { frameId: frameIdParam } = useParams<{ frameId: string }>();
   const { token, user } = useAuth();
   const superAdmin = isSuperAdmin(user);
-  const { handleApiError } = useEventHandler();
+  const { handleApiError } = useApiErrorHandler();
   const frameId = Number(frameIdParam);
   const editing = Number.isInteger(frameId) && frameId > 0;
 

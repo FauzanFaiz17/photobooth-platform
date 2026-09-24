@@ -26,11 +26,11 @@ import {
   validate,
   validatePrintOptions,
 } from "../utils";
-import { useEventHandler } from "./use-event-handler";
+import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
 
 export function useEventForm(eventIdParam: string | undefined) {
   const navigate = useNavigate();
-  const { token, handleApiError } = useEventHandler();
+  const { token, handleApiError } = useApiErrorHandler();
 
   const editing = eventIdParam !== undefined;
   const eventId = editing ? parseId(eventIdParam) : null;

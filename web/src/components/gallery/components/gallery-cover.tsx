@@ -41,7 +41,7 @@ export function GalleryCover({
         <img
           src={objectUrl}
           alt={`Media sesi ${gallery.id}`}
-          className="absolute inset-0 size-full object-contain p-2"
+          className="absolute inset-0 size-full object-contain p-2 rounded-2xl"
         />
       ) : (
         <div className="absolute inset-0 grid place-items-center gap-1 text-center">

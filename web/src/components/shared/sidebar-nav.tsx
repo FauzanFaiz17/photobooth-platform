@@ -68,11 +68,11 @@ function SidebarNavigation({
               render={<NavLink to={item.url} />}
               isActive={isActive}
               className={`
-                w-full transition-all duration-300 ease-out group px-3 py-5 rounded-xl
+                w-full transition-all duration-300 ease-out group px-3 py-5 rounded-md
                 ${
                   isActive
-                    ? "bg-primary text-primary-foreground shadow-sm shadow-primary/20 hover:bg-primary hover:text-white"
-                    : "text-muted-foreground hover:bg-primary hover:text-white"
+                    ? "data-active:bg-background border border-border shadow-[0_4px_0_var(--border)]"
+                    : "text-muted-foreground  hover:text-primary"
                 }
               `}
             >

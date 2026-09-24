@@ -107,7 +107,7 @@ export function ProfilePage() {
             <CardHeader>
               <CardTitle>Informasi akun</CardTitle>
               <CardDescription>
-                Data dari `GET /api/v1/profile`.
+                Data dari database.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">

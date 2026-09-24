@@ -30,7 +30,7 @@ const SectionHeader = ({
 }: SectionHeaderProps) => {
   const showAction = Boolean(actionLabel && onAction);
   const showSearch = Boolean(onSearchChange);
- 
+
   return (
     <header
       className={
@@ -45,25 +45,29 @@ const SectionHeader = ({
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         )}
       </div>
- 
+
       {(showSearch || showAction) && (
         <div className="flex flex-wrap items-center gap-3">
           {showSearch && (
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 opacity-60" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 opacity-60 hover:translate-y-2 transform" />
               <Input
                 type="search"
                 value={searchValue}
                 onChange={(e) => onSearchChange?.(e.target.value)}
                 placeholder={searchPlaceholder}
                 aria-label={searchAriaLabel}
-                className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring sm:w-56"
+                className="h-9 w-full rounded-md bg-background text-primary border-border shadow-[0_4px_0_var(--border)] transform transition duration-100 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:border-border sm:w-56"
               />
             </div>
           )}
- 
+
           {showAction && (
-            <Button disabled={actionDisabled} onClick={onAction}>
+            <Button
+              className={`bg-background text-primary border-border shadow-[0_4px_0_var(--border)] transform hover:translate-y-2 hover:shadow-none hover:bg-background transition duration-100`}
+              disabled={actionDisabled}
+              onClick={onAction}
+            >
               <span className="inline-flex items-center gap-2">
                 {actionLabel}
               </span>
@@ -74,5 +78,5 @@ const SectionHeader = ({
     </header>
   );
 };
- 
+
 export default SectionHeader;

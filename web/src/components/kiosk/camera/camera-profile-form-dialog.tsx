@@ -351,7 +351,7 @@ export function CameraProfileFormDialog({
               <Label htmlFor="camera-white_balance">White balance</Label>
               <Select
                 value={form.white_balance}
-                onValueChange={(value) => updateField("white_balance", value)}
+                onValueChange={(value) => updateField("white_balance", value ?? "")}
               >
                 <SelectTrigger id="camera-white_balance" className="w-full">
                   <SelectValue placeholder="Pilih white balance" />
@@ -368,7 +368,7 @@ export function CameraProfileFormDialog({
               <Label htmlFor="camera-picture_style">Picture style</Label>
               <Select
                 value={form.picture_style}
-                onValueChange={(value) => updateField("picture_style", value)}
+                onValueChange={(value) => updateField("picture_style", value ?? "")}
               >
                 <SelectTrigger id="camera-picture_style" className="w-full">
                   <SelectValue placeholder="Pilih picture style" />
@@ -385,7 +385,7 @@ export function CameraProfileFormDialog({
               <Label htmlFor="camera-exposure">Exposure comp.</Label>
               <Select
                 value={form.exposure}
-                onValueChange={(value) => updateField("exposure", value)}
+                onValueChange={(value) => updateField("exposure", value ?? "")}
               >
                 <SelectTrigger id="camera-exposure" className="w-full">
                   <SelectValue placeholder="Pilih exposure" />
@@ -402,7 +402,7 @@ export function CameraProfileFormDialog({
               <Label htmlFor="camera-contrast">Contrast</Label>
               <Select
                 value={form.contrast}
-                onValueChange={(value) => updateField("contrast", value)}
+                onValueChange={(value) => updateField("contrast", value ?? "")}
               >
                 <SelectTrigger id="camera-contrast" className="w-full">
                   <SelectValue placeholder="Pilih contrast" />
@@ -419,7 +419,7 @@ export function CameraProfileFormDialog({
               <Label htmlFor="camera-saturation">Saturation</Label>
               <Select
                 value={form.saturation}
-                onValueChange={(value) => updateField("saturation", value)}
+                onValueChange={(value) => updateField("saturation", value ?? "")}
               >
                 <SelectTrigger id="camera-saturation" className="w-full">
                   <SelectValue placeholder="Pilih saturation" />
@@ -436,7 +436,7 @@ export function CameraProfileFormDialog({
               <Label htmlFor="camera-focus_mode">Focus mode</Label>
               <Select
                 value={form.focus_mode}
-                onValueChange={(value) => updateField("focus_mode", value)}
+                onValueChange={(value) => updateField("focus_mode", value ?? "")}
               >
                 <SelectTrigger id="camera-focus_mode" className="w-full">
                   <SelectValue placeholder="Pilih focus mode" />
@@ -453,7 +453,7 @@ export function CameraProfileFormDialog({
               <Label htmlFor="camera-image_quality">Image quality</Label>
               <Select
                 value={form.image_quality}
-                onValueChange={(value) => updateField("image_quality", value)}
+                onValueChange={(value) => updateField("image_quality", value ?? "")}
               >
                 <SelectTrigger id="camera-image_quality" className="w-full">
                   <SelectValue placeholder="Pilih kualitas" />

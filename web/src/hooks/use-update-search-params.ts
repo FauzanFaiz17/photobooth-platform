@@ -20,5 +20,10 @@ export function useUpdateSearchParams() {
     },
     [setParams],
   );
-  return { params, setParams, updateParams}
+  
+  const reset = useCallback(
+    () => setParams(new URLSearchParams(), { replace: true }),
+    [setParams],
+  );
+  return { params, setParams, updateParams, reset}
 }

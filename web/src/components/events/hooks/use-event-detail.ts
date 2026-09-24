@@ -1,12 +1,12 @@
 import { getEvent } from "@/features/events/event-service";
 import type { EventRecord } from "@/features/events/event.types";
+import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
 import { ApiError } from "@/lib/api-client";
 import { useEffect, useState } from "react";
-import { useEventHandler } from "./use-event-handler";
 
 export function useEventDetail(eventId: number | null) {
   const { token, handleUnauthorized, handleForbidden, handleApiError } =
-    useEventHandler();
+    useApiErrorHandler();
   const [event, setEvent] = useState<EventRecord | null>(null);
   const [loadState, setLoadState] = useState<
     "loading" | "success" | "not-found" | "error"

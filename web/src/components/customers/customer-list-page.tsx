@@ -38,7 +38,7 @@ export function CustomerListPage(): ReactElement {
     partnerId,
     filtered,
     partnerName,
-    update,
+    updateParams,
     reset,
     submitSearch,
     setRetry,
@@ -94,7 +94,7 @@ export function CustomerListPage(): ReactElement {
               filtered={filtered}
               partners={partners}
               onSubmitSearch={submitSearch}
-              onUpdate={update}
+              onUpdate={updateParams}
               onReset={reset}
             />
           </CardHeader>
@@ -140,7 +140,7 @@ export function CustomerListPage(): ReactElement {
                 </Table>
                 <EventPagination
                   meta={response.meta}
-                  onUpdateQuery={update}
+                  onUpdateQuery={updateParams}
                   label="Customer"
                 />
               </>

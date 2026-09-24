@@ -314,7 +314,7 @@ export function PublicGalleryPage(): ReactElement {
                   <div
                     key={media.id}
                     role="listitem"
-                    className="min-w-0 [--tape:#f3d6e0] even:[--tape:#d4e8d9] nth-[3n]:[--tape:#ffe5a6]"
+                    className="min-w-0 [--tape:#f3d6e0] even:[--tape:#d4e8d9] nth-[2n]:[--tape:#ffe5a6]"
                   >
                     <div
                       className="mb-2 pl-1 text-xs font-semibold tabular-nums text-muted-foreground"

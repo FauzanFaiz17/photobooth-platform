@@ -33,6 +33,7 @@ export function Notification() {
             variant="outline"
             size="icon"
             aria-label="Buka notifikasi"
+            className={`border-border shadow-[0px_2px_0_var(--border)] hover:translate-y-1 hover:bg-background hover:shadow-none `}
           />
         }
       >

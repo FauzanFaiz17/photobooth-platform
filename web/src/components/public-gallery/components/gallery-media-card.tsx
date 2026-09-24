@@ -30,27 +30,6 @@ export function GalleryMediaCard({
             {formatSize(media.size_bytes)}
           </span>
         </div>
-        <p className="wrap-break-word text-xs text-muted-foreground">
-          {media.type} &middot; {media.mime_type}
-        </p>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-2xl bg-muted/60 px-3 py-2.5 text-xs">
-          <div>
-            <dt className="text-muted-foreground">Ukuran</dt>
-            <dd className="mt-1 font-medium tabular-nums text-foreground">
-              {media.width && media.height
-                ? `${media.width} × ${media.height}`
-                : "—"}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Durasi</dt>
-            <dd className="mt-1 font-medium tabular-nums text-foreground">
-              {media.duration_seconds
-                ? `${media.duration_seconds} detik`
-                : "—"}
-            </dd>
-          </div>
-        </dl>
         <a
           href={media.download_url}
           download={media.filename}

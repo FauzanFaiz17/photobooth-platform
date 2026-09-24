@@ -1,7 +1,12 @@
 import type { GalleryRecord } from "@/features/galleries/gallery.types";
 import { useState, type ReactElement } from "react";
-import { useNavigate } from "react-router-dom";
-import { expiryState, formatDate, galleryPath, galleryToken, mediaSummary } from "../utils";
+import {
+  expiryState,
+  formatDate,
+  galleryPath,
+  galleryToken,
+  mediaSummary,
+} from "../utils";
 import { toast } from "sonner";
 import {
   Card,
@@ -22,7 +27,6 @@ export function GalleryCard({
 }: {
   readonly gallery: GalleryRecord;
 }): ReactElement {
-  const navigate = useNavigate();
   const expiry = expiryState(gallery.expires_at);
   const path = gallery.gallery_url ? galleryPath(gallery.gallery_url) : null;
   const token = galleryToken(gallery.gallery_url);
@@ -66,7 +70,7 @@ export function GalleryCard({
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Selesai</dt>
-            <dd className="mt-1 font-medium">
+            <dd className="mt-1 font-medium text-xs">
               {formatDate(gallery.completed_at)}
             </dd>
           </div>
@@ -106,13 +110,20 @@ export function GalleryCard({
         >
           <Images aria-hidden="true" /> Lihat media
         </Button>
-        <Button
-          size="sm"
-          disabled={!path}
-          onClick={() => path && navigate(path)}
-        >
-          <ExternalLink aria-hidden="true" /> Buka Gallery
-        </Button>
+        <a>
+          <Button size="sm" disabled={!path}>
+            {path && (
+              <a
+                href={path}
+                target="_blank"
+                className="flex py-2"
+                rel="noopener noreferrer"
+              >
+                <ExternalLink aria-hidden="true" /> Buka Gallery
+              </a>
+            )}
+          </Button>
+        </a>
       </CardFooter>
 
       {detailOpen && (

@@ -5,8 +5,8 @@ import type { EventListResponse } from "@/features/events/event.types";
 import { ApiError } from "@/lib/api-client";
 import { useEffect, useState, type FormEvent } from "react";
 import { isEventStatus } from "@/features/events/event.types";
-import { useEventHandler } from "./use-event-handler";
 import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
+import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
 
 function parsePositiveInteger(value: string | null, fallback: number): number {
   const parsed = Number(value);
@@ -15,7 +15,7 @@ function parsePositiveInteger(value: string | null, fallback: number): number {
 
 export function useEventList() {
   const { params, setParams, updateParams } = useUpdateSearchParams();
-  const { token, handleApiError } = useEventHandler();
+  const { token, handleApiError } = useApiErrorHandler();
 
   const querySearch = params.get("search") ?? "";
   const statusParam = params.get("status");

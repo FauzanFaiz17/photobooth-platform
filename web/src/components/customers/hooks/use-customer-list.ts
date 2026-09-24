@@ -9,10 +9,10 @@ import type {
 } from "@/features/customers/customer.types";
 import { getPartners } from "@/features/partners/partner-service";
 import type { PartnerRecord } from "@/features/partners/partner.types";
+import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
+import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
 import { ApiError } from "@/lib/api-client";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router-dom";
-import { useEventHandler } from "@/components/events/hooks/use-event-handler";
+import { useEffect, useState, type FormEvent } from "react";
 
 function positive(value: string | null, fallback: number): number {
   const parsed = Number(value);
@@ -20,10 +20,10 @@ function positive(value: string | null, fallback: number): number {
 }
 
 export function useCustomerList() {
-  const [params, setParams] = useSearchParams();
+  const {params, updateParams, reset} = useUpdateSearchParams()
   const { token, user } = useAuth();
   const superAdmin = isSuperAdmin(user);
-  const { handleApiError, handleUnauthorized, handleForbidden } = useEventHandler();
+  const { handleApiError, handleUnauthorized, handleForbidden } = useApiErrorHandler();
 
   const page = positive(params.get("page"), 1);
   const search = params.get("search") ?? "";
@@ -37,27 +37,6 @@ export function useCustomerList() {
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [detail, setDetail] = useState<CustomerRecord | null>(null);
-
-  const update = useCallback(
-    (values: Readonly<Record<string, string | null>>) =>
-      setParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          for (const [key, value] of Object.entries(values)) {
-            if (value) next.set(key, value);
-            else next.delete(key);
-          }
-          return next;
-        },
-        { replace: true },
-      ),
-    [setParams],
-  );
-
-  const reset = useCallback(
-    () => setParams(new URLSearchParams(), { replace: true }),
-    [setParams],
-  );
 
   useEffect(() => {
     if (!token) return;
@@ -83,7 +62,7 @@ export function useCustomerList() {
         ]);
         if (controller.signal.aborted) return;
         if (page > Math.max(1, customers.meta.last_page)) {
-          update({
+          updateParams({
             page:
               customers.meta.last_page > 1
                 ? String(customers.meta.last_page)
@@ -116,13 +95,13 @@ export function useCustomerList() {
     search,
     superAdmin,
     token,
-    update,
+    updateParams
   ]);
 
   function submitSearch(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     const value = new FormData(event.currentTarget).get("search");
-    update({
+    updateParams({
       search: typeof value === "string" ? value.trim() || null : null,
       page: null,
     });
@@ -147,7 +126,7 @@ export function useCustomerList() {
     partnerId,
     filtered,
     partnerName,
-    update,
+    updateParams,
     reset,
     submitSearch,
     setRetry,
