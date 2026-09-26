@@ -178,6 +178,17 @@ class PhotoSessionService
         // Queue the customer gallery link email when an email is known.
         if ($photoSession->customer?->email) {
             SendGalleryLinkEmail::dispatch($photoSession->id);
+            \Illuminate\Support\Facades\Log::info('[gallery-mail] Job diantrekan.', [
+                'photo_session_id' => $photoSession->id,
+                'customer_id' => $photoSession->customer_id,
+                'to' => $photoSession->customer->email,
+                'queue_connection' => config('queue.default'),
+            ]);
+        } else {
+            \Illuminate\Support\Facades\Log::info('[gallery-mail] Tidak diantrekan: sesi tanpa email customer.', [
+                'photo_session_id' => $photoSession->id,
+                'customer_id' => $photoSession->customer_id,
+            ]);
         }
 
         if (! $printedLocally) {

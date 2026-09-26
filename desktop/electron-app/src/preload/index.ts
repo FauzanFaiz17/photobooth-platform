@@ -85,12 +85,12 @@ declare global {
           dataUrl: string
           deviceName: string
           copies: number
-          paperSize: '2r' | '4r'
           orientation: string
+          quality?: string
         }): Promise<void>
         test(
           deviceName: string,
-          options?: { paperSize?: '2r' | '4r'; copies?: number; sampleDataUrl?: string; orientation?: 'portrait' | 'landscape'; mediaFormat?: '4x6' | '6x4' }
+          options?: { copies?: number; sampleDataUrl?: string; orientation?: 'portrait' | 'landscape'; quality?: string }
         ): Promise<void>
       }
     }

@@ -49,8 +49,6 @@ export default function PreviewPage(): JSX.Element | null {
     const videoEnabled = configuration?.event.video_enabled ?? true
 
     try {
-      const promises: Promise<[typeof composedResult, typeof gifResult, typeof videoResult]>[] = []
-
       const composedResult = await composeTemplateImage({
         shots,
         jsonLayout: template.jsonLayout,
@@ -58,7 +56,18 @@ export default function PreviewPage(): JSX.Element | null {
         overlayPath: template.overlayPath
       })
 
-      const gifResult = gifEnabled ? await createSessionGif(shots, configuration?.gif_template?.png_url) : null
+      const gifTemplateSnapshot = configuration?.gif_template
+      const gifResult = gifEnabled
+        ? await createSessionGif(
+            shots,
+            gifTemplateSnapshot
+              ? {
+                  jsonLayout: gifTemplateSnapshot.json_layout,
+                  overlayPath: gifTemplateSnapshot.png_url ?? gifTemplateSnapshot.png_path ?? null
+                }
+              : null
+          )
+        : null
       const videoResult = videoEnabled
         ? await composeTemplateVideo({
             shots,

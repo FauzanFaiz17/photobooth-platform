@@ -23,8 +23,7 @@ import {
   getPrintSampleSettings,
   savePrintSampleSettings,
   type PrintSampleImage,
-  type PrintSampleSettings,
-  getDeviceNameForPaperSize
+  type PrintSampleSettings
 } from '@/features/settings/deviceSettings'
 
 const PAPER_DIMENSIONS_MM: Record<'2r' | '4r', { width: number; height: number }> = {
@@ -688,212 +687,11 @@ function PrinterTest({ onBack }: { onBack: () => void }): JSX.Element {
   )
 }
 
-function DnpPresetTest({ onBack }: { onBack: () => void }): JSX.Element {
-  const [testing, setTesting] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
-  const [samples, setSamples] = useState<PrintSampleSettings>({
-    '2r': null,
-    '4r': null
-  })
-  const [printerReady, setPrinterReady] = useState(false)
-
-  useEffect(() => {
-    void Promise.all([getPrintSampleSettings(), getPrinterSettings()]).then(
-      ([storedSamples, printer]) => {
-        setSamples(storedSamples)
-        setPrinterReady(Boolean(printer))
-      }
-    )
-  }, [])
-
-  async function chooseSample(paperSize: '2r' | '4r'): Promise<void> {
-    const picked = await window.electron.printer.pickSampleImage()
-    if (!picked) return
-    setSamples((current) => {
-      const next: PrintSampleSettings = { ...current, [paperSize]: picked as PrintSampleImage }
-      void savePrintSampleSettings(next)
-      return next
-    })
-  }
-
-  function removeSample(paperSize: '2r' | '4r'): void {
-    setSamples((current) => {
-      const next: PrintSampleSettings = { ...current, [paperSize]: null }
-      void savePrintSampleSettings(next)
-      return next
-    })
-  }
-
-  const presets = [
-    {
-      id: '4x6-portrait',
-      label: '4x6 Portrait',
-      orientation: 'portrait' as const,
-      mediaFormat: '4x6' as const
-    },
-    {
-      id: '4x6-landscape',
-      label: '4x6 Landscape',
-      orientation: 'landscape' as const,
-      mediaFormat: '4x6' as const
-    },
-    {
-      id: '6x4-portrait',
-      label: '6x4 Portrait',
-      orientation: 'portrait' as const,
-      mediaFormat: '6x4' as const
-    },
-    {
-      id: '6x4-landscape',
-      label: '6x4 Landscape',
-      orientation: 'landscape' as const,
-      mediaFormat: '6x4' as const
-    }
-  ]
-
-  async function test(preset: (typeof presets)[number]): Promise<void> {
-    const printer = await getPrinterSettings()
-    if (!printer) {
-      setMessage('Pilih printer terlebih dahulu di Test Printer.')
-      return
-    }
-    const sample = samples['4r']
-    if (!sample) {
-      setMessage('Pilih foto sample 4R terlebih dahulu.')
-      return
-    }
-    setTesting(true)
-    setMessage(null)
-    try {
-      await window.electron.printer.test(getDeviceNameForPaperSize(printer, '4r'), {
-        paperSize: '4r',
-        copies: 1,
-        sampleDataUrl: sample.dataUrl,
-        orientation: preset.orientation,
-        mediaFormat: preset.mediaFormat
-      })
-      const deviceUuid = useDeviceStore.getState().fingerprint?.deviceUuid
-      let recordNote = ''
-      if (deviceUuid) {
-        try {
-          await recordPrintJob({
-            device_uuid: deviceUuid,
-            paper_size: '4r',
-            copies: 1
-          })
-        } catch (recordError) {
-          console.error('[print] Gagal mencatat print_jobs:', recordError)
-          recordNote = ` ${getApiErrorMessage(recordError, 'Riwayat ke server gagal dicatat.')}`
-        }
-      } else {
-        recordNote = ' Device UUID tidak tersedia untuk mencatat riwayat.'
-      }
-      setMessage(
-        `Test 4R ${preset.label} dikirim memakai sample "${sample.name}" pada media 101,6 x 152,4 mm.${recordNote}`
-      )
-    } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : 'Test print gagal.')
-    } finally {
-      setTesting(false)
-    }
-  }
-
-  return (
-    <div className="flex min-h-screen flex-col gap-4 p-6">
-      <NeoButton variant="outlined" className="self-start" onClick={onBack}>
-        Kembali
-      </NeoButton>
-      <div>
-        <h2 className="text-2xl font-black">Test Orientasi DNP RX1HS</h2>
-        <p className="text-sm font-semibold text-[var(--muted-foreground)]">
-          Uji Portrait/Landscape pada media 4x6 atau 6x4 inci.
-        </p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-1">
-        <SamplePicker
-          paperSize="4r"
-          sample={samples['4r']}
-          onChoose={chooseSample}
-          onRemove={removeSample}
-        />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {presets.map((preset) => (
-          <NeoButton
-            key={preset.id}
-            variant="outlined"
-            disabled={testing}
-            onClick={() => void test(preset)}
-          >
-            {testing ? 'Mencetak...' : `Test 4R ${preset.label}`}
-          </NeoButton>
-        ))}
-      </div>
-      {!printerReady && (
-        <p className="text-sm font-bold text-[var(--danger)]">
-          Printer belum dipilih. Buka menu Test Printer terlebih dahulu.
-        </p>
-      )}
-      {message && <p className="text-sm font-bold">{message}</p>}
-    </div>
-  )
-}
-
-function SamplePicker({
-  paperSize,
-  sample,
-  onChoose,
-  onRemove
-}: {
-  paperSize: '2r' | '4r'
-  sample: PrintSampleImage | null
-  onChoose: (paperSize: '2r' | '4r') => void
-  onRemove: (paperSize: '2r' | '4r') => void
-}): JSX.Element {
-  const label = paperSize === '2r' ? '2R' : '4R'
-  return (
-    <div className="border-4 border-(--border) bg-(--surface) p-4 shadow-(--shadow-neo)">
-      <div className="flex items-center justify-between gap-3">
-        <p className="font-black uppercase tracking-wider">Sample {label}</p>
-        {sample && (
-          <NeoButton variant="secondary" onClick={() => onRemove(paperSize)}>
-            Hapus
-          </NeoButton>
-        )}
-      </div>
-      <div className="mt-3 flex items-center gap-4">
-        <div className="grid h-28 w-20 shrink-0 place-items-center overflow-hidden border-2 border-(--border) bg-white">
-          {sample ? (
-            <img
-              src={sample.dataUrl}
-              alt={`Sample ${label}`}
-              className="h-full w-full object-contain"
-            />
-          ) : (
-            <span className="text-xs font-black text-(--muted-foreground)">{label}</span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="break-all text-sm font-bold">
-            {sample ? sample.name : 'Belum ada foto sample'}
-          </p>
-          <p className="mt-1 text-xs font-semibold text-(--muted-foreground)">
-            Foto ini yang akan dicetak saat test print {label}.
-          </p>
-          <NeoButton variant="outlined" className="mt-2" onClick={() => onChoose(paperSize)}>
-            {sample ? 'Ganti Foto' : 'Pilih Foto'}
-          </NeoButton>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function SettingsPage(): JSX.Element {
   const navigate = useNavigate()
   const [password, setPassword] = useState('')
   const [verified, setVerified] = useState(false)
-  const [screen, setScreen] = useState<'menu' | 'app' | 'camera' | 'printer' | 'dnp'>('menu')
+  const [screen, setScreen] = useState<'menu' | 'app' | 'camera' | 'printer'>('menu')
   const [error, setError] = useState<string | null>(null)
   async function verify(): Promise<void> {
     try {
@@ -979,7 +777,6 @@ export default function SettingsPage(): JSX.Element {
     )
   if (screen === 'camera') return <CameraTestPanel onBack={() => setScreen('menu')} />
   if (screen === 'printer') return <PrinterTest onBack={() => setScreen('menu')} />
-  if (screen === 'dnp') return <DnpPresetTest onBack={() => setScreen('menu')} />
   if (screen === 'app') return <AppSettingsPanel onBack={() => setScreen('menu')} />
   return (
     <div className="flex h-full flex-col gap-4 bg-[--background] p-5 text-[var(--foreground)] md:p-4">
@@ -1002,17 +799,6 @@ export default function SettingsPage(): JSX.Element {
           <span className="text-xl font-black">Setting App</span>
           <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">
             Atur tampilan home, timer sesi, QR, countdown, dan folder foto.
-          </p>
-        </NeoButton>
-        <NeoButton
-          type="button"
-          variant="outlined"
-          onClick={() => setScreen('dnp')}
-          className="border-4 border-[var(--border)] bg-[var(--surface)] p-7 text-left shadow-[var(--shadow-neo)] hover:bg-[var(--primary)]"
-        >
-          <span className="text-xl font-black">Uji Preset DNP</span>
-          <p className="mt-2 text-sm font-semibold text-[var(--muted-foreground)]">
-            Uji 4R dan 2R.
           </p>
         </NeoButton>
         <NeoButton

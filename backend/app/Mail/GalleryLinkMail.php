@@ -3,13 +3,17 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class GalleryLinkMail extends Mailable implements ShouldQueue
+/**
+ * Sengaja TIDAK implements ShouldQueue: pengirimannya sudah dibungkus
+ * job SendGalleryLinkEmail (queued). Tanpa ini email masuk antrean dobel
+ * dan gagal SMTP tidak pernah mencapai failed() job induk.
+ */
+class GalleryLinkMail extends Mailable
 {
     use Queueable, SerializesModels;
 

@@ -13,10 +13,97 @@ use App\Services\PlatformCredentialService;
 use App\Services\VoucherService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Artisan::command('mail:test {email : Alamat tujuan tes}', function (string $email) {
+    $this->line('mailer   : '.config('mail.default'));
+    $this->line('host     : '.config('mail.mailers.smtp.host'));
+    $this->line('port     : '.config('mail.mailers.smtp.port'));
+    $this->line('scheme   : '.(config('mail.mailers.smtp.scheme') ?? '(default)'));
+    $this->line('username : '.((string) config('mail.mailers.smtp.username')));
+    $this->line('from     : '.config('mail.from.address'));
+    $this->line('');
+
+    if (config('mail.default') !== 'smtp') {
+        $this->warn('MAIL_MAILER bukan "smtp" — email tidak akan benar-benar dikirim.');
+        $this->line('Set MAIL_MAILER=smtp di .env hosting lalu `php artisan config:clear`.');
+    }
+
+    $started = microtime(true);
+
+    try {
+        Mail::raw('Tes SMTP Photobooth '.now()->toDateTimeString(), function ($message) use ($email) {
+            $message->to($email)->subject('Tes SMTP Photobooth');
+        });
+    } catch (Throwable $exception) {
+        $this->error('GAGAL terkirim.');
+        for ($cause = $exception, $depth = 0; $cause && $depth < 5; $cause = $cause->getPrevious(), $depth++) {
+            $this->line('  '.get_class($cause).': '.trim($cause->getMessage()));
+        }
+
+        return 1;
+    }
+
+    $this->info(sprintf('TERKIRIM ke %s dalam %.2f detik.', $email, microtime(true) - $started));
+    $this->line('Cek inbox DAN folder SPAM penerima (folder Sent hosting TIDAK terisi oleh SMTP).');
+
+    return 0;
+})->purpose('Send a synchronous test email without tinker and without the queue');
+
+Artisan::command('mail:status', function () {
+    $smtp = config('mail.mailers.smtp');
+
+    $this->table(['Mail / Queue', 'Value'], [
+        ['MAIL_MAILER', (string) config('mail.default')],
+        ['MAIL_HOST', (string) ($smtp['host'] ?? null)],
+        ['MAIL_PORT', (string) ($smtp['port'] ?? null)],
+        ['MAIL_USERNAME', (string) ($smtp['username'] ?? null)],
+        ['MAIL_FROM_ADDRESS', (string) config('mail.from.address')],
+        ['QUEUE_CONNECTION', (string) config('queue.default')],
+        ['GALLERY_WEB_BASE_URL', (string) config('media.gallery_web_base_url')],
+        ['Pending jobs', (string) DB::table('jobs')->count()],
+        ['Reserved jobs (worker sedang proses)', (string) DB::table('jobs')->whereNotNull('reserved_at')->count()],
+        ['Failed jobs', (string) DB::table('failed_jobs')->count()],
+    ]);
+
+    $lastFailed = DB::table('failed_jobs')->orderByDesc('failed_at')->first();
+    if ($lastFailed) {
+        $this->error('Job terakhir gagal: '.($lastFailed->failed_at ?? '-'));
+        $this->line(Str::limit($lastFailed->exception, 600));
+        $this->line('');
+    }
+
+    $sessions = DB::table('photo_sessions')
+        ->leftJoin('customers', 'customers.id', '=', 'photo_sessions.customer_id')
+        ->select('photo_sessions.id as id', 'photo_sessions.status as status', 'customers.email as email')
+        ->orderByDesc('photo_sessions.id')
+        ->limit(5)
+        ->get();
+
+    if ($sessions->isEmpty()) {
+        $this->warn('Belum ada photo_sessions.');
+
+        return 0;
+    }
+
+    $this->table(['Session', 'Status', 'Customer email'], $sessions->map(fn ($row) => [
+        '#'.$row->id,
+        $row->status,
+        $row->email ?? '(kosong — email TIDAK akan dikirim)',
+    ])->all());
+
+    if ($lastFailed === null && DB::table('jobs')->count() === 0) {
+        $this->line('Tidak ada job antrean/gagal. Kalau email tetap tidak masuk, berarti dispatch tidak pernah jalan → customer email kosong.');
+    }
+
+    return 0;
+})->purpose('Inspect mail config, queue depth, and recent photo session emails');
 
 Artisan::command(
     'device:issue-activation {partner : Partner ID or slug} {booth : Booth ID} {name : Device name}',

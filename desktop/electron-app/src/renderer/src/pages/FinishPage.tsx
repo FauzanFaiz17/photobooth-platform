@@ -109,7 +109,19 @@ export default function FinishPage(): JSX.Element {
         layout: template.layout,
         overlayPath: template.overlayPath
       }),
-      gifEnabled ? createSessionGif(shots, eventConfiguration?.gif_template?.png_url) : Promise.resolve(null),
+      (() => {
+        const gifTemplateSnapshot = eventConfiguration?.gif_template
+        if (!gifEnabled) return Promise.resolve(null)
+        return createSessionGif(
+          shots,
+          gifTemplateSnapshot
+            ? {
+                jsonLayout: gifTemplateSnapshot.json_layout,
+                overlayPath: gifTemplateSnapshot.png_url ?? gifTemplateSnapshot.png_path ?? null
+              }
+            : null
+        )
+      })(),
       filter
         ? composeTemplateImage({
             shots,
