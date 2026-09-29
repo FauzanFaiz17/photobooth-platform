@@ -15,6 +15,19 @@ let pyProcess: ChildProcess | null = null
 const PORT = 5000
 const SERVER_URL = `http://127.0.0.1:${PORT}`
 
+/** Timeout request ke camera service; capture bisa sampai ~10 detik. */
+const CAMERA_REQUEST_TIMEOUT_MS = 12_000
+
+/** Parameter watchdog health camera service. */
+const HEALTH_CHECK_INTERVAL_MS = 10_000
+const HEALTH_CHECK_TIMEOUT_MS = 4_000
+const MAX_HEALTH_FAILURES = 2
+
+let backendWatchdogTimer: ReturnType<typeof setInterval> | null = null
+let healthCheckInFlight = false
+let consecutiveHealthFailures = 0
+let shuttingDown = false
+
 /** Direktori aktif yang diberitahukan ke cameraAPI via /set_save_dir. */
 let cameraSaveDir: string | null = null
 
@@ -54,7 +67,7 @@ async function waitForNewestCapture(directory: string, sinceMs: number): Promise
   while (Date.now() < deadline) {
     try {
       const entries = await readdir(directory)
-      const candidates = entries.filter((name) => /^capture_.+\.jpe?g$/i.test(name))
+      const candidates = entries.filter((name) => /^(capture_|img_).+\.jpe?g$/i.test(name))
       let newestPath: string | null = null
       let newestTime = sinceMs
 
@@ -214,6 +227,71 @@ const killBackend = (): void => {
   }
 }
 
+async function checkBackendHealth(): Promise<boolean> {
+  try {
+    const response = await fetch(`${SERVER_URL}/health`, {
+      signal: AbortSignal.timeout(HEALTH_CHECK_TIMEOUT_MS)
+    })
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Restart otomatis camera service bila tidak merespons (hang/crash).
+ * EDSDK bisa macet tanpa ampun; tanpa watchdog, preview kamera
+ * kosong dan kontrol ISO/engsel mati selamanya sampai app di-restart.
+ */
+function startBackendWatchdog(): void {
+  if (backendWatchdogTimer) return
+
+  backendWatchdogTimer = setInterval(() => {
+    if (shuttingDown || healthCheckInFlight) return
+    healthCheckInFlight = true
+
+    void checkBackendHealth()
+      .then((healthy) => {
+        if (shuttingDown) return
+        if (healthy) {
+          if (consecutiveHealthFailures > 0) {
+            console.log('[Watchdog] Camera service healthy again.')
+          }
+          consecutiveHealthFailures = 0
+          return
+        }
+
+        consecutiveHealthFailures += 1
+        console.warn(
+          `[Watchdog] Camera service health check failed ` +
+            `(${consecutiveHealthFailures}/${MAX_HEALTH_FAILURES})`
+        )
+
+        if (consecutiveHealthFailures >= MAX_HEALTH_FAILURES) {
+          consecutiveHealthFailures = 0
+          console.error('[Watchdog] Camera service unresponsive — restarting...')
+          killBackend()
+          // Beri waktu taskkill benar-benar melepas port 5000 sebelum respawn.
+          setTimeout(() => {
+            if (!shuttingDown) startBackend()
+          }, 1500)
+        }
+      })
+      .finally(() => {
+        healthCheckInFlight = false
+      })
+  }, HEALTH_CHECK_INTERVAL_MS)
+}
+
+function stopBackendWatchdog(): void {
+  if (backendWatchdogTimer) {
+    clearInterval(backendWatchdogTimer)
+    backendWatchdogTimer = null
+  }
+  healthCheckInFlight = false
+  consecutiveHealthFailures = 0
+}
+
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 900,
@@ -335,13 +413,29 @@ app.whenReady().then(() => {
       options?: { filename?: string }
     ): Promise<{ dataUrl: string; filePath: string | null }> => {
       const startedAt = Date.now()
-      await cameraServiceRequest('/capture', 'POST')
+      const result = (await cameraServiceRequest('/capture', 'POST')) as {
+        status?: string
+        path?: string | null
+        detail?: string
+      }
+
+      if (result?.status === 'error') {
+        throw new Error(result.detail || 'Capture kamera gagal.')
+      }
 
       if (!cameraSaveDir) {
         throw new Error('Direktori penyimpanan kamera belum diatur.')
       }
 
-      const capturedPath = await waitForNewestCapture(cameraSaveDir, startedAt)
+      // Path hasil unduhan dari cameraAPI (paling akurat untuk Canon: IMG_XXXX.JPG).
+      let capturedPath: string | null = null
+      if (result?.path) {
+        const info = await stat(result.path).catch(() => null)
+        if (info?.isFile()) capturedPath = result.path
+      }
+      if (!capturedPath) {
+        capturedPath = await waitForNewestCapture(cameraSaveDir, startedAt)
+      }
       if (!capturedPath) {
         throw new Error('File hasil capture Canon tidak ditemukan dalam 8 detik.')
       }
@@ -559,7 +653,10 @@ app.whenReady().then(() => {
         }
 
         const url = `${SERVER_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`
-        const response = await fetch(url, options)
+        const response = await fetch(url, {
+          ...options,
+          signal: AbortSignal.timeout(CAMERA_REQUEST_TIMEOUT_MS)
+        })
         const data = await response.json()
 
         if (!response.ok) {
@@ -573,9 +670,15 @@ app.whenReady().then(() => {
         return data
       } catch (error) {
         console.error(`[IPC API Error] ${method} ${endpoint}:`, error)
+        const timedOut =
+          error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
         return {
           status: 'error',
-          detail: error instanceof Error ? error.message : 'Unknown IPC Network Error'
+          detail: timedOut
+            ? 'Layanan kamera tidak merespons (timeout). Layanan akan dimuat ulang otomatis, coba lagi sebentar lagi.'
+            : error instanceof Error
+              ? error.message
+              : 'Unknown IPC Network Error'
         }
       }
     }
@@ -586,6 +689,7 @@ app.whenReady().then(() => {
   waitForBackend(() => {
     createWindow()
   })
+  startBackendWatchdog()
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -594,6 +698,8 @@ app.whenReady().then(() => {
 
 // Process Cleanup
 app.on('window-all-closed', () => {
+  shuttingDown = true
+  stopBackendWatchdog()
   killBackend()
   if (process.platform !== 'darwin') {
     app.quit()
@@ -601,6 +707,8 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => {
+  shuttingDown = true
+  stopBackendWatchdog()
   fetch(`${SERVER_URL}/toggle_webcam`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

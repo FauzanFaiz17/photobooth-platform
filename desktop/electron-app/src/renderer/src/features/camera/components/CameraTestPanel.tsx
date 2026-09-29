@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { JSX } from 'react'
 import Alert from '@/components/ui/Alert'
 import { NeoButton } from '@/components/shared/button'
@@ -36,6 +36,9 @@ interface CameraApiResponse {
   message?: string
   mirror_mode?: boolean
   options?: Partial<CameraOptions>
+  canon_connected?: boolean
+  camera_name?: string
+  live_view_active?: boolean
 }
 
 type CameraSource = 'canon' | `webcam:${string}`
@@ -51,7 +54,8 @@ async function cameraRequest(
   const response = await fetch(`${CAMERA_API_URL}${endpoint}`, {
     method,
     headers: { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body)
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(12_000)
   })
   return response.json() as Promise<CameraApiResponse>
 }
@@ -191,9 +195,18 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [testPhoto, setTestPhoto] = useState<string | null>(null)
+  const [previewKey, setPreviewKey] = useState(0)
+  const serviceReadyRef = useRef(false)
+  const optionsRequestInFlight = useRef(false)
+  const healthCheckInFlight = useRef(false)
+  const canonConnectedRef = useRef(false)
   const isCanon = source === 'canon'
   const selectedWebcamId = source.startsWith('webcam:') ? source.slice(7) : null
   const eventConfiguration = useSessionStore((state) => state.eventConfiguration)
+
+  useEffect(() => {
+    serviceReadyRef.current = serviceReady
+  }, [serviceReady])
 
   const cameraOptions = useMemo(
     () => [
@@ -225,6 +238,8 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
   }, [])
 
   async function loadCanonOptions(): Promise<void> {
+    if (optionsRequestInFlight.current) return
+    optionsRequestInFlight.current = true
     setMessage(null)
     try {
       const data = await cameraRequest('/options')
@@ -297,6 +312,9 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
       setContrast(nextContrast)
       setSaturation(nextSaturation)
       setServiceReady(true)
+      // Reload elemen preview MJPEG supaya stream tersambung lagi setelah
+      // layanan sempat mati/hang dan di-restart watchdog.
+      setPreviewKey((key) => key + 1)
 
       await applyAllCanonSettings(nextOptions, {
         iso: nextIso, aperture: nextAperture, shutter: nextShutter,
@@ -312,12 +330,59 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
       }
     } catch (cause) {
       setServiceReady(false)
+      const raw = cause instanceof Error ? cause.message : ''
+      const looksLikeTimeout = /timeout|abort|network|failed/i.test(raw)
       setMessage({
         type: 'error',
-        text: cause instanceof Error ? cause.message : 'Layanan Canon tidak dapat dihubungi.'
+        text:
+          looksLikeTimeout || !raw
+            ? 'Layanan kamera tidak merespons. Aplikasi akan mencoba menyambungkan ulang otomatis...'
+            : raw
       })
+    } finally {
+      optionsRequestInFlight.current = false
     }
   }
+
+  // Pantau kesehatan camera service: deteksi hang/crash dan pulihkan otomatis
+  // (watchdog di Electron me-restart service; di sini kita deteksi lalu reload).
+  const loadCanonOptionsRef = useRef(loadCanonOptions)
+  useEffect(() => {
+    loadCanonOptionsRef.current = loadCanonOptions
+  })
+
+  useEffect(() => {
+    if (!isCanon) return
+
+    const timer = window.setInterval(() => {
+      if (healthCheckInFlight.current) return
+      healthCheckInFlight.current = true
+      void cameraRequest('/health')
+        .then((data) => {
+          const healthy = data.status === 'running'
+          const connected = data.canon_connected === true
+          const wasConnected = canonConnectedRef.current
+          canonConnectedRef.current = connected
+          if (healthy && (!serviceReadyRef.current || (connected && !wasConnected))) {
+            // Layanan baru pulih, atau Canon baru tersambung lagi
+            // (mis. dinyalakan ulang setelah auto-poweroff) → muat ulang opsi.
+            void loadCanonOptionsRef.current()
+          } else if (!healthy && serviceReadyRef.current) {
+            setServiceReady(false)
+            canonConnectedRef.current = false
+            setMessage({
+              type: 'error',
+              text: 'Layanan kamera terputus. Menyambungkan ulang otomatis...'
+            })
+          }
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          healthCheckInFlight.current = false
+        })
+    }, 5000)
+    return () => window.clearInterval(timer)
+  }, [isCanon])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -568,6 +633,7 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
           >
             {isCanon ? (
               <img
+                key={previewKey}
                 src={`${CAMERA_API_URL}/video_feed`}
                 alt="Live preview Canon"
                 className={`h-full w-full object-contain ${mirror ? 'scale-x-[-1]' : ''}`}
@@ -580,6 +646,11 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
                 playsInline
                 className={`h-full w-full object-contain ${mirror ? 'scale-x-[-1]' : ''}`}
               />
+            )}
+            {isCanon && !serviceReady && (
+              <div className="absolute inset-0 flex items-center justify-center p-5 text-center font-bold text-white">
+                Menghubungkan kamera Canon...
+              </div>
             )}
             {!isCanon && webcamStatus !== 'ready' && (
               <div className="absolute inset-0 flex items-center justify-center p-5 text-center font-bold text-white">

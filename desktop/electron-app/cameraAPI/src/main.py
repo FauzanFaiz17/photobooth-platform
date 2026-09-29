@@ -8,6 +8,7 @@ import os
 import sys
 import uuid
 import time
+import asyncio
 import logging
 import threading
 from pathlib import Path
@@ -88,7 +89,9 @@ class SetSaveDirRequest(BaseModel):
 async def get_options():
     """Return available camera options for the current mode."""
     try:
-        options = camera.get_options()
+        # EDSDK memanggil blocking; jalankan di thread agar event loop
+        # tetap responsif (kalau tidak, satu panggilan macet = semua endpoint hang).
+        options = await asyncio.to_thread(camera.get_options)
         return {
             "status": "success",
             "options": options,
@@ -135,7 +138,7 @@ async def video_feed():
 async def capture():
     """Trigger a photo capture."""
     try:
-        result = camera.capture_photo()
+        result = await asyncio.to_thread(camera.capture_photo)
         return result
     except Exception as e:
         logger.error("Capture error: %s", e, exc_info=True)
@@ -146,7 +149,7 @@ async def capture():
 async def set_save_dir(req: SetSaveDirRequest):
     """Set the directory where captured photos are saved."""
     try:
-        os.makedirs(req.path, exist_ok=True)
+        await asyncio.to_thread(os.makedirs, req.path, exist_ok=True)
         camera.save_dir = req.path
         return {"status": "success", "message": f"Save directory set to {req.path}"}
     except Exception as e:
@@ -159,9 +162,9 @@ async def toggle_webcam(req: ToggleWebcamRequest):
     """Switch between Canon and webcam mode."""
     try:
         if req.use_webcam:
-            result = camera.switch_to_webcam(req.device_index)
+            result = await asyncio.to_thread(camera.switch_to_webcam, req.device_index)
         else:
-            result = camera.switch_to_canon()
+            result = await asyncio.to_thread(camera.switch_to_canon)
         return result
     except Exception as e:
         logger.error("Toggle webcam error: %s", e, exc_info=True)
@@ -183,7 +186,7 @@ async def toggle_mirror(req: ToggleMirrorRequest):
 async def set_property(req: SetPropertyRequest):
     """Set a camera property (ISO, aperture, shutter, white_balance, etc.)."""
     try:
-        result = camera.set_property(req.property, req.value)
+        result = await asyncio.to_thread(camera.set_property, req.property, req.value)
         return result
     except Exception as e:
         logger.error("Set property error: %s", e, exc_info=True)
@@ -194,7 +197,7 @@ async def set_property(req: SetPropertyRequest):
 async def get_property(req: GetPropertyRequest):
     """Read a camera property value."""
     try:
-        result = camera.get_property(req.property)
+        result = await asyncio.to_thread(camera.get_property, req.property)
         return result
     except Exception as e:
         logger.error("Get property error: %s", e, exc_info=True)
@@ -205,7 +208,7 @@ async def get_property(req: GetPropertyRequest):
 async def auto_focus():
     """Trigger auto-focus on Canon camera."""
     try:
-        result = camera.auto_focus()
+        result = await asyncio.to_thread(camera.auto_focus)
         return result
     except Exception as e:
         logger.error("Auto focus error: %s", e, exc_info=True)
@@ -235,7 +238,9 @@ def main():
     """Run the camera service."""
     import uvicorn
     uvicorn.run(
-        "src.main:app",
+        # Pakai objek app langsung, bukan string "src.main:app" —
+        # string itu memaksa import package `src` yang tidak ada di exe hasil PyInstaller.
+        app,
         host="127.0.0.1",
         port=5000,
         log_level="info",

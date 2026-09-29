@@ -497,6 +497,9 @@ class EDSDKWrapper:
         self._session_open = False
         self._live_view_started = False
         self._camera_name = ""
+        # Error EDSDK terakhir (mis. 0x61 INVALID_HANDLE) — dipakai pemanggil
+        # untuk memutuskan perlu buka sesi ulang.
+        self._last_error = 0
 
     @property
     def available(self) -> bool:
@@ -533,6 +536,10 @@ class EDSDKWrapper:
     def process_events(self):
         if self._initialized:
             _edsdk.EdsGetEvent()
+
+    @property
+    def last_error(self) -> int:
+        return self._last_error
 
     # -- Camera discovery --
 
@@ -613,6 +620,26 @@ class EDSDKWrapper:
             self._session_open = False
             logger.info("Camera session closed")
 
+    def reopen_camera(self) -> bool:
+        """Pulihkan dari handle basi (EDS_ERR_INVALID_HANDLE 0x61).
+
+        Terjadi saat kamera sempat re-enumerate (boot/power-cycle) sehingga
+        referensi lama tidak berlaku lagi. Tutup sesi lama apa adanya lalu
+        buka sesi baru.
+        """
+        logger.warning("Reopening camera session (stale handle 0x%08X)",
+                       self._last_error)
+        try:
+            if self._camera_ref:
+                _edsdk.EdsCloseSession(self._camera_ref)
+                _edsdk.EdsRelease(self._camera_ref)
+        except Exception as e:  # handle basi — abaikan
+            logger.debug("Cleanup stale handle: %s", e)
+        self._camera_ref = None
+        self._session_open = False
+        self._live_view_started = False
+        return self.open_first_camera()
+
     # -- Properties --
 
     def get_property_size(
@@ -625,6 +652,10 @@ class EDSDKWrapper:
             ctypes.byref(data_type), ctypes.byref(size),
         )
         if err != EDS_ERR_OK:
+            logger.warning(
+                "EdsGetPropertySize(0x%08X) failed: 0x%08X", prop_id, err
+            )
+            self._last_error = err
             return (0, 0)
         return (data_type.value, size.value)
 
@@ -688,6 +719,10 @@ class EDSDKWrapper:
             self._camera_ref, prop_id, ctypes.byref(desc)
         )
         if err != EDS_ERR_OK:
+            logger.warning(
+                "EdsGetPropertyDesc(0x%08X) failed: 0x%08X", prop_id, err
+            )
+            self._last_error = err
             return []
         n = max(0, min(desc.numElements, 128))
         return [desc.propDesc[i] for i in range(n)]
@@ -743,6 +778,7 @@ class EDSDKWrapper:
             ctypes.sizeof(evf_mode), ctypes.byref(evf_mode),
         )
         if err != EDS_ERR_OK:
+            self._last_error = err
             logger.debug("Set Evf_Mode failed: 0x%08X", err)
 
         # Step 2: OR PC output bit
@@ -758,6 +794,7 @@ class EDSDKWrapper:
                 ctypes.sizeof(device), ctypes.byref(device),
             )
             if err == EDS_ERR_OK:
+                self._last_error = 0
                 self._live_view_started = True
                 logger.info("Live view started")
                 return True
@@ -765,8 +802,10 @@ class EDSDKWrapper:
                 import time
                 time.sleep(0.1)
                 continue
+            self._last_error = err
             logger.error("Start live view failed: 0x%08X", err)
             return False
+        self._last_error = err
         return False
 
     def stop_live_view(self):
@@ -796,24 +835,29 @@ class EDSDKWrapper:
         stream = EdsStreamRef()
         err = _edsdk.EdsCreateMemoryStream(2 * 1024 * 1024, ctypes.byref(stream))
         if err != EDS_ERR_OK:
+            self._last_error = err
             logger.debug("CreateMemoryStream failed: 0x%08X", err)
             return None
 
         evf = EdsEvfImageRef()
         err = _edsdk.EdsCreateEvfImageRef(stream, ctypes.byref(evf))
         if err != EDS_ERR_OK:
+            self._last_error = err
             logger.debug("CreateEvfImageRef failed: 0x%08X", err)
             _edsdk.EdsRelease(stream)
             return None
 
         err = _edsdk.EdsDownloadEvfImage(self._camera_ref, evf)
         if err != EDS_ERR_OK:
+            self._last_error = err
             _edsdk.EdsRelease(evf)
             _edsdk.EdsRelease(stream)
             if err == EDS_ERR_OBJECT_NOTREADY:
                 return None  # frame not ready yet — retry next tick
             logger.debug("DownloadEvfImage failed: 0x%08X", err)
             return None
+
+        self._last_error = 0
 
         # JPEG data is in the memory stream
         data_ptr = ctypes.c_void_p()
@@ -958,42 +1002,26 @@ _cb_progress = PROGRESS_CALLBACK(_on_progress)
 # Value name tables (for human-readable display)
 # ---------------------------------------------------------------------------
 
-# ISO: value is typically the ISO number itself, or a Canon-specific code.
-# EdsGetPropertyDesc returns the actual available codes from the camera.
-# Map known codes; unknown codes display as raw value.
+# ISO — EDSDK memakai kode Canon kEdsPropID_ISOSpeed (0x50 = ISO 100, dst),
+# bukan angka ISO mentah. Tabel ini mencakup kode Canon + angka mentah untuk
+# body yang mengembalikan ISO apa adanya. Kode tak dikenal tampil sebagai hex.
 ISO_VALUES = {
-    0x00000000: "Auto",
-    0x00000064: "100",
-    0x000000C8: "200",
-    0x00000190: "400",
-    0x00000320: "800",
-    0x00000640: "1600",
-    0x00000C80: "3200",
-    0x00001900: "6400",
-    0x00003200: "12800",
-    0x00006400: "25600",
-    0x0000C800: "51200",
-    # Alternate encodings used by some bodies
-    0x00000050: "50",
-    0x00000078: "125",
-    0x000000A0: "160",
-    0x000000DC: "250",
-    0x00000104: "320",
-    0x0000012C: "500",
-    0x00000168: "640",
-    0x000001F4: "1000",
-    0x00000258: "1250",
-    0x000003E8: "2000",
-    0x000004B0: "2500",
-    0x000007D0: "4000",
-    0x00000BB8: "5000",
-    0x00000FA0: "6400",
-    0x00001388: "8000",
-    0x00001B58: "10000",
-    0x00001F40: "12800",
-    0x00002710: "16000",
-    0x000032C8: "20000",
-    0x00003E80: "25600",
+    0x00: "Auto",
+    # Kode Canon
+    0x48: "50", 0x4B: "64", 0x4D: "80",
+    0x50: "100", 0x53: "125", 0x55: "160",
+    0x58: "200", 0x5B: "250", 0x5D: "320",
+    0x60: "400", 0x63: "500", 0x65: "640",
+    0x68: "800", 0x6B: "1000", 0x6D: "1250",
+    0x70: "1600", 0x73: "2000", 0x75: "2500",
+    0x78: "3200", 0x7B: "4000", 0x7D: "5000",
+    0x80: "6400", 0x83: "8000", 0x85: "10000",
+    0x88: "12800", 0x8B: "16000", 0x8D: "20000",
+    0x90: "25600", 0x98: "51200", 0xA0: "102400",
+    # Angka mentah (beberapa body)
+    50: "50", 100: "100", 200: "200", 400: "400",
+    800: "800", 1600: "1600", 3200: "3200", 6400: "6400",
+    12800: "12800", 25600: "25600",
 }
 
 # Av (aperture) — value ≈ round(log2(fnum²) * 8) i.e. APEX * 8

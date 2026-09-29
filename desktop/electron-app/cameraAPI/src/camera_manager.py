@@ -5,6 +5,7 @@ Camera manager: coordinates Canon EDSDK and webcam (OpenCV) modes.
 import os
 import uuid
 import time
+import queue
 import logging
 import threading
 from enum import Enum
@@ -14,6 +15,10 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 cv2 = None
+
+# EDS_ERR_INVALID_HANDLE — kamera sempat re-enumerate (boot/power-cycle),
+# referensi sesi lama tidak berlaku lagi dan harus dibuka ulang.
+_EDS_ERR_INVALID_HANDLE = 0x00000061
 
 
 def _import_cv2():
@@ -54,6 +59,9 @@ class CameraManager:
         b'\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xfb\xd2\x8a(\x03\xff\xd9'
     )
 
+    # Interval minimum antar percobaan ulang start live view (detik).
+    _LIVE_VIEW_RETRY_INTERVAL = 2.0
+
     def __init__(self):
         self._mode: CameraMode = CameraMode.CANON
         self._mirror: bool = False
@@ -62,11 +70,61 @@ class CameraManager:
         self._webcam_capture = None
         self._webcam_lock = threading.Lock()
         self._live_view_active: bool = False
+        self._last_live_view_attempt: float = 0.0
+        # EDSDK tidak thread-safe: semua akses kamera harus antri lewat lock ini.
+        # RLock karena method sering memanggil method lain di class yang sama.
+        self._lock = threading.RLock()
 
         self._edsdk = None
         self._canon_connected: bool = False
 
-        self._init_edsdk()
+        # EDSDK di Windows hanya aman dipanggil dari SATU thread — thread yang
+        # menjalankan EdsInitializeSDK. Panggilan native (mis. EdsDownloadEvfImage)
+        # dari thread lain bisa memblokir selamanya (dibuktikan py-spy). Semua
+        # akses kamera karena itu dijadikan antrean lewat _submit() ke thread SDK.
+        self._sdk_queue: "queue.Queue" = queue.Queue()
+        self._sdk_thread = threading.Thread(
+            target=self._sdk_loop, name="edsdk-actor", daemon=True
+        )
+        self._sdk_thread.start()
+        try:
+            self._submit(self._init_edsdk, timeout=30.0)
+        except Exception as e:
+            logger.error("EDSDK init failed: %s", e)
+            self._edsdk = None
+
+    def _sdk_loop(self):
+        """Loop thread SDK: satu-satunya tempat panggilan EDSDK dieksekusi."""
+        while True:
+            item = self._sdk_queue.get()
+            if item is None:
+                return
+            fn, args, kwargs, done, box = item
+            try:
+                box["result"] = fn(*args, **kwargs)
+            except BaseException as e:  # noqa: BLE001 - diteruskan ke pemanggil
+                box["error"] = e
+            finally:
+                done.set()
+
+    def _submit(self, fn, *args, timeout: float = 15.0, **kwargs):
+        """Jalankan fn di thread SDK dan tunggu hasilnya (maks. `timeout` detik).
+
+        Melempar TimeoutError bila thread SDK macet, supaya endpoint membalas
+        cepat dengan error alih-alih menggantung.
+        """
+        if threading.current_thread() is self._sdk_thread:
+            return fn(*args, **kwargs)
+        done = threading.Event()
+        box: Dict[str, Any] = {}
+        self._sdk_queue.put((fn, args, kwargs, done, box))
+        if not done.wait(timeout):
+            raise TimeoutError(
+                f"EDSDK actor busy (timeout {timeout:.0f}s: {getattr(fn, '__name__', fn)})"
+            )
+        if "error" in box:
+            raise box["error"]
+        return box.get("result")
 
     def _init_edsdk(self):
         try:
@@ -130,31 +188,58 @@ class CameraManager:
     # -- Mode switching --
 
     def switch_to_canon(self) -> Dict[str, Any]:
-        self._stop_webcam()
-        self._mode = CameraMode.CANON
+        return self._submit(self._switch_to_canon_impl, timeout=20.0)
 
-        if self._edsdk and not self._canon_connected:
-            if self._edsdk.open_first_camera():
-                self._canon_connected = True
+    def _switch_to_canon_impl(self) -> Dict[str, Any]:
+        with self._lock:
+            self._stop_webcam()
+            self._mode = CameraMode.CANON
 
-        if self._canon_connected and self._edsdk:
-            if not self._live_view_active:
-                self._edsdk.start_live_view()
-                self._live_view_active = True
-            return {"status": "success", "detail": "Canon mode activated"}
-        return {"status": "error", "detail": "Canon camera not connected"}
+            if self._edsdk and not self._canon_connected:
+                if self._edsdk.open_first_camera():
+                    self._canon_connected = True
+
+            if self._canon_connected and self._edsdk:
+                if not self._live_view_active:
+                    # Hanya tandai aktif bila start_live_view benar-benar berhasil.
+                    self._live_view_active = self._edsdk.start_live_view()
+                    self._last_live_view_attempt = time.monotonic()
+                if self._live_view_active:
+                    return {"status": "success", "detail": "Canon mode activated"}
+                return {
+                    "status": "error",
+                    "detail": "Canon terhubung tetapi live view gagal dimulai.",
+                }
+            return {"status": "error", "detail": "Canon camera not connected"}
 
     def switch_to_webcam(self, device_index: int = 0) -> Dict[str, Any]:
-        self._stop_canon_live_view()
-        self._mode = CameraMode.WEBCAM
-        self._webcam_index = device_index
+        return self._submit(
+            self._switch_to_webcam_impl, device_index, timeout=20.0
+        )
 
-        cv2 = _import_cv2()
-        if cv2 is None:
-            return {"status": "error", "detail": "opencv-python not installed"}
+    def _switch_to_webcam_impl(self, device_index: int = 0) -> Dict[str, Any]:
+        with self._lock:
+            self._stop_canon_live_view()
+            self._mode = CameraMode.WEBCAM
+            self._webcam_index = device_index
 
-        self._start_webcam(device_index)
-        return {"status": "success", "detail": f"Webcam {device_index} activated"}
+            cv2 = _import_cv2()
+            if cv2 is None:
+                self._mode = CameraMode.CANON
+                return {"status": "error", "detail": "opencv-python not installed"}
+
+            self._start_webcam(device_index)
+            if self._webcam_capture is None:
+                # Gagal buka webcam → kembalikan mode ke Canon supaya
+                # preview tidak terjebak mati.
+                self._mode = CameraMode.CANON
+                if self._edsdk and self._canon_connected:
+                    self._live_view_active = self._edsdk.start_live_view()
+                return {
+                    "status": "error",
+                    "detail": f"Webcam {device_index} tidak bisa dibuka",
+                }
+            return {"status": "success", "detail": f"Webcam {device_index} activated"}
 
     def _start_webcam(self, device_index: int):
         cv2 = _import_cv2()
@@ -180,17 +265,24 @@ class CameraManager:
             self._live_view_active = False
 
     def release(self):
-        self._stop_webcam()
-        self._stop_canon_live_view()
-        if self._edsdk:
-            self._edsdk.close_session()
-            self._edsdk.terminate()
+        try:
+            self._submit(self._release_impl, timeout=10.0)
+        except Exception as e:
+            logger.warning("release via SDK actor failed: %s", e)
+
+    def _release_impl(self):
+        with self._lock:
+            self._stop_webcam()
+            self._stop_canon_live_view()
+            if self._edsdk:
+                self._edsdk.close_session()
+                self._edsdk.terminate()
 
     # -- Property access --
 
     def get_options(self) -> Dict[str, Any]:
         if self._mode == CameraMode.CANON and self._canon_connected and self._edsdk:
-            return self._get_canon_options()
+            return self._submit(self._get_canon_options, timeout=10.0)
         elif self._mode == CameraMode.WEBCAM:
             return self._get_webcam_options()
         return self._empty_options()
@@ -267,6 +359,11 @@ class CameraManager:
         if self._mode != CameraMode.CANON or not self._canon_connected or not self._edsdk:
             return {"status": "error", "detail": "Canon camera not active"}
 
+        return self._submit(
+            self._set_property_locked, property_name, value, timeout=10.0
+        )
+
+    def _set_property_locked(self, property_name: str, value: int) -> Dict[str, Any]:
         try:
             from .edsdk_wrapper import (
                 kEdsPropID_ISOSpeed, kEdsPropID_Av, kEdsPropID_Tv,
@@ -319,6 +416,11 @@ class CameraManager:
         if self._mode != CameraMode.CANON or not self._canon_connected or not self._edsdk:
             return {"status": "error", "detail": "Canon camera not active"}
 
+        return self._submit(
+            self._get_property_locked, property_name, timeout=10.0
+        )
+
+    def _get_property_locked(self, property_name: str) -> Dict[str, Any]:
         try:
             from .edsdk_wrapper import (
                 kEdsPropID_ISOSpeed, kEdsPropID_Av, kEdsPropID_Tv,
@@ -365,7 +467,7 @@ class CameraManager:
     def auto_focus(self) -> Dict[str, Any]:
         if self._mode != CameraMode.CANON or not self._canon_connected or not self._edsdk:
             return {"status": "error", "detail": "Canon camera not active"}
-        ok = self._edsdk.auto_focus()
+        ok = self._submit(self._edsdk.auto_focus, timeout=10.0)
         return {
             "status": "success" if ok else "error",
             "detail": "Auto focus triggered" if ok else "Auto focus failed",
@@ -376,32 +478,75 @@ class CameraManager:
     def get_frame_bytes(self) -> bytes:
         try:
             if self._mode == CameraMode.CANON:
-                return self._get_canon_frame() or self._MINIMAL_JPEG
+                frame = self._submit(self._get_canon_frame, timeout=6.0)
+                return frame or self._MINIMAL_JPEG
             elif self._mode == CameraMode.WEBCAM:
                 return self._get_webcam_frame() or self._MINIMAL_JPEG
+        except TimeoutError:
+            # Thread SDK sedang sibuk (mis. menunggu capture) — tampilkan
+            # placeholder, bukan memblokir stream.
+            return self._generate_placeholder_frame("Kamera Canon sibuk...")
         except Exception as e:
             logger.debug("get_frame_bytes error: %s", e)
         return self._MINIMAL_JPEG
 
     def _get_canon_frame(self) -> Optional[bytes]:
-        if not self._canon_connected or not self._edsdk:
-            return self._generate_placeholder_frame("Menunggu kamera Canon...")
+        if not self._edsdk:
+            return self._generate_placeholder_frame("EDSDK tidak tersedia")
 
-        self._edsdk.process_events()
+        if not self._canon_connected:
+            # Kamera bisa mati (auto-poweroff) lalu dinyalakan lagi —
+            # coba sambung ulang otomatis dengan jeda minimal.
+            now = time.monotonic()
+            if now - self._last_live_view_attempt >= self._LIVE_VIEW_RETRY_INTERVAL:
+                self._last_live_view_attempt = now
+                if self._edsdk.open_first_camera():
+                    self._canon_connected = True
+                    logger.info("Canon camera reconnected on demand")
+                    self._live_view_active = self._edsdk.start_live_view()
+            if not self._canon_connected:
+                return self._generate_placeholder_frame("Menunggu kamera Canon...")
 
-        # Ensure live view is started
-        if not self._live_view_active:
-            if self._edsdk.start_live_view():
-                self._live_view_active = True
+        with self._lock:
+            self._edsdk.process_events()
 
-        try:
-            frame = self._edsdk.get_live_view_frame()
-            if frame:
-                return frame
-        except Exception as e:
-            logger.debug("EDSDK EVF download failed: %s", e)
+            # Ensure live view is started (dengan throttle agar tidak
+            # memanggil EDSDK 15x/detik saat kamera sedang sibuk/gagal).
+            if not self._live_view_active:
+                now = time.monotonic()
+                if now - self._last_live_view_attempt >= self._LIVE_VIEW_RETRY_INTERVAL:
+                    self._last_live_view_attempt = now
+                    self._live_view_active = self._edsdk.start_live_view()
+                    if not self._live_view_active:
+                        self._recover_stale_session()
+
+            try:
+                frame = self._edsdk.get_live_view_frame()
+                if frame:
+                    return frame
+                if self._edsdk.last_error == _EDS_ERR_INVALID_HANDLE:
+                    # Handle basi saat streaming → buka sesi ulang lalu
+                    # ambil frame lagi pada tick berikutnya.
+                    self._recover_stale_session()
+            except Exception as e:
+                logger.debug("EDSDK EVF download failed: %s", e)
 
         return self._generate_placeholder_frame("Canon Live View")
+
+    def _recover_stale_session(self):
+        """Buka ulang sesi Canon bila handle EDSDK basi (0x61)."""
+        if self._edsdk.last_error != _EDS_ERR_INVALID_HANDLE:
+            return
+        if self._edsdk.reopen_camera():
+            self._canon_connected = True
+            self._live_view_active = self._edsdk.start_live_view()
+            logger.info(
+                "Canon session recovered (live_view=%s)", self._live_view_active
+            )
+        else:
+            self._canon_connected = False
+            self._live_view_active = False
+            logger.warning("Canon session recovery failed (kamera hilang?)")
 
     def _get_webcam_frame(self) -> Optional[bytes]:
         cv2 = _import_cv2()
@@ -442,7 +587,7 @@ class CameraManager:
 
     def capture_photo(self) -> Dict[str, Any]:
         if self._mode == CameraMode.CANON:
-            return self._capture_canon()
+            return self._submit(self._capture_canon, timeout=30.0)
         elif self._mode == CameraMode.WEBCAM:
             return self._capture_webcam()
         return {"status": "error", "detail": "No camera active"}
@@ -451,7 +596,8 @@ class CameraManager:
         if not self._canon_connected or not self._edsdk:
             return {"status": "error", "detail": "Canon not connected"}
 
-        ok = self._edsdk.take_picture()
+        with self._lock:
+            ok = self._edsdk.take_picture()
         if not ok:
             return {"status": "error", "detail": "Failed to trigger capture"}
 
@@ -474,13 +620,16 @@ class CameraManager:
             return None
         deadline = time.time() + timeout
         while time.time() < deadline:
-            paths = self._edsdk.poll_downloads()
+            with self._lock:
+                paths = self._edsdk.poll_downloads()
+                if not paths:
+                    self._edsdk.process_events()
             if paths:
                 return paths[0]
-            self._edsdk.process_events()
             time.sleep(0.1)
         # Final check
-        paths = self._edsdk.poll_downloads()
+        with self._lock:
+            paths = self._edsdk.poll_downloads()
         return paths[0] if paths else None
 
     def _capture_webcam(self) -> Dict[str, Any]:
