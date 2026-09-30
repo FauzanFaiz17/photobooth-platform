@@ -23,4 +23,7 @@ graphify-out
 *.sln
 *.sw?
 env
+.env.example
 .env
+.commandcode/*
+
