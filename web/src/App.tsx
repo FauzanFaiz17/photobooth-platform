@@ -9,6 +9,7 @@ import {
 } from "./components/auth/auth-route"
 import LoginPage from "./pages/LoginPage"
 import RequestPage from "./pages/RequestPage"
+import DownloadPage from "./pages/DownloadPage"
 
 const OverviewPage = lazy(() => import("./pages/OverviewPage"))
 const ForbiddenPage = lazy(() => import("./pages/ForbiddenPage"))
@@ -170,6 +171,7 @@ function App() {
           <Route element={<RequireSuperAdmin />}>
             <Route path="audit-logs" element={<Suspense fallback={<OverviewPageFallback />}><AuditLogPage /></Suspense>} />
             <Route path="request" element={<Suspense fallback={<OverviewPageFallback />}><RequestPage /></Suspense>} />
+            <Route path="download" element={<Suspense fallback={<OverviewPageFallback />}><DownloadPage /></Suspense>} />
             <Route
               path="payment-key"
               element={
