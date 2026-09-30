@@ -2,12 +2,10 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleAlert,
-  Eye,
   RefreshCw,
   ScrollText,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,20 +15,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { date, subjectName } from "@/lib/utils";
 import { useAuditLog } from "./hooks/use-audit-log";
 import type { ReactElement } from "react";
-import { actionLabelsAudit } from "@/constants";
 import { AuditDetail } from "./components/audit-detail";
 import { AuditFilterBar } from "./components/audit-filter-bar";
+import { AuditLogTable } from "./components/audit-log-table";
 
 export function AuditLogPage(): ReactElement {
   const {
@@ -88,7 +77,6 @@ export function AuditLogPage(): ReactElement {
               </CardDescription>
             </div>
 
-            
             <AuditFilterBar
               partnerId={partnerId}
               action={action}
@@ -112,55 +100,11 @@ export function AuditLogPage(): ReactElement {
               </div>
             ) : (
               <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Waktu</TableHead>
-                      <TableHead>Action</TableHead>
-                      <TableHead>Partner</TableHead>
-                      <TableHead>User</TableHead>
-                      <TableHead>Subject</TableHead>
-                      <TableHead>Deskripsi</TableHead>
-                      <TableHead className="text-right">Detail</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {response.data.map((log) => (
-                      <TableRow key={log.id}>
-                        <TableCell>{date(log.created_at)}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {actionLabelsAudit[log.action] ?? log.action}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{partnerName(log.partner_id)}</TableCell>
-                        <TableCell>
-                          {log.user_id ? `#${log.user_id}` : "—"}
-                        </TableCell>
-                        <TableCell>
-                          {subjectName(log.subject_type)}
-                          {log.subject_id ? ` #${log.subject_id}` : ""}
-                        </TableCell>
-                        <TableCell
-                          className="max-w-80 truncate"
-                          title={log.description ?? undefined}
-                        >
-                          {log.description ?? "—"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            aria-label={`Detail Audit Log ${log.id}`}
-                            onClick={() => setDetail(log)}
-                          >
-                            <Eye aria-hidden="true" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <AuditLogTable
+                  log={response}
+                  onDetail={setDetail}
+                  partnerName={partnerName}
+                />
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 pt-4">
                   <p className="text-sm text-muted-foreground">
                     {response.meta.from ?? 0}–{response.meta.to ?? 0} dari{" "}
