@@ -84,7 +84,6 @@ export function useAuditLog() {
     partners,
     state,
     error,
-    page,
     setRetry,
     detail,
     setDetail,

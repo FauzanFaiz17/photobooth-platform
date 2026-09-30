@@ -1,10 +1,4 @@
-import {
-  ChevronLeft,
-  ChevronRight,
-  CircleAlert,
-  RefreshCw,
-  ScrollText,
-} from "lucide-react";
+import { CircleAlert, RefreshCw, ScrollText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +14,7 @@ import type { ReactElement } from "react";
 import { AuditDetail } from "./components/audit-detail";
 import { AuditFilterBar } from "./components/audit-filter-bar";
 import { AuditLogTable } from "./components/audit-log-table";
+import { EventPagination } from "../events/components/event-pagination";
 
 export function AuditLogPage(): ReactElement {
   const {
@@ -33,7 +28,6 @@ export function AuditLogPage(): ReactElement {
     partnerId,
     action,
     updateParams,
-    page,
     reset,
     partnerName,
     filtered,
@@ -105,34 +99,12 @@ export function AuditLogPage(): ReactElement {
                   onDetail={setDetail}
                   partnerName={partnerName}
                 />
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 pt-4">
-                  <p className="text-sm text-muted-foreground">
-                    {response.meta.from ?? 0}–{response.meta.to ?? 0} dari{" "}
-                    {response.meta.total} Audit Log
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={page <= 1}
-                      onClick={() =>
-                        updateParams({
-                          page: page - 1 === 1 ? null : String(page - 1),
-                        })
-                      }
-                    >
-                      <ChevronLeft aria-hidden="true" /> Sebelumnya
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={page >= response.meta.last_page}
-                      onClick={() => updateParams({ page: String(page + 1) })}
-                    >
-                      Berikutnya <ChevronRight aria-hidden="true" />
-                    </Button>
-                  </div>
-                </div>
+
+                <EventPagination
+                  meta={response.meta}
+                  onUpdateQuery={updateParams}
+                  label="Audit Log"
+                />
               </>
             )}
           </CardContent>
