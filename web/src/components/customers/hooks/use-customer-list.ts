@@ -12,12 +12,9 @@ import type { PartnerRecord } from "@/features/partners/partner.types";
 import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
 import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
 import { ApiError } from "@/lib/api-client";
+import { positiveInteger } from "@/lib/utils";
 import { useEffect, useState, type FormEvent } from "react";
 
-function positive(value: string | null, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-}
 
 export function useCustomerList() {
   const {params, updateParams, reset} = useUpdateSearchParams()
@@ -25,9 +22,9 @@ export function useCustomerList() {
   const superAdmin = isSuperAdmin(user);
   const { handleApiError, handleUnauthorized, handleForbidden } = useApiErrorHandler();
 
-  const page = positive(params.get("page"), 1);
+  const page = positiveInteger(params.get("page"), 1);
   const search = params.get("search") ?? "";
-  const partnerId = positive(params.get("partner_id"), 0);
+  const partnerId = positiveInteger(params.get("partner_id"), 0);
 
   const [response, setResponse] = useState<CustomerListResponse | null>(null);
   const [partners, setPartners] = useState<ReadonlyArray<PartnerRecord>>([]);
