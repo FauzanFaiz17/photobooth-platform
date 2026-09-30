@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { actionLabelsAudit } from "@/constants";
 import type { AuditLogRecord } from "@/features/audit-logs/audit-log.types";
-import { date, subjectName } from "@/lib/utils";
+import { date } from "@/lib/utils";
 import type { ReactElement } from "react";
+import { auditActionLabel, auditSubjectLabel } from "../utils";
 
 export function AuditDetail({
   log,
@@ -24,9 +24,7 @@ export function AuditDetail({
         <dl className="grid gap-4 sm:grid-cols-2">
           <div>
             <dt className="text-xs text-muted-foreground">Action</dt>
-            <dd className="mt-1 font-medium">
-              {actionLabelsAudit[log.action] ?? log.action}
-            </dd>
+            <dd className="mt-1 font-medium">{auditActionLabel(log.action)}</dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Partner</dt>
@@ -40,10 +38,7 @@ export function AuditDetail({
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Subject</dt>
-            <dd className="mt-1 font-medium">
-              {subjectName(log.subject_type)}
-              {log.subject_id ? ` #${log.subject_id}` : ""}
-            </dd>
+            <dd className="mt-1 font-medium">{auditSubjectLabel(log)}</dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">IP address</dt>

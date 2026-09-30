@@ -8,10 +8,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { actionLabelsAudit } from "@/constants";
 import type { AuditLogPage, AuditLogRecord } from "@/features/audit-logs/audit-log.types";
-import { date, subjectName } from "@/lib/utils";
+import { date } from "@/lib/utils";
 import { Eye } from "lucide-react";
+import { auditActionLabel, auditSubjectLabel } from "../utils";
 
 
 export function AuditLogTable({
@@ -41,16 +41,11 @@ export function AuditLogTable({
           <TableRow key={log.id}>
             <TableCell>{date(log.created_at)}</TableCell>
             <TableCell>
-              <Badge variant="outline">
-                {actionLabelsAudit[log.action] ?? log.action}
-              </Badge>
+              <Badge variant="outline">{auditActionLabel(log.action)}</Badge>
             </TableCell>
             <TableCell>{partnerName(log.partner_id)}</TableCell>
             <TableCell>{log.user_id ? `#${log.user_id}` : "—"}</TableCell>
-            <TableCell>
-              {subjectName(log.subject_type)}
-              {log.subject_id ? ` #${log.subject_id}` : ""}
-            </TableCell>
+            <TableCell>{auditSubjectLabel(log)}</TableCell>
             <TableCell
               className="max-w-80 truncate"
               title={log.description ?? undefined}
