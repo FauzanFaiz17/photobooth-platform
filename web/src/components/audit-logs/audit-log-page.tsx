@@ -15,6 +15,7 @@ import { AuditDetail } from "./components/audit-detail";
 import { AuditFilterBar } from "./components/audit-filter-bar";
 import { AuditLogTable } from "./components/audit-log-table";
 import { EventPagination } from "../events/components/event-pagination";
+import SectionHeader from "../shared/section-header";
 
 export function AuditLogPage(): ReactElement {
   const {
@@ -35,12 +36,10 @@ export function AuditLogPage(): ReactElement {
 
   return (
     <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
-      <header>
-        <h1 className="text-3xl font-semibold tracking-tight">Audit Log</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Riwayat aktivitas platform khusus Super Admin.
-        </p>
-      </header>
+      <SectionHeader
+        heading="Audit Log"
+        description="Riwayat aktivitas platform khusus Super Admin."
+      />
       {state === "loading" && <Skeleton className="h-128" />}
       {state === "error" && (
         <Card>
