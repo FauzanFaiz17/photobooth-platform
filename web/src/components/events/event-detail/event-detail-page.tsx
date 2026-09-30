@@ -23,12 +23,12 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster } from "@/components/ui/sonner";
-import { formatDate, formatPrice, parseId } from "../utils";
 import { useEventDetail } from "../hooks/use-event-detail";
 import { statusLabels } from "@/features/events/event.constants";
 import { PAYMENT_MODE_LABELS } from "@/features/events/event.types";
 import { DetailItem } from "./detail-item";
 import { ConfigurationItems } from "./configuration-item";
+import { currency, formatDateOnly, parseId } from "@/lib/utils";
 
 
 
@@ -168,7 +168,7 @@ export function EventDetailPage() {
               <CardContent>
                 <dl className="grid gap-5 sm:grid-cols-2">
                   <DetailItem label="Tanggal">
-                    {formatDate(event.event_date)}
+                    {formatDateOnly(event.event_date)}
                   </DetailItem>
                   <DetailItem label="Waktu">
                     {event.start_time.slice(0, 5)}–{event.end_time.slice(0, 5)}
@@ -302,12 +302,12 @@ export function EventDetailPage() {
                         </Badge>
                       </div>
                       <p className="mt-3 text-lg font-semibold">
-                        {formatPrice(option.price)}
+                        {currency(option.price)}
                       </p>
                       {option.discount != null &&
                         Number(option.discount) > 0 && (
                           <p className="mt-1 text-sm text-green-600">
-                            Diskon: {formatPrice(option.discount)}
+                            Diskon: {currency(option.discount)}
                           </p>
                         )}
                       <p className="mt-1 text-sm text-muted-foreground">

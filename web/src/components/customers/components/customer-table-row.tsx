@@ -2,7 +2,8 @@ import { Eye } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import type { CustomerRecord } from "@/features/customers/customer.types";
-import { formatDateTime } from "../customer-formatters";
+import { date } from "@/lib/utils";
+
 
 export function CustomerTableRow({
   customer,
@@ -26,7 +27,7 @@ export function CustomerTableRow({
       <td className="p-4 text-right tabular-nums">
         {customer.photo_sessions_count}
       </td>
-      <td className="p-4">{formatDateTime(customer.created_at)}</td>
+      <td className="p-4">{date(customer.created_at)}</td>
       <td className="p-4 text-right">
         <Button
           size="icon-sm"

@@ -186,3 +186,15 @@ export const statusLabelsVoucher: Record<VoucherStatus, string> = {
   expired: "Kedaluwarsa",
   void: "Dibatalkan",
 };
+
+export const actionLabelsAudit: Record<string, string> = {
+  login: "Login",
+  logout: "Logout",
+  payment: "Pembayaran",
+  voucher: "Voucher",
+  upload: "Upload",
+  download: "Download",
+  print: "Cetak",
+  update: "Perubahan konfigurasi",
+  delete: "Penghapusan konfigurasi",
+};

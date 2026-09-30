@@ -44,7 +44,7 @@ export function EventGrid({
                 {count} sesi gallery
               </p>
               <Button
-                className="mt-3 w-full"
+                className="mt-3 w-full bg-background text-primary border border-border shadow-[0_4px_0_var(--border)] hover:bg-background transition duration-200 hover:shadow-none hover:translate-y-1"
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelect(eventId);

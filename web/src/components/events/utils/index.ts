@@ -1,25 +1,6 @@
 import type { EventFormErrors, EventFormState, EventRecord, PrintOptionErrors, PrintOptionField, PrintOptionForm } from "@/features/events/event.types";
 import type { ApiError } from "@/lib/api-client";
 
-export function parseId(value: string | undefined): number | null {
-  const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : null;
-}
-
-export function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("id-ID", { dateStyle: "long" }).format(
-    new Date(`${value}T00:00:00`),
-  );
-}
-
-export function formatPrice(value: string | number): string {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(Number(value));
-}
-
 let nextPrintOptionId = 1
 export function newPrintOption(): PrintOptionForm {
   return {

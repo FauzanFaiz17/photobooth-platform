@@ -1,8 +1,4 @@
-import {
-  CircleAlert,
-  Images,
-  RefreshCw,
-} from "lucide-react";
+import { CircleAlert, Images, RefreshCw } from "lucide-react";
 import type { ReactElement } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -30,8 +26,6 @@ import { PartnerGrid } from "./components/partner-grid";
 import { EventGrid } from "./components/event-grid";
 import { Pagination } from "./components/pagination";
 
-
-
 export function GalleryListPage(): ReactElement {
   const {
     loadState,
@@ -53,7 +47,7 @@ export function GalleryListPage(): ReactElement {
   } = useGalleryList();
 
   return (
-    <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
+    <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8 overflow-">
       <SectionHeader
         heading="Gallery"
         description="Sesi foto yang sudah selesai beserta link Public Gallery untuk customer."
@@ -66,7 +60,7 @@ export function GalleryListPage(): ReactElement {
         }
       />
 
-      <Card>
+      <Card className="bg-card border border-border shadow-[0px_4px_0_var(--border)]">
         <CardHeader className="gap-4 border-b">
           <div>
             <CardTitle>
@@ -105,13 +99,16 @@ export function GalleryListPage(): ReactElement {
                   ))}
                 </SelectContent>
               </Select>
-              <Button
-                variant="ghost"
-                disabled={!filtered}
-                onClick={resetFilters}
-              >
-                Reset
-              </Button>
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  disabled={!filtered}
+                  onClick={resetFilters}
+                  className={`px-6 bg-background border border-border shadow-[0_4px_0_var(--border)] hover:bg-background transition duration-300 hover:shadow-none hover:translate-y-1`}
+                >
+                  Reset
+                </Button>
+              </div>
             </div>
           )}
         </CardHeader>

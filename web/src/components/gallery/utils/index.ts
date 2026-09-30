@@ -1,22 +1,5 @@
-import { dateFormat } from "@/constants";
 import type { GalleryRecord } from "@/features/galleries/gallery.types";
-
-export function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-export function formatDate(value: string | null): string {
-  if (!value) return "—";
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? "—" : dateFormat.format(parsed);
-}
-
-export function parsePositiveInteger(value: string | null, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-}
+import { date } from "@/lib/utils";
 
 /** Backend mengirim gallery_url absolut ke domain web; dashboard sudah punya route /gallery/:token. */
 export function galleryPath(url: string): string | null {
@@ -37,7 +20,7 @@ export function expiryState(expiresAt: string | null): {
     return { label: "Tanpa batas", expired: false };
   const expired = parsed.getTime() <= Date.now();
   return {
-    label: expired ? "Kedaluwarsa" : `Aktif s/d ${formatDate(expiresAt)}`,
+    label: expired ? "Kedaluwarsa" : `Aktif s/d ${date(expiresAt)}`,
     expired,
   };
 }

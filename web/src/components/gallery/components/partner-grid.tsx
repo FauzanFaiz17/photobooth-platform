@@ -29,7 +29,7 @@ export function PartnerGrid({
       {partners.map((partner) => (
         <Card
           key={partner.id}
-          className="cursor-pointer transition-shadow hover:shadow-md"
+          className="cursor-pointer border border-border shadow-[0_5px_0_var(--border)] rounded-2xl hover:shadow-none transition duration-300"
           onClick={() => onSelect(partner.id)}
         >
           <CardHeader>
@@ -41,7 +41,7 @@ export function PartnerGrid({
           </CardHeader>
           <CardContent>
             <Button
-              className="w-full"
+              className="w-full bg-background text-primary border-2 border-border shadow-[0_4px_0_var(--border)] hover:bg-background transition-all duration-300 hover:shadow-none hover:translate-y-1.5"
               onClick={(e) => {
                 e.stopPropagation();
                 onSelect(partner.id);

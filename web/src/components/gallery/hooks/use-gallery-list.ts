@@ -10,9 +10,9 @@ import { getPartners } from "@/features/partners/partner-service";
 import type { PartnerRecord } from "@/features/partners/partner.types";
 import { ApiError } from "@/lib/api-client";
 
-import { parsePositiveInteger } from "../utils";
 import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
 import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
+import { positiveInteger } from "@/lib/utils";
 
 type LoadState = "loading" | "success" | "error";
 
@@ -24,7 +24,7 @@ export function useGalleryList() {
 
   const partnerParam = params.get("partner_id");
   const eventParam = params.get("event_id");
-  const page = parsePositiveInteger(params.get("page"), 1);
+  const page = positiveInteger(params.get("page"), 1);
 
   const [response, setResponse] = useState<GalleryListResponse | null>(null);
   const [partners, setPartners] = useState<ReadonlyArray<PartnerRecord>>([]);
@@ -42,7 +42,7 @@ export function useGalleryList() {
     if (!token) return;
     const accessToken = token;
     const controller = new AbortController();
-    const partnerId = superAdmin ? parsePositiveInteger(partnerParam, 0) : 0;
+    const partnerId = superAdmin ? positiveInteger(partnerParam, 0) : 0;
 
     async function loadGalleries() {
       setLoadState("loading");

@@ -11,9 +11,9 @@ import { useAuth } from "@/features/auth/auth-context";
 import { getCustomer } from "@/features/customers/customer-service";
 import type { CustomerRecord } from "@/features/customers/customer.types";
 import { ApiError } from "@/lib/api-client";
+import { date } from "@/lib/utils";
 import { useEffect, useState, type ReactElement } from "react";
 
-import { formatDateTime } from "../customer-formatters";
 
 export function CustomerDetailDialog({
   customer,
@@ -90,7 +90,7 @@ export function CustomerDetailDialog({
             <div>
               <dt className="text-xs text-muted-foreground">Terdaftar</dt>
               <dd className="mt-1 font-medium">
-                {formatDateTime(item.created_at)}
+                {date(item.created_at)}
               </dd>
             </div>
           </dl>

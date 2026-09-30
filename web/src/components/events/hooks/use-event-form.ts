@@ -22,11 +22,11 @@ import {
   initialForm,
   mapValidationErrors,
   newPrintOption,
-  parseId,
   validate,
   validatePrintOptions,
 } from "../utils";
 import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
+import { parseId } from "@/lib/utils";
 
 export function useEventForm(eventIdParam: string | undefined) {
   const navigate = useNavigate();

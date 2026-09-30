@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 import type { GalleryMedia } from "@/features/galleries/gallery.types";
+import { formatSize } from "@/lib/utils";
 import { CircleAlert, Download, FileVideo } from "lucide-react";
 import type { ReactElement } from "react";
-import { formatSize } from "../utils";
 
 export function MediaTile({
   media,
