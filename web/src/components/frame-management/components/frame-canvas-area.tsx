@@ -65,7 +65,9 @@ export function FrameCanvasArea({
     <section className="flex min-h-0 flex-col overflow-hidden max-lg:h-[70vh]">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-background px-3 py-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">{canvasSize.width}x{canvasSize.height}</Badge>
+          <Badge variant="secondary">
+            {canvasSize.width}x{canvasSize.height}
+          </Badge>
           <span className="text-xs text-muted-foreground">
             {canvasSize.width} x {canvasSize.height} px · {slots.length} slot
             foto
@@ -107,7 +109,10 @@ export function FrameCanvasArea({
           </div>
         )}
       </div>
-      <div className="min-h-0 flex-1 overflow-auto bg-zinc-100 p-6 dark:bg-zinc-950">
+      <div
+        className="min-h-0 flex-1 overflow-auto p-6  bg-size-[40px_40px] 
+  bg-[conic-gradient(#00000020_90deg,transparent_90deg_180deg,#00000020_180deg_270deg,transparent_270deg)]"
+      >
         <div
           ref={canvasAreaRef}
           className="grid min-h-full w-full place-items-center"
@@ -116,9 +121,7 @@ export function FrameCanvasArea({
             <div
               className={cn(
                 "relative overflow-hidden rounded-sm border-8 shadow-2xl ring-1 ring-black/10",
-                canvasDark
-                  ? "bg-black border-black"
-                  : "bg-white border-white",
+                canvasDark ? "bg-black border-black" : "bg-white border-white",
               )}
             >
               <FrameCanvas
