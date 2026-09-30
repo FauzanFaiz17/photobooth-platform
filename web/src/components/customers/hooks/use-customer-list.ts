@@ -1,8 +1,6 @@
 import { isSuperAdmin } from "@/features/auth/auth-access";
 import { useAuth } from "@/features/auth/auth-context";
-import {
-  getCustomers,
-} from "@/features/customers/customer-service";
+import { getCustomers } from "@/features/customers/customer-service";
 import type {
   CustomerListResponse,
   CustomerRecord,
@@ -15,12 +13,12 @@ import { ApiError } from "@/lib/api-client";
 import { positiveInteger } from "@/lib/utils";
 import { useEffect, useState, type FormEvent } from "react";
 
-
 export function useCustomerList() {
-  const {params, updateParams, reset} = useUpdateSearchParams()
+  const { params, updateParams, reset } = useUpdateSearchParams();
   const { token, user } = useAuth();
   const superAdmin = isSuperAdmin(user);
-  const { handleApiError, handleUnauthorized, handleForbidden } = useApiErrorHandler();
+  const { handleApiError, handleUnauthorized, handleForbidden } =
+    useApiErrorHandler();
 
   const page = positiveInteger(params.get("page"), 1);
   const search = params.get("search") ?? "";
@@ -92,7 +90,7 @@ export function useCustomerList() {
     search,
     superAdmin,
     token,
-    updateParams
+    updateParams,
   ]);
 
   function submitSearch(event: FormEvent<HTMLFormElement>): void {
