@@ -66,6 +66,8 @@ export default function FinishPage(): JSX.Element {
   const composedVideo = useSessionStore((state) => state.composedVideo)
   const composedVideoUploaded = useSessionStore((state) => state.composedVideoUploaded)
   const galleryUrl = useSessionStore((state) => state.galleryUrl)
+  const paymentId = useSessionStore((state) => state.paymentId)
+  const customerId = useSessionStore((state) => state.customerId)
   const setGalleryUrl = useSessionStore((state) => state.setGalleryUrl)
   const resetTransaction = useSessionStore((state) => state.resetTransaction)
   const setLocalDirectory = useSessionStore((state) => state.setLocalDirectory)
@@ -205,7 +207,11 @@ export default function FinishPage(): JSX.Element {
       let earlyGalleryUrl = useSessionStore.getState().galleryUrl
 
       if (!sessionId) {
-        const session = await createPhotoSession(eventConfiguration.event.id)
+        const session = await createPhotoSession(
+          eventConfiguration.event.id,
+          paymentId ?? undefined,
+          customerId ?? undefined
+        )
         sessionId = session.id
         setRemoteSession(session.id)
         if (session.gallery?.url && !earlyGalleryUrl) {
