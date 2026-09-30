@@ -16,13 +16,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -32,16 +25,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  AUDIT_ACTIONS,
-  type AuditLogPage,
-} from "@/features/audit-logs/audit-log.types";
 import { date, subjectName } from "@/lib/utils";
 import { useAuditLog } from "./hooks/use-audit-log";
 import type { ReactElement } from "react";
 import { actionLabelsAudit } from "@/constants";
 import { AuditDetail } from "./components/audit-detail";
-
+import { AuditFilterBar } from "./components/audit-filter-bar";
 
 export function AuditLogPage(): ReactElement {
   const {
@@ -55,16 +44,12 @@ export function AuditLogPage(): ReactElement {
     partnerId,
     action,
     updateParams,
-    setParams,
-    page
-  } = useAuditLog()
+    page,
+    reset,
+    partnerName,
+    filtered,
+  } = useAuditLog();
 
-  const partnerName = (id: number | null): string =>
-    id
-      ? (partners.find((partner) => partner.id === id)?.company_name ??
-        `Partner #${id}`)
-      : "Platform";
-  const filtered = Boolean(partnerId || action);
   return (
     <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
       <header>
@@ -102,58 +87,16 @@ export function AuditLogPage(): ReactElement {
                 konfigurasi.
               </CardDescription>
             </div>
-            <div className="grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_minmax(12rem,1fr)_auto]">
-              <Select
-                value={partnerId ? String(partnerId) : "all"}
-                onValueChange={(value) =>
-                  value &&
-                  updateParams({
-                    partner_id: value === "all" ? null : value,
-                    page: null,
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Partner</SelectItem>
-                  {partners.map((partner) => (
-                    <SelectItem key={partner.id} value={String(partner.id)}>
-                      {partner.company_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={action || "all"}
-                onValueChange={(value) =>
-                  value &&
-                  updateParams({ action: value === "all" ? null : value, page: null })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Action</SelectItem>
-                  {AUDIT_ACTIONS.map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {actionLabelsAudit[item]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant="ghost"
-                disabled={!filtered}
-                onClick={() =>
-                  setParams(new URLSearchParams(), { replace: true })
-                }
-              >
-                Reset
-              </Button>
-            </div>
+
+            
+            <AuditFilterBar
+              partnerId={partnerId}
+              action={action}
+              filtered={filtered}
+              onReset={reset}
+              onUpdate={updateParams}
+              partners={partners}
+            />
           </CardHeader>
           <CardContent className="px-0">
             {!response?.data.length ? (
