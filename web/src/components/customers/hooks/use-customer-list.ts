@@ -11,10 +11,10 @@ import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
 import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
 import { ApiError } from "@/lib/api-client";
 import { positiveInteger } from "@/lib/utils";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 
 export function useCustomerList() {
-  const { params, updateParams, reset } = useUpdateSearchParams();
+  const { params, updateParams, reset, submitSearch } = useUpdateSearchParams();
   const { token, user } = useAuth();
   const superAdmin = isSuperAdmin(user);
   const { handleApiError, handleUnauthorized, handleForbidden } =
@@ -92,15 +92,6 @@ export function useCustomerList() {
     token,
     updateParams,
   ]);
-
-  function submitSearch(event: FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    const value = new FormData(event.currentTarget).get("search");
-    updateParams({
-      search: typeof value === "string" ? value.trim() || null : null,
-      page: null,
-    });
-  }
 
   const partnerName = (id: number | null): string =>
     id

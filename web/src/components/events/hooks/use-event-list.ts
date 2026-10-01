@@ -3,7 +3,7 @@ import type { BoothRecord } from "@/features/booths/booth.types";
 import { getEvents } from "@/features/events/event-service";
 import type { EventListResponse } from "@/features/events/event.types";
 import { ApiError } from "@/lib/api-client";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { isEventStatus } from "@/features/events/event.types";
 import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
 import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
@@ -11,7 +11,7 @@ import { positiveInteger } from "@/lib/utils";
 
 
 export function useEventList() {
-  const { params, updateParams, reset } = useUpdateSearchParams();
+  const { params, updateParams, reset, submitSearch } = useUpdateSearchParams();
   const { token, handleApiError } = useApiErrorHandler();
 
   const querySearch = params.get("search") ?? "";
@@ -98,15 +98,6 @@ export function useEventList() {
     token,
     updateParams,
   ]);
-
-  function submitSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const value = new FormData(event.currentTarget).get("search");
-    updateParams({
-      search: typeof value === "string" ? value.trim() || null : null,
-      page: null,
-    });
-  }
 
   const filtered = Boolean(
     querySearch || status !== "all" || boothId || dateFrom || dateTo,
