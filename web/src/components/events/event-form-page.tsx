@@ -12,14 +12,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster } from "@/components/ui/sonner";
-import {
-  EventInfoSection,
-  ConfigurationSection,
-  PricingSection,
-  PrintOptionsSection,
-} from "./components/event-form-sections";
 import { useEventForm } from "./hooks/use-event-form";
 import SectionHeader from "../shared/section-header";
+import { EventInfoSection } from "./components/event-info-section";
+import { ConfigurationSection } from "./components/configuration-section";
+import { PricingSection } from "./components/pricing-section";
+import { PrintOptionsSection } from "./components/print-options-section";
 
 export function EventFormPage(): ReactElement {
   const { eventId: eventIdParam } = useParams<{ eventId: string }>();
