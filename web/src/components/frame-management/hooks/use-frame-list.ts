@@ -41,7 +41,7 @@ interface UseFrameListResult {
 }
 
 export function useFrameList(): UseFrameListResult {
-  const {params, setParams, updateParams} = useUpdateSearchParams()
+  const {params, reset, updateParams} = useUpdateSearchParams()
   const {handleForbidden, handleUnauthorized, handleApiError, token} =
     useApiErrorHandler({ forbiddenFrom: "/frame-photo" })
   const { user } = useAuth();
@@ -69,10 +69,6 @@ export function useFrameList(): UseFrameListResult {
   const refresh = useCallback(() => {
     setRetryKey((value) => value + 1);
   }, []);
-
-  const reset = useCallback(() => {
-    setParams(new URLSearchParams(), { replace: true });
-  }, [setParams]);
 
   useEffect(() => {
     if (!token) return;
