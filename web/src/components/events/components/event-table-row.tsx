@@ -3,17 +3,11 @@ import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { statusLabels } from "@/features/events/event.constants";
+import { eventStatusVariant, statusLabels } from "@/features/events/event.constants";
 import type { EventRecord } from "@/features/events/event.types";
 import { formatDateOnly } from "@/lib/utils";
 
-
-
-export function EventTableRow({
-  event,
-}: {
-  readonly event: EventRecord;
-}) {
+export function EventTableRow({ event }: { readonly event: EventRecord }) {
   return (
     <tr className="border-b transition-colors hover:bg-muted/50">
       <td className="p-4 align-middle">
@@ -35,15 +29,7 @@ export function EventTableRow({
         </div>
       </td>
       <td className="p-4 align-middle">
-        <Badge
-          variant={
-            event.status === "cancelled"
-              ? "destructive"
-              : event.status === "completed"
-                ? "secondary"
-                : "default"
-          }
-        >
+        <Badge variant={eventStatusVariant(event.status)}>
           {statusLabels[event.status]}
         </Badge>
       </td>

@@ -24,7 +24,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster } from "@/components/ui/sonner";
 import { useEventDetail } from "../hooks/use-event-detail";
-import { statusLabels } from "@/features/events/event.constants";
+import { eventStatusVariant, statusLabels } from "@/features/events/event.constants";
 import { PAYMENT_MODE_LABELS } from "@/features/events/event.types";
 import { DetailItem } from "./detail-item";
 import { ConfigurationItems } from "./configuration-item";
@@ -152,15 +152,7 @@ export function EventDetailPage() {
                       Waktu pelaksanaan dan status.
                     </CardDescription>
                   </div>
-                  <Badge
-                    variant={
-                      event.status === "cancelled"
-                        ? "destructive"
-                        : event.status === "completed"
-                          ? "secondary"
-                          : "default"
-                    }
-                  >
+                  <Badge variant={eventStatusVariant(event.status)}>
                     {statusLabels[event.status]}
                   </Badge>
                 </div>
