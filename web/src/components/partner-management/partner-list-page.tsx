@@ -37,6 +37,7 @@ import {
   PartnerListToolbar,
   type PartnerStatusFilter,
 } from "./partner-list-toolbar"
+import { positiveInteger } from "@/lib/utils"
 
 const PARTNERS_PATH = "/admin/settings/users?tab=partners"
 const DEFAULT_SORT: PartnerSortField = "created_at"
@@ -50,17 +51,10 @@ interface FormDialogState {
   readonly partner: PartnerRecord | null
 }
 
-function parsePositiveInteger(value: string | null, fallback: number): number {
-  if (!value) return fallback
 
-  const parsedValue = Number(value)
-  return Number.isInteger(parsedValue) && parsedValue > 0
-    ? parsedValue
-    : fallback
-}
 
 function parsePageSize(value: string | null): number {
-  const parsedValue = parsePositiveInteger(value, DEFAULT_PAGE_SIZE)
+  const parsedValue = positiveInteger(value, DEFAULT_PAGE_SIZE)
 
   if (
     parsedValue === 5 ||
@@ -93,7 +87,7 @@ export function PartnerListPage() {
     ? directionParam
     : DEFAULT_DIRECTION
   const pageSize = parsePageSize(searchParams.get("per_page"))
-  const page = parsePositiveInteger(searchParams.get("page"), 1)
+  const page = positiveInteger(searchParams.get("page"), 1)
   const queryString = searchParams.toString()
   const returnTo = queryString
     ? `/admin/settings/users?${queryString}`

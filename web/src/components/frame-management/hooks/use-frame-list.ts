@@ -13,9 +13,10 @@ import type {
 } from "@/features/templates/template.types";
 import { ApiError } from "@/lib/api-client";
 
-import { isStatus, parsePositiveInteger } from "../utils";
+import { isStatus } from "../utils";
 import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
 import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
+import { positiveInteger } from "@/lib/utils";
 
 type LoadState = "loading" | "success" | "error";
 
@@ -56,7 +57,7 @@ export function useFrameList(): UseFrameListResult {
   const paperSizeParam = params.get("paper_size");
   const activePaperSize: TemplatePaperSize | "all" =
     paperSizeParam === "2r" || paperSizeParam === "4r" ? paperSizeParam : "all";
-  const page = parsePositiveInteger(params.get("page"), 1);
+  const page = positiveInteger(params.get("page"), 1);
 
   const [response, setResponse] = useState<TemplateListResponse | null>(null);
   const [partners, setPartners] = useState<ReadonlyArray<PartnerRecord>>([]);
