@@ -8,97 +8,56 @@ import type {
 import { getPartners } from "@/features/partners/partner-service";
 import type { PartnerRecord } from "@/features/partners/partner.types";
 import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
+import { usePaginatedList } from "@/hooks/use-paginated-list";
 import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
-import { ApiError } from "@/lib/api-client";
 import { positiveInteger } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export function useCustomerList() {
   const { params, updateParams, reset, submitSearch } = useUpdateSearchParams();
   const { token, user } = useAuth();
   const superAdmin = isSuperAdmin(user);
-  const { handleApiError, handleUnauthorized, handleForbidden } =
-    useApiErrorHandler();
+  const { handleUnauthorized, handleForbidden } = useApiErrorHandler();
 
   const page = positiveInteger(params.get("page"), 1);
   const search = params.get("search") ?? "";
   const partnerId = positiveInteger(params.get("partner_id"), 0);
 
-  const [response, setResponse] = useState<CustomerListResponse | null>(null);
-  const [partners, setPartners] = useState<ReadonlyArray<PartnerRecord>>([]);
-  const [state, setState] = useState<"loading" | "success" | "error">(
-    "loading",
-  );
-  const [error, setError] = useState("");
-  const [retry, setRetry] = useState(0);
   const [detail, setDetail] = useState<CustomerRecord | null>(null);
 
-  useEffect(() => {
-    if (!token) return;
-    const accessToken = token;
-    const controller = new AbortController();
-    async function load(): Promise<void> {
-      setState("loading");
-      setError("");
-      try {
-        const [customers, partnerResult] = await Promise.all([
-          getCustomers(
-            accessToken,
-            {
-              search: search || undefined,
-              partner_id: superAdmin && partnerId ? partnerId : undefined,
-              page,
-            },
-            controller.signal,
-          ),
-          superAdmin
-            ? getPartners(accessToken, { per_page: 100 }, controller.signal)
-            : Promise.resolve(null),
-        ]);
-        if (controller.signal.aborted) return;
-        if (page > Math.max(1, customers.meta.last_page)) {
-          updateParams({
-            page:
-              customers.meta.last_page > 1
-                ? String(customers.meta.last_page)
-                : null,
-          });
-          return;
-        }
-        setResponse(customers);
-        setPartners(partnerResult?.data ?? []);
-        setState("success");
-      } catch (caught: unknown) {
-        if (controller.signal.aborted) return;
-        if (handleApiError(caught)) return;
-        setResponse(null);
-        setError(
-          caught instanceof ApiError
-            ? caught.message
-            : "Tidak dapat terhubung ke server.",
-        );
-        setState("error");
-      }
-    }
-    void load();
-    return () => controller.abort();
-  }, [
-    handleApiError,
-    page,
-    partnerId,
-    retry,
-    search,
-    superAdmin,
+  const { response, extra, state, error, setRetry } = usePaginatedList<
+    CustomerListResponse,
+    ReadonlyArray<PartnerRecord>
+  >({
     token,
-    updateParams,
-  ]);
+    page,
+    load: (accessToken, signal) =>
+      getCustomers(
+        accessToken,
+        {
+          search: search || undefined,
+          partner_id: superAdmin && partnerId ? partnerId : undefined,
+          page,
+        },
+        signal,
+      ),
+    loadExtra: superAdmin
+      ? (accessToken, signal) =>
+          getPartners(accessToken, { per_page: 100 }, signal).then(
+            (result) => result.data,
+          )
+      : undefined,
+    onClampPage: (lastPage) =>
+      updateParams({ page: lastPage > 1 ? String(lastPage) : null }),
+    dependencies: [updateParams, search, partnerId, superAdmin],
+  });
 
+  const partners = extra ?? [];
   const partnerName = (id: number | null): string =>
     id
       ? (partners.find((partner) => partner.id === id)?.company_name ??
         `Partner #${id}`)
       : "Tanpa Partner";
-
   const filtered = Boolean(search || (superAdmin && partnerId));
 
   return {
