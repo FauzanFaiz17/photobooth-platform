@@ -9,7 +9,7 @@ import type {
   PhotoSlot,
   QrRect,
 } from "@/features/templates/template.types";
-import { cn } from "@/lib/utils";
+import { CHECKERBOARD, cn } from "@/lib/utils";
 import FrameCanvas from "./frame-canvas";
 
 export interface FrameCanvasAreaProps {
@@ -110,8 +110,8 @@ export function FrameCanvasArea({
         )}
       </div>
       <div
-        className="min-h-0 flex-1 overflow-auto p-6  bg-size-[40px_40px] 
-  bg-[conic-gradient(#00000020_90deg,transparent_90deg_180deg,#00000020_180deg_270deg,transparent_270deg)]"
+        className="min-h-0 flex-1 overflow-auto p-6"
+        style={CHECKERBOARD}
       >
         <div
           ref={canvasAreaRef}
