@@ -11,7 +11,7 @@ import { positiveInteger } from "@/lib/utils";
 
 
 export function useEventList() {
-  const { params, setParams, updateParams } = useUpdateSearchParams();
+  const { params, updateParams, reset } = useUpdateSearchParams();
   const { token, handleApiError } = useApiErrorHandler();
 
   const querySearch = params.get("search") ?? "";
@@ -128,6 +128,6 @@ export function useEventList() {
     updateParams,
     submitSearch,
     setRetryKey,
-    setParams,
+    reset,
   };
 }
