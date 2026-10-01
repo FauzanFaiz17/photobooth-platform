@@ -179,7 +179,10 @@ export function useEventForm(eventIdParam: string | undefined) {
   }
 
   function addPrintOption() {
-    updateField("print_options", [...form.print_options, newPrintOption()]);
+    updateField("print_options", [
+      ...form.print_options,
+      newPrintOption(form.print_options),
+    ]);
   }
 
   function updatePrintOption(
