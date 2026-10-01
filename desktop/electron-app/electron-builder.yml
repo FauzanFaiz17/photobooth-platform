@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: electron-app
+appId: id.rizelabs.kolasephotobooth
+productName: Kolase Photobooth
 directories:
   buildResources: build
 files:
@@ -9,23 +9,30 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!cameraAPI/**'
 asarUnpack:
   - resources/**
-extraResources:
-  - from: cameraAPI/main.exe
-    to: bin/main.exe
-  - from: cameraAPI/EDSDK.dll
-    to: bin/EDSDK.dll
-  - from: cameraAPI/EdsImage.dll
-    to: bin/EdsImage.dll
 win:
-  executableName: electron-app
+  executableName: Kolase Photobooth
+  # Binary kamera Canon hanya relevan untuk Windows (EDSDK). Cek prasyaratnya
+  # lewat scripts/prepare-camera-bin.mjs --require-canon sebelum build.
+  extraResources:
+    - from: cameraAPI/main.exe
+      to: bin/main.exe
+    - from: cameraAPI/EDSDK.dll
+      to: bin/EDSDK.dll
+    - from: cameraAPI/EdsImage.dll
+      to: bin/EdsImage.dll
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.photography
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
@@ -40,11 +47,8 @@ linux:
     - AppImage
     - snap
     - deb
-  maintainer: electronjs.org
+  maintainer: rizelabs.my.id
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: generic
-  url: https://example.com/auto-updates

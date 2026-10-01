@@ -1,7 +1,42 @@
-import { Download } from "lucide-react";
+import { Apple, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { desktopDownload } from "@/constants";
+
+type DesktopOs = "windows" | "macos" | "other";
+
+function detectDesktopOs(): DesktopOs {
+  if (typeof navigator === "undefined") return "other";
+
+  const ua = navigator.userAgent;
+  if (/windows/i.test(ua)) return "windows";
+  if (/mac os x|macintosh/i.test(ua)) return "macos";
+  return "other";
+}
+
+const downloadTargets: Array<{
+  key: Exclude<DesktopOs, "other">;
+  label: string;
+  hint: string;
+  icon: typeof Monitor;
+}> = [
+  {
+    key: "windows",
+    label: "Windows",
+    hint: "Windows 10/11 (64-bit) — kamera Canon didukung",
+    icon: Monitor,
+  },
+  {
+    key: "macos",
+    label: "macOS",
+    hint: "macOS — kamera webcam (Canon hanya di Windows)",
+    icon: Apple,
+  },
+];
 
 export default function DownloadPage() {
+  const detectedOs = detectDesktopOs();
+  const { version } = desktopDownload;
+
   return (
     <div className="h-full bg-background text-slate-900 font-sans bg-[linear-gradient(to_right,var(--secondary)_1px,transparent_1px),linear-gradient(to_bottom,var(--secondary)_1px,transparent_1px)] bg-size-[30px_30px] selection:text-emerald-900 flex flex-col items-center justify-center overflow-x-hidden relative p-4">
       <section className="w-full max-w-5xl mx-auto px-4 sm:px-6 py-10 md:py-10 relative  rounded-3xl">
@@ -33,13 +68,40 @@ export default function DownloadPage() {
           </div>
 
           <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5">
-            {/* Primary Download Button with Green Arrow & Rotated Ribbon */}
-            <div className="relative group w-full sm:w-auto">
-              <Button className="flex items-center gap-3 px-8 py-6 bg-background text-foreground border border-border shadow-[0_4px_0_var(--border)] hover:bg-background cursor-pointer hover:shadow-none hover:translate-y-1 transition duration-200">
-                <Download /> Download Dekstop
-              </Button>
-            </div>
+            {downloadTargets.map((target) => {
+              const Icon = target.icon;
+              const url = desktopDownload[target.key];
+              const isDetected = detectedOs === target.key;
+              const disabled = url.length === 0;
+
+              return (
+                <Button
+                  key={target.key}
+                  title={target.hint}
+                  aria-label={`Download aplikasi desktop untuk ${target.label}`}
+                  disabled={disabled}
+                  render={
+                    disabled ? undefined : (
+                      <a href={url} target="_blank" rel="noreferrer" />
+                    )
+                  }
+                  className={`flex items-center gap-3 px-8 py-6 bg-background text-foreground border border-border shadow-[0_4px_0_var(--border)] hover:bg-background cursor-pointer hover:shadow-none hover:translate-y-1 transition duration-200 ${
+                    isDetected ? "ring-2 ring-primary" : ""
+                  }`}
+                >
+                  <Icon aria-hidden="true" /> Download {target.label}
+                </Button>
+              );
+            })}
           </div>
+
+          <p className="mt-6 text-sm text-muted-foreground">
+            Versi {version}
+            {detectedOs !== "other" ? " · perangkat Anda terdeteksi" : ""}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            macOS pertama kali dibuka: klik kanan aplikasi lalu pilih Open.
+          </p>
         </div>
       </section>
     </div>

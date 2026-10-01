@@ -204,3 +204,10 @@ export const actionLabelsAudit: Record<string, string> = {
   update: "Perubahan konfigurasi",
   delete: "Penghapusan konfigurasi",
 };
+
+/** Link unduhan installer aplikasi desktop Kolase Photobooth. */
+export const desktopDownload = {
+  version: import.meta.env.VITE_DESKTOP_VERSION?.trim() || "1.0.0",
+  windows: import.meta.env.VITE_DESKTOP_WIN_URL?.trim() || "",
+  macos: import.meta.env.VITE_DESKTOP_MAC_URL?.trim() || "",
+};
