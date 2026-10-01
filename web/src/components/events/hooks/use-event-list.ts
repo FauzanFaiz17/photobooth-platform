@@ -7,11 +7,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { isEventStatus } from "@/features/events/event.types";
 import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
 import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
+import { positiveInteger } from "@/lib/utils";
 
-function parsePositiveInteger(value: string | null, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-}
 
 export function useEventList() {
   const { params, setParams, updateParams } = useUpdateSearchParams();
@@ -20,10 +17,10 @@ export function useEventList() {
   const querySearch = params.get("search") ?? "";
   const statusParam = params.get("status");
   const status = isEventStatus(statusParam) ? statusParam : "all";
-  const boothId = parsePositiveInteger(params.get("booth_id"), 0);
+  const boothId = positiveInteger(params.get("booth_id"), 0);
   const dateFrom = params.get("date_from") ?? "";
   const dateTo = params.get("date_to") ?? "";
-  const page = parsePositiveInteger(params.get("page"), 1);
+  const page = positiveInteger(params.get("page"), 1);
 
   const [response, setResponse] = useState<EventListResponse | null>(null);
   const [booths, setBooths] = useState<ReadonlyArray<BoothRecord>>([]);
