@@ -28,15 +28,11 @@ import {
   PAYMENT_MODE_LABELS,
 } from "@/features/events/event.types";
 import { filterPreviewStyle } from "@/features/filters/filter-preview";
-import { cn } from "@/lib/utils";
+import { CHECKERBOARD, cn } from "@/lib/utils";
 import { ConfigurationSelect } from "./configuration-select";
 import { OptionChecklist } from "./option-checklist";
 
-const CHECKERBOARD = {
-  backgroundImage:
-    "repeating-conic-gradient(rgba(0,0,0,0.06) 0% 25%, transparent 0% 50%)",
-  backgroundSize: "16px 16px",
-} as const;
+
 
 export function EventInfoSection({
   event,

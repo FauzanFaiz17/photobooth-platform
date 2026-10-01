@@ -2,15 +2,11 @@ import samplePhoto from "@/assets/preview.webp";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { EventConfigurationOption } from "@/features/events/event.types";
-import { cn } from "@/lib/utils";
+import { CHECKERBOARD, cn } from "@/lib/utils";
 import { Frame as FrameIcon, ImageOff, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
-const CHECKERBOARD = {
-  backgroundImage:
-    "repeating-conic-gradient(rgba(0,0,0,0.06) 0% 25%, transparent 0% 50%)",
-  backgroundSize: "16px 16px",
-} as const;
+
 
 export function OptionCard({
   option,
