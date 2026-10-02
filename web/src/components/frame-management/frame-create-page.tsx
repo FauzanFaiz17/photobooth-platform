@@ -168,6 +168,7 @@ export function FrameCreatePage(): ReactElement {
           detecting={detecting}
           detectFromCurrent={detectFromCurrent}
           addSlot={addSlot}
+          addQr={addQr}
         />
 
         {mode === "edit" && (
@@ -204,15 +205,16 @@ export function FrameCreatePage(): ReactElement {
               changeSlotNumber={changeSlotNumber}
             />
 
-            <FrameQrCard
-              qr={qr}
-              canvasSize={canvasSize}
-              selectedSlotId={selectedSlotId}
-              onSelectQr={() => setSelectedSlotId(QR_SLOT_ID)}
-              addQr={addQr}
-              removeQr={removeQr}
-              changeQrNumber={changeQrNumber}
-            />
+            {qr && (
+              <FrameQrCard
+                qr={qr}
+                canvasSize={canvasSize}
+                selectedSlotId={selectedSlotId}
+                onSelectQr={() => setSelectedSlotId(QR_SLOT_ID)}
+                removeQr={removeQr}
+                changeQrNumber={changeQrNumber}
+              />
+            )}
 
             <FrameImageCard
               overlayUrl={overlayUrl}

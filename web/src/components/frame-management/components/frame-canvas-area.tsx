@@ -1,4 +1,4 @@
-import { ImageUp, LoaderCircle, Plus, Sparkles } from "lucide-react";
+import { ImageUp, LoaderCircle, Plus, QrCode, Sparkles } from "lucide-react";
 
 import samplePhoto from "@/assets/preview.webp";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,7 @@ export interface FrameCanvasAreaProps {
   setOverlayBroken: (broken: boolean) => void;
   detectFromCurrent: () => void;
   addSlot: () => void;
+  addQr: () => void;
 }
 
 export function FrameCanvasArea({
@@ -58,6 +59,7 @@ export function FrameCanvasArea({
   setOverlayBroken,
   detectFromCurrent,
   addSlot,
+  addQr,
 }: FrameCanvasAreaProps) {
   const { width: canvasWidth, height: canvasHeight } = canvasSize;
 
@@ -78,6 +80,9 @@ export function FrameCanvasArea({
         </div>
         {mode === "edit" && (
           <div className="flex items-center gap-2">
+            <Button type="button" size="sm" onClick={addQr}>
+              <QrCode aria-hidden="true" /> Tambah QR
+            </Button>
             <Button
               type="button"
               size="sm"
