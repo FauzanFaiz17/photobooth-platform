@@ -17,8 +17,8 @@ import { positiveInteger } from "@/lib/utils";
 type LoadState = "loading" | "success" | "error";
 
 export function useGalleryList() {
-  const { params, setParams, updateParams } = useUpdateSearchParams()
-  const {handleForbidden, handleApiError, handleUnauthorized, token} = useApiErrorHandler()
+  const { params, updateParams, reset } = useUpdateSearchParams()
+  const {handleApiError, token} = useApiErrorHandler()
   const { user } = useAuth();
   const superAdmin = isSuperAdmin(user);
 
@@ -100,7 +100,6 @@ export function useGalleryList() {
     void loadGalleries();
     return () => controller.abort();
   }, [
-    eventParam,
     page,
     partnerParam,
     retryKey,
@@ -147,15 +146,11 @@ export function useGalleryList() {
     updateParams({ event_id: String(id), page: null });
   }
 
-  function resetFilters() {
-    setParams(new URLSearchParams(), { replace: true });
-  }
 
   return {
     loadState,
     errorMessage,
     response,
-    partners,
     events,
     superAdmin,
     filtered,
@@ -167,9 +162,7 @@ export function useGalleryList() {
     updateParams,
     openPartner,
     openEvent,
-    resetFilters,
+    reset,
     refresh,
-    handleUnauthorized,
-    handleForbidden,
   };
 }

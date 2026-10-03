@@ -42,7 +42,7 @@ export function GalleryListPage(): ReactElement {
     updateParams,
     openPartner,
     openEvent,
-    resetFilters,
+    reset,
     refresh,
   } = useGalleryList();
 
@@ -103,7 +103,7 @@ export function GalleryListPage(): ReactElement {
                 <Button
                   variant="outline"
                   disabled={!filtered}
-                  onClick={resetFilters}
+                  onClick={reset}
                   className={`px-6 bg-background border border-border shadow-[0_4px_0_var(--border)] hover:bg-background transition duration-300 hover:shadow-none hover:translate-y-1`}
                 >
                   Reset
