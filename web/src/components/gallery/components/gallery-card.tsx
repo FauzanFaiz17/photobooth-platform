@@ -1,11 +1,6 @@
 import type { GalleryRecord } from "@/features/galleries/gallery.types";
 import { useState, type ReactElement } from "react";
-import {
-  expiryState,
-  galleryPath,
-  galleryToken,
-  mediaSummary,
-} from "../utils";
+import { expiryState, galleryPath, galleryToken, mediaSummary } from "../utils";
 import { toast } from "sonner";
 import {
   Card,
@@ -110,20 +105,17 @@ export function GalleryCard({
         >
           <Images aria-hidden="true" /> Lihat media
         </Button>
-        <a>
-          <Button size="sm" disabled={!path}>
-            {path && (
-              <a
-                href={path}
-                target="_blank"
-                className="flex py-2"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink aria-hidden="true" /> Buka Gallery
-              </a>
-            )}
-          </Button>
-        </a>
+        <Button
+          size="sm"
+          disabled={!path}
+          render={
+            path ? (
+              <a href={path} target="_blank" rel="noopener noreferrer" />
+            ) : undefined
+          }
+        >
+          <ExternalLink aria-hidden="true" /> Buka Gallery
+        </Button>
       </CardFooter>
 
       {detailOpen && (
