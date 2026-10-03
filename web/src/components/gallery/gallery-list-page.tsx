@@ -24,7 +24,7 @@ import { useGalleryList } from "./hooks/use-gallery-list";
 import { EmptyState } from "./components/empty-state";
 import { PartnerGrid } from "./components/partner-grid";
 import { EventGrid } from "./components/event-grid";
-import { Pagination } from "./components/pagination";
+import { EventPagination } from "../events/components/event-pagination";
 
 export function GalleryListPage(): ReactElement {
   const {
@@ -159,13 +159,10 @@ export function GalleryListPage(): ReactElement {
                     ))}
                   </div>
                   {response && (
-                    <Pagination
+                    <EventPagination
                       meta={response.meta}
-                      onPageChange={(nextPage) =>
-                        updateParams({
-                          page: nextPage === 1 ? null : String(nextPage),
-                        })
-                      }
+                      onUpdateQuery={updateParams}
+                      label="Gallery"
                     />
                   )}
                 </>
