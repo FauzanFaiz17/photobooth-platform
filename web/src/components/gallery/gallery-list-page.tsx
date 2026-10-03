@@ -47,7 +47,7 @@ export function GalleryListPage(): ReactElement {
   } = useGalleryList();
 
   return (
-    <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8 overflow-">
+    <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
       <SectionHeader
         heading="Gallery"
         description="Sesi foto yang sudah selesai beserta link Public Gallery untuk customer."
