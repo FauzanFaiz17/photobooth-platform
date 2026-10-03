@@ -464,9 +464,17 @@ _camera_shutdown = [False]
 
 def _on_object_event(event: int, ref: EdsBaseRef, ctx) -> EdsError:
     # kEdsObjectEvent_DirItemRequestTransfer = 0x208
-    # kEdsObjectEvent_DirItemCreated = 0x204
-    if event in (0x00000208, 0x00000204, 0x00000209) and ref:
+    # kEdsObjectEvent_DirItemRequestTransferDT = 0x209
+    if event in (0x00000208, 0x00000209) and ref:
         _pending_downloads.append(ref)
+    else:
+        # Objek dari event lain (seperti 0x204 DirItemCreated) wajib langsung di-release
+        # agar tidak terjadi kebocoran handle atau double download (Canon SDK sample pattern).
+        if ref and _edsdk:
+            try:
+                _edsdk.EdsRelease(ref)
+            except Exception as e:
+                logger.warning("Failed to release unused object ref: %s", e)
     return EDS_ERR_OK
 
 

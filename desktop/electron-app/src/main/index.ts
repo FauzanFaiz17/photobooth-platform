@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { spawn, ChildProcess } from 'node:child_process'
 import http from 'node:http'
 import { tmpdir } from 'node:os'
+import { existsSync } from 'node:fs'
 import { mkdir, writeFile, readFile, readdir, stat, rename, unlink, mkdtemp } from 'node:fs/promises'
 import Store from 'electron-store'
 import icon from '../../resources/icon.png?asset'
@@ -67,7 +68,7 @@ async function waitForNewestCapture(directory: string, sinceMs: number): Promise
   while (Date.now() < deadline) {
     try {
       const entries = await readdir(directory)
-      const candidates = entries.filter((name) => /^(capture_|img_).+\.jpe?g$/i.test(name))
+      const candidates = entries.filter((name) => /^(capture[_-]|img_).+\.jpe?g$/i.test(name))
       let newestPath: string | null = null
       let newestTime = sinceMs
 
@@ -94,11 +95,31 @@ const MAX_TEMPLATE_ASSET_BYTES = 30 * 1024 * 1024
 const remoteApiUrl = import.meta.env.MAIN_VITE_API_URL as string | undefined
 const rendererApiUrl = (import.meta.env as unknown as Record<string, string | undefined>)
   .VITE_API_URL
+const cdnUrl = import.meta.env.MAIN_VITE_CDN_URL as string | undefined
 const allowedAssetOrigins = new Set(
-  [remoteApiUrl, rendererApiUrl]
+  [remoteApiUrl, rendererApiUrl, cdnUrl]
     .filter((value): value is string => Boolean(value))
     .map((value) => new URL(value).origin)
 )
+
+function isAllowedAssetOrigin(origin: string): boolean {
+  if (allowedAssetOrigins.has(origin)) return true
+  try {
+    const parsed = new URL(origin)
+    const hostname = parsed.hostname.toLowerCase()
+    if (
+      hostname.endsWith('.r2.dev') ||
+      hostname.endsWith('.r2.cloudflarestorage.com') ||
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1'
+    ) {
+      return true
+    }
+  } catch {
+    return false
+  }
+  return false
+}
 
 interface PrintImageOptions {
   dataUrl: string
@@ -160,12 +181,24 @@ const startBackend = (): void => {
     ? join(process.resourcesPath, 'bin', 'main.exe')
     : join(__dirname, '../../cameraAPI/main.exe')
 
-  console.log(`[Electron] Spawning backend binary at: ${exePath}`)
+  if (!app.isPackaged && !existsSync(exePath)) {
+    const scriptPath = join(__dirname, '../../cameraAPI/run.py')
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
+    console.log(
+      `[Electron] main.exe not found at ${exePath}. Falling back to python script: ${pythonCmd} ${scriptPath}`
+    )
+    pyProcess = spawn(pythonCmd, [scriptPath], {
+      cwd: dirname(scriptPath),
+      detached: false
+    })
+  } else {
+    console.log(`[Electron] Spawning backend binary at: ${exePath}`)
 
-  pyProcess = spawn(exePath, [], {
-    cwd: dirname(exePath),
-    detached: false
-  })
+    pyProcess = spawn(exePath, [], {
+      cwd: dirname(exePath),
+      detached: false
+    })
+  }
 
   pyProcess.stdout?.on('data', (data: Buffer) => {
     console.log(`[FastAPI stdout]: ${data.toString().trim()}`)
@@ -445,8 +478,16 @@ app.whenReady().then(() => {
       let finalPath = capturedPath
       if (options?.filename) {
         const renamedPath = join(cameraSaveDir, options.filename)
-        await rename(capturedPath, renamedPath).catch(() => undefined)
-        finalPath = renamedPath
+        try {
+          await rename(capturedPath, renamedPath)
+          finalPath = renamedPath
+        } catch (error) {
+          console.warn(
+            `[Electron] Gagal me-rename file capture (${capturedPath} -> ${renamedPath}), fallback ke file asli:`,
+            error
+          )
+          finalPath = capturedPath
+        }
       }
 
       const bytes = await readFile(finalPath)
@@ -592,7 +633,7 @@ app.whenReady().then(() => {
       throw new Error('Protokol asset template tidak didukung.')
     }
 
-    if (!allowedAssetOrigins.has(url.origin)) {
+    if (!isAllowedAssetOrigin(url.origin)) {
       throw new Error('Origin asset template tidak diizinkan.')
     }
 
