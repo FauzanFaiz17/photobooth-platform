@@ -269,35 +269,35 @@ export default function CameraTestPanel({ onBack }: { onBack: () => void }): JSX
 
       if (camera) {
         const stored = await getCameraSettings()
-        nextIso = findOptionByValue(nextOptions.iso, stored.iso?.value)?.value
+        nextIso = findOptionByValue(nextOptions.iso, stored.iso?.value ?? null)?.value
           ?? findOptionByValue(nextOptions.iso, camera.iso !== null ? Number(camera.iso) : null)?.value
           ?? nextOptions.iso[0]?.value
           ?? null
-        nextAperture = findOptionByValue(nextOptions.aperture, stored.aperture?.value)?.value
+        nextAperture = findOptionByValue(nextOptions.aperture, stored.aperture?.value ?? null)?.value
           ?? findOptionByValue(nextOptions.aperture, camera.aperture !== null ? Number(camera.aperture) : null)?.value
           ?? nextOptions.aperture[0]?.value
           ?? null
-        nextShutter = findOptionByValue(nextOptions.shutter, stored.shutter?.value)?.value
+        nextShutter = findOptionByValue(nextOptions.shutter, stored.shutter?.value ?? null)?.value
           ?? findOptionByValue(nextOptions.shutter, camera.shutter_speed !== null ? Number(camera.shutter_speed) : null)?.value
           ?? nextOptions.shutter[0]?.value
           ?? null
-        nextWb = findOptionByValue(nextOptions.white_balance, stored.whiteBalance?.value)?.value
+        nextWb = findOptionByValue(nextOptions.white_balance, stored.whiteBalance?.value ?? null)?.value
           ?? findOptionByValue(nextOptions.white_balance, camera.white_balance !== null ? Number(camera.white_balance) : null)?.value
           ?? nextOptions.white_balance[0]?.value
           ?? null
-        nextPs = findOptionByValue(nextOptions.picture_style, stored.pictureStyle?.value)?.value
+        nextPs = findOptionByValue(nextOptions.picture_style, stored.pictureStyle?.value ?? null)?.value
           ?? findOptionByValue(nextOptions.picture_style, camera.picture_style !== null ? Number(camera.picture_style) : null)?.value
           ?? nextOptions.picture_style[0]?.value
           ?? null
-        nextExposure = findOptionByValue(nextOptions.exposure, stored.exposure?.value)?.value
+        nextExposure = findOptionByValue(nextOptions.exposure, stored.exposure?.value ?? null)?.value
           ?? findOptionByValue(nextOptions.exposure, camera.exposure !== null ? Number(camera.exposure) : null)?.value
           ?? nextOptions.exposure[0]?.value
           ?? null
-        nextContrast = findOptionByValue(nextOptions.contrast, stored.contrast?.value)?.value
+        nextContrast = findOptionByValue(nextOptions.contrast, stored.contrast?.value ?? null)?.value
           ?? findOptionByValue(nextOptions.contrast, camera.contrast !== null ? Number(camera.contrast) : null)?.value
           ?? nextOptions.contrast[0]?.value
           ?? null
-        nextSaturation = findOptionByValue(nextOptions.saturation, stored.saturation?.value)?.value
+        nextSaturation = findOptionByValue(nextOptions.saturation, stored.saturation?.value ?? null)?.value
           ?? findOptionByValue(nextOptions.saturation, camera.saturation !== null ? Number(camera.saturation) : null)?.value
           ?? nextOptions.saturation[0]?.value
           ?? null

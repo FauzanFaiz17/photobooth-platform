@@ -4,7 +4,16 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { spawn, ChildProcess } from 'node:child_process'
 import http from 'node:http'
 import { tmpdir } from 'node:os'
-import { mkdir, writeFile, readFile, readdir, stat, rename, unlink, mkdtemp } from 'node:fs/promises'
+import {
+  mkdir,
+  writeFile,
+  readFile,
+  readdir,
+  stat,
+  rename,
+  unlink,
+  mkdtemp
+} from 'node:fs/promises'
 import Store from 'electron-store'
 import icon from '../../resources/icon.png?asset'
 import { registerDeviceIpc } from './ipc/device'
@@ -34,12 +43,14 @@ let cameraSaveDir: string | null = null
 async function cameraServiceRequest(
   endpoint: string,
   method = 'GET',
-  body?: unknown
+  body?: unknown,
+  timeoutMs = 15_000
 ): Promise<unknown> {
   const response = await fetch(`${SERVER_URL}${endpoint}`, {
     method,
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body)
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs)
   })
   return (await response.json()) as unknown
 }
@@ -413,7 +424,16 @@ app.whenReady().then(() => {
       options?: { filename?: string }
     ): Promise<{ dataUrl: string; filePath: string | null }> => {
       const startedAt = Date.now()
-      const result = (await cameraServiceRequest('/capture', 'POST')) as {
+
+      // cameraAPI bisa di-restart oleh watchdog, dan save_dir di dalamnya
+      // tidak persisten — hasil capture lalu jatuh ke folder kerja service
+      // sehingga tidak ditemukan oleh waitForNewestCapture. Arahkan ulang
+      // setiap kali sebelum capture agar selalu sinkron.
+      if (cameraSaveDir) {
+        await cameraServiceRequest('/set_save_dir', 'POST', { path: cameraSaveDir })
+      }
+
+      const result = (await cameraServiceRequest('/capture', 'POST', undefined, 45_000)) as {
         status?: string
         path?: string | null
         detail?: string

@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: electron-app
+appId: com.rizelabs.kolasebooth
+productName: Kolasebooth
 directories:
   buildResources: build
 files:
@@ -9,6 +9,11 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  # cameraAPI hanya dibutuhkan saat build (extraResources menyalin binari yang
+  # dibutuhkan). Tanpa pengecualian ini, captures/ + artefak PyInstaller
+  # (~379 MB) ikut masuk app.asar dan installer membengkak.
+  - '!cameraAPI/**'
+  - '!{*.log,*.log.*}'
 asarUnpack:
   - resources/**
 extraResources:
@@ -19,9 +24,9 @@ extraResources:
   - from: cameraAPI/EdsImage.dll
     to: bin/EdsImage.dll
 win:
-  executableName: electron-app
+  executableName: Kolasebooth
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: Kolasebooth-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always

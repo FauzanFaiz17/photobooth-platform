@@ -9,8 +9,11 @@ echo Building main.exe...
 pyinstaller ^
     --onefile ^
     --name main ^
+    --paths src ^
     --add-data "EDSDK.dll;." ^
     --add-data "EdsImage.dll;." ^
+    --collect-all cv2 ^
+    --collect-all numpy ^
     --hidden-import uvicorn.logging ^
     --hidden-import uvicorn.loops ^
     --hidden-import uvicorn.loops.auto ^

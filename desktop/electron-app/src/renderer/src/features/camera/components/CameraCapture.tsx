@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { JSX } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties, JSX } from 'react'
 
 import { NeoButton } from '@/components/shared/button'
 
@@ -9,6 +9,8 @@ import { useSessionStore, type CapturedShot } from '@/store/sessionStore'
 import { getAppSettings } from '@/features/settings/deviceSettings'
 import {
   composeTemplateImage,
+  getCanvasSize,
+  getFrames,
   loadTemplateFrameOverlayDataUrl
 } from '@/features/template/services/composeTemplate'
 import type { PhotoTemplate } from '@/features/template/types'
@@ -405,15 +407,41 @@ export default function CameraCapture({
     }
   })
 
+  // Rasio kotak preview = rasio slot foto (frame aktif di template).
+  // Dengan begitu template tampil dengan proporsinya sendiri (tidak "ditarik"
+  // mengikuti kamera), lalu kamera di-fit ke dalam kotak itu; bagian yang tidak
+  // terisi kamera dibiarkan hitam.
+  const previewAspect = useMemo(() => {
+    const canvasSize = getCanvasSize(template.jsonLayout)
+    const frames = getFrames(
+      template.jsonLayout,
+      Math.max(currentShotIndex + 1, 1),
+      canvasSize,
+      template.layout
+    )
+    const frame = frames[currentShotIndex]
+
+    if (frame && frame.width > 0 && frame.height > 0) return frame.width / frame.height
+
+    return cameraSettings?.source === 'webcam' ? 4 / 3 : 3 / 2
+  }, [cameraSettings?.source, currentShotIndex, template.jsonLayout, template.layout])
+
   useEffect(() => {
     let active = true
     if (!templateOverlayPath) return undefined
+
+    // Overlay dirender pada rasio yang sama dengan kotak preview sehingga
+    // frame template mengisi tepat area itu tanpa distorsi dan tanpa sisa.
+    const overlayWidth = 1200
+    const overlayHeight = Math.max(1, Math.round(overlayWidth / previewAspect))
 
     void loadTemplateFrameOverlayDataUrl(
       templateOverlayPath,
       template.jsonLayout,
       template.layout,
-      currentShotIndex
+      currentShotIndex,
+      overlayWidth,
+      overlayHeight
     )
       .then((dataUrl) => {
         if (active) setTemplateOverlay({ path: templateOverlayPath, dataUrl })
@@ -423,7 +451,7 @@ export default function CameraCapture({
     return (): void => {
       active = false
     }
-  }, [currentShotIndex, template.jsonLayout, template.layout, templateOverlayPath])
+  }, [currentShotIndex, previewAspect, template.jsonLayout, template.layout, templateOverlayPath])
 
   // Rekam mulai saat countdown dimulai (termasuk saat retake).
   useEffect(() => {
@@ -483,31 +511,61 @@ export default function CameraCapture({
     )
   }
 
+  const rotatedShot = cameraSettings.orientation === 'portrait'
+  const mirroredShot = cameraSettings.mirror
+
   return (
     <div
       ref={stageRef}
       className="camera-stage flex h-full flex-col items-center justify-center gap-4 bg-[#202020] p-4 fullscreen:bg-black md:p-6"
     >
       <div
-        className={`relative aspect-4/3 w-[min(640px,calc(100vw-2rem))] overflow-hidden rounded-2xl bg-black shadow-xl ${stage === 'review' ? 'hidden' : ''}`}
+        className={`relative overflow-hidden rounded-2xl bg-black shadow-xl ${stage === 'review' ? 'hidden' : ''}`}
+        style={
+          {
+            '--preview-aspect': String(previewAspect),
+            '--preview-ratio': String(previewAspect)
+          } as CSSProperties
+        }
       >
-        {cameraSettings.source === 'canon' ? (
-          <img
-            ref={mjpegImgRef}
-            src={`${CAMERA_API_URL}/video_feed`}
-            crossOrigin="anonymous"
-            alt="Live preview Canon"
-            className={`absolute inset-0 h-full w-full object-cover ${cameraSettings.mirror ? '-scale-x-100' : ''}`}
-          />
-        ) : (
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className={`absolute inset-0 h-full w-full object-cover ${cameraSettings.mirror ? '-scale-x-100' : ''}`}
-          />
-        )}
+        {/*
+          Lapisan kamera meniru persis cara composeTemplateImage menaruh foto
+          ke slot: (rotate sesuai orientation → mirror → object-cover tengah).
+          Dengan begitu bagian yang akan terpotong di template juga terpotong
+          di preview, sehingga customer bisa menyesuaikan posisi berdiri.
+        */}
+        <div
+          className="absolute"
+          style={
+            {
+              left: '50%',
+              top: '50%',
+              width: rotatedShot ? 'calc(100% / var(--preview-ratio))' : '100%',
+              height: rotatedShot ? 'calc(100% * var(--preview-ratio))' : '100%',
+              transform: rotatedShot
+                ? 'translate(-50%, -50%) rotate(90deg)'
+                : 'translate(-50%, -50%)'
+            } as CSSProperties
+          }
+        >
+          {cameraSettings.source === 'canon' ? (
+            <img
+              ref={mjpegImgRef}
+              src={`${CAMERA_API_URL}/video_feed`}
+              crossOrigin="anonymous"
+              alt="Live preview Canon"
+              className={`h-full w-full object-cover ${mirroredShot ? '-scale-x-100' : ''}`}
+            />
+          ) : (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`h-full w-full object-cover ${mirroredShot ? '-scale-x-100' : ''}`}
+            />
+          )}
+        </div>
 
         {stage === 'countdown' && (
           <div className="absolute inset-0 flex items-center justify-center ">
@@ -515,7 +573,7 @@ export default function CameraCapture({
               <img
                 src={activeTemplateOverlay}
                 alt=""
-                className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                className="pointer-events-none absolute inset-0 h-full w-full object-fill"
               />
             )}
             <span className="relative text-8xl font-bold text-white drop-shadow-lg">

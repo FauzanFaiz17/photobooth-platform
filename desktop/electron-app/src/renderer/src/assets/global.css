@@ -16,22 +16,33 @@
   color: var(--foreground);
 }
 
+/* Area preview selalu memakai rasio slot foto (frame aktif di template)
+   sehingga template tampil dengan proporsinya sendiri, bukan mengikuti kamera. */
+.camera-stage > div:first-child {
+  flex: none;
+  aspect-ratio: var(--preview-aspect, 3 / 2);
+  /* Lebar dibatasi juga oleh tinggi layar, supaya kotak potret tetap muat
+     di area stage bersama kontrol yang ada di bawahnya. */
+  width: min(640px, calc(100vw - 2rem), calc((100vh - 18rem) * var(--preview-ratio, 1.5)));
+  max-width: calc(100vw - 2rem);
+}
+
 .camera-stage:fullscreen {
   width: 100vw;
   height: 100vh;
   padding: 0;
+  gap: 0;
+  overflow: hidden;
   background: #000;
 }
 
+/* Tinggi = penuh layar, lebar mengikuti rasio slot foto.
+   Sisi yang tidak terjangkau (kiri/kanan, atau atas/bawah untuk kotak
+   potret) sengaja dibiarkan hitam — tidak melebar sampai pinggir dan
+   tidak diregangkan. */
 .camera-stage:fullscreen > div:first-child {
-  width: 100vw;
-  height: 100vh;
+  width: min(100vw, calc(100vh * var(--preview-ratio, 1.5)));
+  height: auto;
+  max-height: 100vh;
   border-radius: 0;
-}
-
-.camera-stage:fullscreen > div:first-child video,
-.camera-stage:fullscreen > div:first-child img {
-  width: 100vw;
-  height: 100vh;
-  object-fit: cover;
 }

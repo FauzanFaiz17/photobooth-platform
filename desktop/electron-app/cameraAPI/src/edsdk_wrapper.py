@@ -8,6 +8,7 @@ import ctypes.util
 import os
 import sys
 import logging
+import time
 from typing import Optional, List, Tuple
 
 logger = logging.getLogger(__name__)
@@ -606,6 +607,15 @@ class EDSDKWrapper:
         _edsdk.EdsSetCapacity(cam, capacity)
         _edsdk.EdsSendStatusCommand(cam, kEdsCameraStatusCommand_UIUnLock, 0)
 
+        # Bersihkan sisa state sesi lama yang tidak sempat dilepas saat proses
+        # sebelumnya dihentikan paksa (taskkill /f): shutter yang masih
+        # tertahan dan bit EVF-PC yang kamera tetap ingat.
+        _edsdk.EdsSendCommand(
+            cam, kEdsCameraCommand_PressShutterButton,
+            kEdsCameraCommand_ShutterButton_OFF,
+        )
+        self.stop_live_view()
+
         logger.info("Camera session opened: %s", self._camera_name)
         return True
 
@@ -692,20 +702,71 @@ class EDSDKWrapper:
             return val.value if err == EDS_ERR_OK else None
         return None
 
+    def _set_prop_data(self, prop_id: int, param: int, data) -> int:
+        """EdsSetPropertyData dengan pemulihan dari EDS_ERR_DEVICE_BUSY.
+
+        Kamera bisa menahan semua penulisan properti (0x00000081) sementara
+        padahal pembacaan dan perintah lain tetap jalan. Alih-alih gagal
+        langsung, coba ulang sambil melepas kunci UI, melepas shutter, lalu
+        mematikan output EVF-PC — satu per satu sampai kamera menerima.
+        """
+        restored_live_view = False
+        err = EDS_ERR_DEVICE_BUSY
+        for attempt in range(5):
+            err = _edsdk.EdsSetPropertyData(
+                self._camera_ref, prop_id, param, ctypes.sizeof(data),
+                ctypes.byref(data),
+            )
+            if err == EDS_ERR_OK:
+                self._last_error = 0
+                if attempt:
+                    logger.info(
+                        "SetPropertyData(0x%X) diterima pada percobaan %d",
+                        prop_id, attempt + 1,
+                    )
+                if restored_live_view:
+                    self.start_live_view()
+                    self._last_error = 0
+                return err
+            self._last_error = err
+            if err != EDS_ERR_DEVICE_BUSY or attempt == 4:
+                break
+            logger.warning(
+                "SetPropertyData(0x%X) DEVICE_BUSY (0x%08X), pemulihan ke-%d",
+                prop_id, err, attempt + 1,
+            )
+            if attempt == 1:
+                _edsdk.EdsSendStatusCommand(
+                    self._camera_ref, kEdsCameraStatusCommand_UIUnLock, 0
+                )
+            elif attempt == 2:
+                _edsdk.EdsSendCommand(
+                    self._camera_ref,
+                    kEdsCameraCommand_PressShutterButton,
+                    kEdsCameraCommand_ShutterButton_OFF,
+                )
+            elif attempt == 3 and self._live_view_started:
+                self.stop_live_view()
+                restored_live_view = True
+            time.sleep(0.15)
+        if restored_live_view:
+            self.start_live_view()
+            # start_live_view() bisa menimpa _last_error; pertahankan kode
+            # error set properti agar detail di HTTP tetap akurat.
+            self._last_error = err
+        return err
+
     def set_property_value(
         self, prop_id: int, value: int, param: int = 0
     ) -> bool:
         if not self._session_open:
+            self._last_error = EDS_ERR_SESSION_NOT_OPEN
             return False
         data = EdsUInt32(value & 0xFFFFFFFF)
-        err = _edsdk.EdsSetPropertyData(
-            self._camera_ref, prop_id, param, ctypes.sizeof(data),
-            ctypes.byref(data)
-        )
-        if err != EDS_ERR_OK:
-            logger.debug(
+        if self._set_prop_data(prop_id, param, data) != EDS_ERR_OK:
+            logger.warning(
                 "SetPropertyData(0x%X, %d) failed: 0x%08X",
-                prop_id, value, err,
+                prop_id, value, self._last_error,
             )
             return False
         return True
@@ -755,12 +816,13 @@ class EDSDKWrapper:
         if not hasattr(desc, field):
             return False
         setattr(desc, field, value)
-        err = _edsdk.EdsSetPropertyData(
-            self._camera_ref, kEdsPropID_PictureStyleDesc, 0,
-            ctypes.sizeof(desc), ctypes.byref(desc),
-        )
-        if err != EDS_ERR_OK:
-            logger.debug("SetPictureStyleDesc.%s failed: 0x%08X", field, err)
+        if self._set_prop_data(
+            kEdsPropID_PictureStyleDesc, 0, desc
+        ) != EDS_ERR_OK:
+            logger.warning(
+                "SetPictureStyleDesc.%s failed: 0x%08X",
+                field, self._last_error,
+            )
             return False
         return True
 
@@ -799,7 +861,6 @@ class EDSDKWrapper:
                 logger.info("Live view started")
                 return True
             if err == EDS_ERR_DEVICE_BUSY:
-                import time
                 time.sleep(0.1)
                 continue
             self._last_error = err
@@ -809,7 +870,10 @@ class EDSDKWrapper:
         return False
 
     def stop_live_view(self):
-        if not self._session_open or not self._live_view_started:
+        # Tidak bergantung pada _live_view_started: proses lama bisa saja
+        # mati (taskkill /f) saat bit EVF-PC masih terpasang, sehingga flag di
+        # proses baru selalu False padahal kamera masih di mode EVF-PC.
+        if not self._session_open:
             return
         current = EdsUInt32(0)
         _edsdk.EdsGetPropertyData(
@@ -867,7 +931,19 @@ class EDSDKWrapper:
 
         jpeg: Optional[bytes] = None
         if err1 == EDS_ERR_OK and err2 == EDS_ERR_OK and data_ptr and data_len.value > 0:
-            jpeg = ctypes.string_at(data_ptr, int(data_len.value))
+            # EdsGetLength pada R100 mengembalikan kapasitas buffer (2 MB),
+            # bukan panjang JPEG yang sebenarnya (~180 KB). Tanpa pemangkasan,
+            # tiap frame live view ikut membawa ~1,9 MB memori kosong sehingga
+            # /video_feed memompa ~18 MB/detik ke renderer. Potong di penanda
+            # EOI agar hanya JPEG valid yang dikirim.
+            length = min(int(data_len.value), 2 * 1024 * 1024)
+            raw = ctypes.string_at(data_ptr, length)
+            soi = raw.find(b"\xff\xd8")
+            if soi >= 0:
+                eoi = raw.find(b"\xff\xd9", soi + 2)
+                jpeg = raw[soi : eoi + 2] if eoi > soi else raw[soi:]
+            else:
+                jpeg = raw
 
         _edsdk.EdsRelease(evf)
         _edsdk.EdsRelease(stream)

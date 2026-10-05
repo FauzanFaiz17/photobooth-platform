@@ -389,9 +389,13 @@ class CameraManager:
 
         if property_name in prop_map:
             ok = self._edsdk.set_property_value(prop_map[property_name], value)
+            detail = f"Set {property_name}={'0x%X' % (value & 0xFFFFFFFF)}"
+            if not ok:
+                code = int(getattr(self._edsdk, "last_error", 0) or 0)
+                detail = f"{detail} gagal (EDSDK 0x{code & 0xFFFFFFFF:08X})"
             return {
                 "status": "success" if ok else "error",
-                "detail": f"Set {property_name}={'0x%X' % (value & 0xFFFFFFFF)}",
+                "detail": detail,
             }
 
         # Picture style sub-parameters via EdsPictureStyleDesc
@@ -405,9 +409,13 @@ class CameraManager:
             ok = self._edsdk.set_picture_style_param(
                 psparam_map[property_name], value
             )
+            detail = f"Set {property_name}={value}"
+            if not ok:
+                code = int(getattr(self._edsdk, "last_error", 0) or 0)
+                detail = f"{detail} gagal (EDSDK 0x{code & 0xFFFFFFFF:08X})"
             return {
                 "status": "success" if ok else "error",
-                "detail": f"Set {property_name}={value}",
+                "detail": detail,
             }
 
         return {"status": "error", "detail": f"Unknown property: {property_name}"}
