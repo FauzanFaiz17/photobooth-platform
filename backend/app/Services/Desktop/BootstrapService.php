@@ -35,7 +35,7 @@ class BootstrapService
 
         return [
 
-            'user' => $user,
+            'user' => $user->loadMissing('role.permissions'),
 
             'device' => $device,
 

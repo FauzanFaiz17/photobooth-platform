@@ -48,7 +48,7 @@ class UserController extends Controller
         );
 
         return (new UserResource($user->load([
-            'role',
+            'role.permissions',
             'partner',
         ])))
             ->response()

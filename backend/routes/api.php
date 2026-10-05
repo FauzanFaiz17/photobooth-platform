@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\MidtransNotificationController;
 use App\Http\Controllers\Api\V1\PartnerController;
 use App\Http\Controllers\Api\V1\PartnerSubscriptionController;
 use App\Http\Controllers\Api\V1\PaymentController;
+use App\Http\Controllers\Api\V1\PermissionController;
 use App\Http\Controllers\Api\V1\PlatformCredentialController;
 use App\Http\Controllers\Api\V1\PrinterAlertController;
 use App\Http\Controllers\Api\V1\PrinterController;
@@ -30,6 +31,7 @@ use App\Http\Controllers\Api\V1\PrinterProfileController;
 use App\Http\Controllers\Api\V1\PrintJobController;
 // khusus desktop
 use App\Http\Controllers\Api\V1\ReportController;
+use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\SubscriptionPlanController;
 use App\Http\Controllers\Api\V1\TemplateAssetController;
 use App\Http\Controllers\Api\V1\TemplateController;
@@ -140,6 +142,27 @@ Route::prefix('v1')->group(function () {
                 ->middleware('permission:users.delete');
 
         });
+
+        /*
+        |--------------------------------------------------------------------------
+        | Roles & Permissions
+        |--------------------------------------------------------------------------
+        */
+        Route::prefix('roles')->group(function () {
+
+            Route::get('/', [RoleController::class, 'index'])
+                ->middleware('permission:roles.view');
+
+            Route::get('/{role}', [RoleController::class, 'show'])
+                ->middleware('permission:roles.view');
+
+            Route::put('/{role}/permissions', [RoleController::class, 'syncPermissions'])
+                ->middleware('permission:roles.update');
+
+        });
+
+        Route::get('/permissions', [PermissionController::class, 'index'])
+            ->middleware('permission:permissions.view');
 
         Route::prefix('partners')->group(function () {
 

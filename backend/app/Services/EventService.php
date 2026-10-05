@@ -281,6 +281,7 @@ class EventService
     {
         if ($gifTemplateId === null) {
             $event->update(['gif_template_snapshot_id' => null]);
+
             return;
         }
 
@@ -343,7 +344,7 @@ class EventService
         return [
             'partner',
             'booth',
-            'creator',
+            'creator.role.permissions',
             'templateSnapshot',
             'filterSnapshot',
             'cameraSnapshot',

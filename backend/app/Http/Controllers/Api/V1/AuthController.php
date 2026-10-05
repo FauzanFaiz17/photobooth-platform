@@ -49,7 +49,7 @@ class AuthController extends Controller
 
         return ApiResponse::success(
             new UserResource($request->user()->load([
-                'role',
+                'role.permissions',
                 'partner',
             ])),
             'Profile loaded.'

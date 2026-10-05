@@ -14,7 +14,7 @@ class AuthService
         $device = null;
 
         $user = User::with([
-            'role',
+            'role.permissions',
             'partner',
         ])
             ->where('email', $data['email'])

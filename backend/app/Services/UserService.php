@@ -16,7 +16,7 @@ class UserService
     public function index(array $filters, User $authUser)
     {
         $query = User::query()
-            ->with(['role', 'partner']);
+            ->with(['role.permissions', 'partner']);
 
         if (! $authUser->isSuperAdmin()) {
             $query->where('partner_id', $authUser->partner_id);
@@ -57,7 +57,7 @@ class UserService
     public function show(User $user): User
     {
         return $user->load([
-            'role',
+            'role.permissions',
             'partner',
         ]);
     }
@@ -123,7 +123,7 @@ class UserService
             $user = User::create($data);
 
             return $user->load([
-                'role',
+                'role.permissions',
                 'partner',
             ]);
         });
@@ -165,7 +165,7 @@ class UserService
             $target->update($data);
 
             return $target->load([
-                'role',
+                'role.permissions',
                 'partner',
             ]);
         });
