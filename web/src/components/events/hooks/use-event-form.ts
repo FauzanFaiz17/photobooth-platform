@@ -22,11 +22,11 @@ import {
   initialForm,
   mapValidationErrors,
   newPrintOption,
-  parseId,
   validate,
   validatePrintOptions,
 } from "../utils";
 import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
+import { parseId } from "@/lib/utils";
 
 export function useEventForm(eventIdParam: string | undefined) {
   const navigate = useNavigate();
@@ -179,7 +179,10 @@ export function useEventForm(eventIdParam: string | undefined) {
   }
 
   function addPrintOption() {
-    updateField("print_options", [...form.print_options, newPrintOption()]);
+    updateField("print_options", [
+      ...form.print_options,
+      newPrintOption(form.print_options),
+    ]);
   }
 
   function updatePrintOption(

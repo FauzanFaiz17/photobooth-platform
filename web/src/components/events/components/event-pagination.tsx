@@ -13,7 +13,7 @@ export function EventPagination({
   readonly label?: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 pt-4 sm:px-6">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-4 sm:px-6">
       <p className="text-sm text-muted-foreground">
         {meta.from ?? 0}–{meta.to ?? 0} dari {meta.total} {label}
       </p>

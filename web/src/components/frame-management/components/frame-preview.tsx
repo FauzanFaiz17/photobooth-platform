@@ -3,6 +3,7 @@ import { PREVIEW_HEIGHT } from "@/constants";
 import { shotColor } from "@/features/templates/shot-colors";
 import type { FrameLayoutInfo, TemplateRecord } from "@/features/templates/template.types";
 import { resolveStorageUrl } from "@/lib/api-client";
+import { CHECKERBOARD } from "@/lib/utils";
 import { Frame } from "lucide-react";
 import { useState, type ReactElement } from "react";
 
@@ -32,12 +33,7 @@ export default function FramePreview({
   return (
     <div
       className="flex items-center justify-center border-b bg-muted/40 p-3"
-      style={{
-        minHeight: PREVIEW_HEIGHT + 24,
-        backgroundImage:
-          "repeating-conic-gradient(rgba(0,0,0,0.06) 0% 25%, transparent 0% 50%)",
-        backgroundSize: "16px 16px",
-      }}
+      style={CHECKERBOARD}
     >
       <div
         className="relative overflow-hidden rounded-sm bg-white shadow-md ring-1 ring-black/10"

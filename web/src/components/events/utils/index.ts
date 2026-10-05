@@ -1,29 +1,17 @@
 import type { EventFormErrors, EventFormState, EventRecord, PrintOptionErrors, PrintOptionField, PrintOptionForm } from "@/features/events/event.types";
 import type { ApiError } from "@/lib/api-client";
 
-export function parseId(value: string | undefined): number | null {
-  const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : null;
+function nextPrintOptionId(
+  options: ReadonlyArray<PrintOptionForm>,
+): number {
+  return options.reduce((max, option) => Math.max(max, option.id), 0) + 1;
 }
 
-export function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("id-ID", { dateStyle: "long" }).format(
-    new Date(`${value}T00:00:00`),
-  );
-}
-
-export function formatPrice(value: string | number): string {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(Number(value));
-}
-
-let nextPrintOptionId = 1
-export function newPrintOption(): PrintOptionForm {
+export function newPrintOption(
+  existing: ReadonlyArray<PrintOptionForm> = [],
+): PrintOptionForm {
   return {
-    id: nextPrintOptionId++,
+    id: nextPrintOptionId(existing),
     paper_size: "2r",
     unit_quantity: "1",
     quantity_step: "1",
@@ -63,8 +51,8 @@ export function initialForm(event: EventRecord | null): EventFormState {
     video_enabled: event?.video_enabled ?? true,
     gif_enabled: event?.gif_enabled ?? true,
     print_options: event
-      ? (event.configuration.print_options ?? []).map((option) => ({
-          id: nextPrintOptionId++,
+      ? (event.configuration.print_options ?? []).map((option, index) => ({
+          id: index + 1,
           paper_size: option.paper_size,
           unit_quantity: String(option.unit_quantity),
           quantity_step: String(option.quantity_step),

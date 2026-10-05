@@ -1,4 +1,4 @@
-import { ImageUp, LoaderCircle, Plus, Sparkles } from "lucide-react";
+import { ImageUp, LoaderCircle, Plus, QrCode, Sparkles } from "lucide-react";
 
 import samplePhoto from "@/assets/preview.webp";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import type {
   PhotoSlot,
   QrRect,
 } from "@/features/templates/template.types";
-import { cn } from "@/lib/utils";
+import { CHECKERBOARD, cn } from "@/lib/utils";
 import FrameCanvas from "./frame-canvas";
 
 export interface FrameCanvasAreaProps {
@@ -34,6 +34,7 @@ export interface FrameCanvasAreaProps {
   setOverlayBroken: (broken: boolean) => void;
   detectFromCurrent: () => void;
   addSlot: () => void;
+  addQr: () => void;
 }
 
 export function FrameCanvasArea({
@@ -58,6 +59,7 @@ export function FrameCanvasArea({
   setOverlayBroken,
   detectFromCurrent,
   addSlot,
+  addQr,
 }: FrameCanvasAreaProps) {
   const { width: canvasWidth, height: canvasHeight } = canvasSize;
 
@@ -65,7 +67,9 @@ export function FrameCanvasArea({
     <section className="flex min-h-0 flex-col overflow-hidden max-lg:h-[70vh]">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b bg-background px-3 py-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">{canvasSize.width}x{canvasSize.height}</Badge>
+          <Badge variant="secondary">
+            {canvasSize.width}x{canvasSize.height}
+          </Badge>
           <span className="text-xs text-muted-foreground">
             {canvasSize.width} x {canvasSize.height} px · {slots.length} slot
             foto
@@ -76,6 +80,9 @@ export function FrameCanvasArea({
         </div>
         {mode === "edit" && (
           <div className="flex items-center gap-2">
+            <Button type="button" size="sm" onClick={addQr}>
+              <QrCode aria-hidden="true" /> Tambah QR
+            </Button>
             <Button
               type="button"
               size="sm"
@@ -107,7 +114,10 @@ export function FrameCanvasArea({
           </div>
         )}
       </div>
-      <div className="min-h-0 flex-1 overflow-auto bg-zinc-100 p-6 dark:bg-zinc-950">
+      <div
+        className="min-h-0 flex-1 overflow-auto p-6"
+        style={CHECKERBOARD}
+      >
         <div
           ref={canvasAreaRef}
           className="grid min-h-full w-full place-items-center"
@@ -116,9 +126,7 @@ export function FrameCanvasArea({
             <div
               className={cn(
                 "relative overflow-hidden rounded-sm border-8 shadow-2xl ring-1 ring-black/10",
-                canvasDark
-                  ? "bg-black border-black"
-                  : "bg-white border-white",
+                canvasDark ? "bg-black border-black" : "bg-white border-white",
               )}
             >
               <FrameCanvas

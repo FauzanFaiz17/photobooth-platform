@@ -1,8 +1,4 @@
-import {
-  CircleAlert,
-  Images,
-  RefreshCw,
-} from "lucide-react";
+import { CircleAlert, Images, RefreshCw } from "lucide-react";
 import type { ReactElement } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -28,9 +24,7 @@ import { useGalleryList } from "./hooks/use-gallery-list";
 import { EmptyState } from "./components/empty-state";
 import { PartnerGrid } from "./components/partner-grid";
 import { EventGrid } from "./components/event-grid";
-import { Pagination } from "./components/pagination";
-
-
+import { EventPagination } from "../events/components/event-pagination";
 
 export function GalleryListPage(): ReactElement {
   const {
@@ -48,7 +42,7 @@ export function GalleryListPage(): ReactElement {
     updateParams,
     openPartner,
     openEvent,
-    resetFilters,
+    reset,
     refresh,
   } = useGalleryList();
 
@@ -66,7 +60,7 @@ export function GalleryListPage(): ReactElement {
         }
       />
 
-      <Card>
+      <Card className="bg-card border border-border shadow-[0px_4px_0_var(--border)]">
         <CardHeader className="gap-4 border-b">
           <div>
             <CardTitle>
@@ -105,13 +99,16 @@ export function GalleryListPage(): ReactElement {
                   ))}
                 </SelectContent>
               </Select>
-              <Button
-                variant="ghost"
-                disabled={!filtered}
-                onClick={resetFilters}
-              >
-                Reset
-              </Button>
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  disabled={!filtered}
+                  onClick={reset}
+                  className={`px-6 bg-background border border-border shadow-[0_4px_0_var(--border)] hover:bg-background transition duration-300 hover:shadow-none hover:translate-y-1`}
+                >
+                  Reset
+                </Button>
+              </div>
             </div>
           )}
         </CardHeader>
@@ -162,13 +159,10 @@ export function GalleryListPage(): ReactElement {
                     ))}
                   </div>
                   {response && (
-                    <Pagination
+                    <EventPagination
                       meta={response.meta}
-                      onPageChange={(nextPage) =>
-                        updateParams({
-                          page: nextPage === 1 ? null : String(nextPage),
-                        })
-                      }
+                      onUpdateQuery={updateParams}
+                      label="Gallery"
                     />
                   )}
                 </>

@@ -24,13 +24,17 @@ extraResources:
   - from: cameraAPI/EdsImage.dll
     to: bin/EdsImage.dll
 win:
-  executableName: Kolasebooth
+  executableName: electron-app
 nsis:
   artifactName: Kolasebooth-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.photography
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
@@ -45,11 +49,8 @@ linux:
     - AppImage
     - snap
     - deb
-  maintainer: electronjs.org
+  maintainer: rizelabs.my.id
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: generic
-  url: https://example.com/auto-updates

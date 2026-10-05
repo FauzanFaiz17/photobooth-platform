@@ -64,7 +64,7 @@ const SectionHeader = ({
 
           {showAction && (
             <Button
-              className={`bg-background text-primary border-border shadow-[0_4px_0_var(--border)] transform hover:translate-y-2 hover:shadow-none hover:bg-background transition duration-100`}
+              className={`bg-background text-primary border-border shadow-[0_4px_0_var(--border)] transform hover:translate-y-2 hover:shadow-none hover:bg-background transition duration-300`}
               disabled={actionDisabled}
               onClick={onAction}
             >

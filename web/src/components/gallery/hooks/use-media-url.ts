@@ -63,3 +63,48 @@ export function useMediaUrls(
 
   return { urls, loading, failed };
 }
+
+/**
+ * URL objek untuk satu media (mis. cover kartu). Aturannya sama: berkas hanya
+ * diambil ketika hook ini dipakai, lalu object URL-nya di-revoke saat berubah/unmount.
+ */
+export function useMediaUrl(
+  token: string | null,
+  mediaId: number | null,
+): { url: string | null; failed: boolean } {
+  const [loaded, setLoaded] = useState<{ id: number; url: string } | null>(null);
+  const [failedId, setFailedId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!token || mediaId === null) return;
+
+    const controller = new AbortController();
+    let created: string | null = null;
+
+    fetchGalleryMediaUrl(token, mediaId, controller.signal)
+      .then((next) => {
+        if (controller.signal.aborted) {
+          URL.revokeObjectURL(next);
+          return;
+        }
+        created = next;
+        setLoaded({ id: mediaId, url: next });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setFailedId(mediaId);
+      });
+
+    return () => {
+      controller.abort();
+      if (created) URL.revokeObjectURL(created);
+    };
+  }, [mediaId, token]);
+
+  // URL hanya dipakai bila cocok dengan media yang sedang diminta, sehingga tidak
+  // perlu reset state sinkron di dalam effect saat media berubah.
+  const url = loaded && loaded.id === mediaId ? loaded.url : null;
+  const failed =
+    mediaId !== null && failedId === mediaId && url === null;
+
+  return { url, failed };
+}

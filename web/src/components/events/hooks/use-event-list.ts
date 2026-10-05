@@ -1,115 +1,57 @@
 import { getBooths } from "@/features/booths/booth-service";
 import type { BoothRecord } from "@/features/booths/booth.types";
 import { getEvents } from "@/features/events/event-service";
-import type { EventListResponse } from "@/features/events/event.types";
-import { ApiError } from "@/lib/api-client";
-import { useEffect, useState, type FormEvent } from "react";
-import { isEventStatus } from "@/features/events/event.types";
-import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
+import {
+  isEventStatus,
+  type EventListResponse,
+} from "@/features/events/event.types";
 import { useApiErrorHandler } from "@/hooks/use-api-error-handler";
-
-function parsePositiveInteger(value: string | null, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-}
+import { usePaginatedList } from "@/hooks/use-paginated-list";
+import { useUpdateSearchParams } from "@/hooks/use-update-search-params";
+import { positiveInteger } from "@/lib/utils";
 
 export function useEventList() {
-  const { params, setParams, updateParams } = useUpdateSearchParams();
-  const { token, handleApiError } = useApiErrorHandler();
+  const { params, updateParams, reset, submitSearch } = useUpdateSearchParams();
+  const { token } = useApiErrorHandler();
 
   const querySearch = params.get("search") ?? "";
   const statusParam = params.get("status");
   const status = isEventStatus(statusParam) ? statusParam : "all";
-  const boothId = parsePositiveInteger(params.get("booth_id"), 0);
+  const boothId = positiveInteger(params.get("booth_id"), 0);
   const dateFrom = params.get("date_from") ?? "";
   const dateTo = params.get("date_to") ?? "";
-  const page = parsePositiveInteger(params.get("page"), 1);
+  const page = positiveInteger(params.get("page"), 1);
 
-  const [response, setResponse] = useState<EventListResponse | null>(null);
-  const [booths, setBooths] = useState<ReadonlyArray<BoothRecord>>([]);
-  const [loadState, setLoadState] = useState<"loading" | "success" | "error">(
-    "loading",
-  );
-  const [errorMessage, setErrorMessage] = useState("");
-  const [retryKey, setRetryKey] = useState(0);
-
-  useEffect(() => {
-    if (!token) return;
-    const accessToken = token;
-    const controller = new AbortController();
-
-    async function loadEvents() {
-      setLoadState("loading");
-      setErrorMessage("");
-      try {
-        const [eventsResult, boothsResult] = await Promise.all([
-          getEvents(
-            accessToken,
-            {
-              search: querySearch || undefined,
-              status: status === "all" ? undefined : status,
-              booth_id: boothId || undefined,
-              date_from: dateFrom || undefined,
-              date_to: dateTo || undefined,
-              sort: "event_date",
-              direction: "desc",
-              per_page: 10,
-              page,
-            },
-            controller.signal,
-          ),
-          getBooths(accessToken, { per_page: 100 }, controller.signal),
-        ]);
-        if (controller.signal.aborted) return;
-        if (page > Math.max(1, eventsResult.meta.last_page)) {
-          updateParams({
-            page:
-              eventsResult.meta.last_page > 1
-                ? String(eventsResult.meta.last_page)
-                : null,
-          });
-          return;
-        }
-        setResponse(eventsResult);
-        setBooths(boothsResult.data);
-        setLoadState("success");
-      } catch (error: unknown) {
-        if (controller.signal.aborted) return;
-        if (handleApiError(error)) return;
-        setResponse(null);
-        setErrorMessage(
-          error instanceof ApiError
-            ? error.message
-            : "Tidak dapat terhubung ke server.",
-        );
-        setLoadState("error");
-      }
-    }
-
-    void loadEvents();
-
-    return () => controller.abort();
-  }, [
-    boothId,
-    dateFrom,
-    dateTo,
-    handleApiError,
-    page,
-    querySearch,
-    retryKey,
-    status,
+  const { response, extra, state, error, retry, setRetry } = usePaginatedList<
+    EventListResponse,
+    ReadonlyArray<BoothRecord>
+  >({
     token,
-    updateParams,
-  ]);
-
-  function submitSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const value = new FormData(event.currentTarget).get("search");
-    updateParams({
-      search: typeof value === "string" ? value.trim() || null : null,
-      page: null,
-    });
-  }
+    page,
+    load: (accessToken, signal) =>
+      getEvents(
+        accessToken,
+        {
+          search: querySearch || undefined,
+          status: status === "all" ? undefined : status,
+          booth_id: boothId || undefined,
+          date_from: dateFrom || undefined,
+          date_to: dateTo || undefined,
+          sort: "event_date",
+          direction: "desc",
+          per_page: 10,
+          page,
+        },
+        signal,
+      ),
+    loadExtra: (accessToken, signal) =>
+      getBooths(accessToken, { per_page: 100 }, signal).then(
+        (result) => result.data,
+      ),
+    onClampPage: (lastPage) =>
+      updateParams({ page: lastPage > 1 ? String(lastPage) : null }),
+    dependencies: [updateParams, querySearch, status, boothId, dateFrom, dateTo],
+  });
 
   const filtered = Boolean(
     querySearch || status !== "all" || boothId || dateFrom || dateTo,
@@ -117,10 +59,10 @@ export function useEventList() {
 
   return {
     response,
-    booths,
-    loadState,
-    errorMessage,
-    retryKey,
+    booths: extra ?? [],
+    loadState: state,
+    errorMessage: error,
+    retryKey: retry,
     filtered,
     querySearch,
     status,
@@ -130,7 +72,7 @@ export function useEventList() {
     page,
     updateParams,
     submitSearch,
-    setRetryKey,
-    setParams,
+    setRetryKey: setRetry,
+    reset,
   };
 }

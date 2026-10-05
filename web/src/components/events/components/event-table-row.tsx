@@ -3,20 +3,11 @@ import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { statusLabels } from "@/features/events/event.constants";
+import { eventStatusVariant, statusLabels } from "@/features/events/event.constants";
 import type { EventRecord } from "@/features/events/event.types";
+import { formatDateOnly } from "@/lib/utils";
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(
-    new Date(`${value}T00:00:00`),
-  );
-}
-
-export function EventTableRow({
-  event,
-}: {
-  readonly event: EventRecord;
-}) {
+export function EventTableRow({ event }: { readonly event: EventRecord }) {
   return (
     <tr className="border-b transition-colors hover:bg-muted/50">
       <td className="p-4 align-middle">
@@ -26,7 +17,7 @@ export function EventTableRow({
         </div>
       </td>
       <td className="p-4 align-middle">
-        <div>{formatDate(event.event_date)}</div>
+        <div>{formatDateOnly(event.event_date)}</div>
         <div className="text-xs text-muted-foreground">
           {event.start_time.slice(0, 5)}–{event.end_time.slice(0, 5)}
         </div>
@@ -38,15 +29,7 @@ export function EventTableRow({
         </div>
       </td>
       <td className="p-4 align-middle">
-        <Badge
-          variant={
-            event.status === "cancelled"
-              ? "destructive"
-              : event.status === "completed"
-                ? "secondary"
-                : "default"
-          }
-        >
+        <Badge variant={eventStatusVariant(event.status)}>
           {statusLabels[event.status]}
         </Badge>
       </td>

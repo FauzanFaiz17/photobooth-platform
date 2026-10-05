@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 
 export function useUpdateSearchParams() {
@@ -20,10 +20,20 @@ export function useUpdateSearchParams() {
     },
     [setParams],
   );
-  
+
   const reset = useCallback(
     () => setParams(new URLSearchParams(), { replace: true }),
     [setParams],
   );
-  return { params, setParams, updateParams, reset}
+
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const value = new FormData(event.currentTarget).get("search");
+    updateParams({
+      search: typeof value === "string" ? value.trim() || null : null,
+      page: null,
+    });
+  }
+
+  return { params, setParams, updateParams, reset, submitSearch };
 }

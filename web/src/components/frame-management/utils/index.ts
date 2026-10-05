@@ -192,10 +192,6 @@ export function determineLayout(
 }
 
 
-export function parsePositiveInteger(value: string | null, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-}
 
 export function isStatus(value: string | null): value is TemplateStatus {
   return TEMPLATE_STATUSES.some((status) => status === value);

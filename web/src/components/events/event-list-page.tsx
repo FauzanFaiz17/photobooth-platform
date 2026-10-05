@@ -41,7 +41,7 @@ export function EventListPage() {
     updateParams,
     submitSearch,
     setRetryKey,
-    setParams,
+    reset,
   } = useEventList();
 
   return (
@@ -75,9 +75,7 @@ export function EventListPage() {
             booths={booths}
             onSubmitSearch={submitSearch}
             onUpdateQuery={updateParams}
-            onReset={() =>
-              setParams(new URLSearchParams(), { replace: true })
-            }
+            onReset={reset}
           />
         </CardHeader>
 

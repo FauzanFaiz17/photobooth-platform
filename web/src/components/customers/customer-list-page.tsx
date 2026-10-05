@@ -49,10 +49,9 @@ export function CustomerListPage(): ReactElement {
 
   return (
     <div className="min-w-0 space-y-6 p-4 sm:p-6 lg:p-8">
-      <SectionHeader 
-      heading="Customers"
-      description=" Data Customer yang dicatat melalui aplikasi desktop. Halaman ini hanya
-          dapat dibaca."
+      <SectionHeader
+        heading="Customers"
+        description=" Data Customer yang dicatat melalui aplikasi desktop. Halaman ini hanya dapat dibaca."
       />
 
       {state === "loading" && <Skeleton className="h-128" />}

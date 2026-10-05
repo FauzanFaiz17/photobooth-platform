@@ -1,12 +1,6 @@
 import type { GalleryRecord } from "@/features/galleries/gallery.types";
 import { useState, type ReactElement } from "react";
-import {
-  expiryState,
-  formatDate,
-  galleryPath,
-  galleryToken,
-  mediaSummary,
-} from "../utils";
+import { expiryState, galleryPath, galleryToken, mediaSummary } from "../utils";
 import { toast } from "sonner";
 import {
   Card,
@@ -21,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Copy, ExternalLink, Images } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GalleryDetailDialog } from "../gallery-detail-dialog";
+import { date } from "@/lib/utils";
 
 export function GalleryCard({
   gallery,
@@ -71,7 +66,7 @@ export function GalleryCard({
           <div>
             <dt className="text-xs text-muted-foreground">Selesai</dt>
             <dd className="mt-1 font-medium text-xs">
-              {formatDate(gallery.completed_at)}
+              {date(gallery.completed_at)}
             </dd>
           </div>
           <div className="col-span-2">
@@ -93,7 +88,7 @@ export function GalleryCard({
           </div>
         </dl>
       </CardContent>
-      <CardFooter className="flex-wrap justify-end gap-2">
+      <CardFooter className="grid grid-cols-1 md:grid-cols-2 gap-2">
         <Button
           size="sm"
           variant="outline"
@@ -110,20 +105,17 @@ export function GalleryCard({
         >
           <Images aria-hidden="true" /> Lihat media
         </Button>
-        <a>
-          <Button size="sm" disabled={!path}>
-            {path && (
-              <a
-                href={path}
-                target="_blank"
-                className="flex py-2"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink aria-hidden="true" /> Buka Gallery
-              </a>
-            )}
-          </Button>
-        </a>
+        <Button
+          size="sm"
+          disabled={!path}
+          render={
+            path ? (
+              <a href={path} target="_blank" rel="noopener noreferrer" />
+            ) : undefined
+          }
+        >
+          <ExternalLink aria-hidden="true" /> Buka Gallery
+        </Button>
       </CardFooter>
 
       {detailOpen && (
