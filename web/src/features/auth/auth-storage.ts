@@ -8,7 +8,16 @@ export function readAuthSession(): AuthSession | null {
     if (!storedValue) return null
 
     const parsedValue: unknown = JSON.parse(storedValue)
-    if (isAuthSession(parsedValue)) return parsedValue
+    if (isAuthSession(parsedValue)) {
+      // Sesi lama mungkin belum punya permissions; samakan bentuknya.
+      return {
+        ...parsedValue,
+        user: {
+          ...parsedValue.user,
+          permissions: parsedValue.user.permissions ?? [],
+        },
+      }
+    }
 
     window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY)
     return null

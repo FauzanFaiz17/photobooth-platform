@@ -39,6 +39,7 @@ export interface UserRecord {
   last_login_at: string | null
   created_at: string
   role: UserRole
+  permissions: ReadonlyArray<string>
   partner: UserPartner | null
 }
 
@@ -125,6 +126,13 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string"
 }
 
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => typeof item === "string")
+  )
+}
+
 export function isUserStatus(value: unknown): value is UserStatus {
   return (
     value === "active" ||
@@ -182,6 +190,7 @@ export function isUserRecord(value: unknown): value is UserRecord {
     isNullableString(value.last_login_at) &&
     typeof value.created_at === "string" &&
     isUserRole(value.role) &&
+    (value.permissions === undefined || isStringArray(value.permissions)) &&
     isUserPartner(value.partner)
   )
 }
