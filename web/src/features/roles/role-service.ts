@@ -8,6 +8,10 @@ import {
   type RoleRecord,
 } from "./role.types"
 
+function normalizeRole(role: RoleRecord): RoleRecord {
+  return { ...role, is_system: Boolean(role.is_system) }
+}
+
 export async function getRoles(
   token: string,
   signal?: AbortSignal
@@ -21,7 +25,7 @@ export async function getRoles(
     )
   }
 
-  return payload.data
+  return payload.data.map(normalizeRole)
 }
 
 export async function getRole(
@@ -42,7 +46,7 @@ export async function getRole(
     )
   }
 
-  return payload.data
+  return normalizeRole(payload.data)
 }
 
 export async function getPermissions(
@@ -82,5 +86,5 @@ export async function syncRolePermissions(
     )
   }
 
-  return payload.data
+  return normalizeRole(payload.data)
 }

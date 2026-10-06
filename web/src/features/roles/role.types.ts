@@ -64,6 +64,15 @@ function isStringArray(value: unknown): value is string[] {
   )
 }
 
+
+function isBooleanLike(value: unknown): boolean {
+  return (
+    typeof value === "boolean" ||
+    value === 0 ||
+    value === 1
+  )
+}
+
 function isSuccessEnvelope(value: unknown): value is Record<string, unknown> {
   return (
     isRecord(value) &&
@@ -81,7 +90,7 @@ export function isRoleRecord(value: unknown): value is RoleRecord {
     typeof value.slug === "string" &&
     isNumber(value.level) &&
     isNullableString(value.description) &&
-    typeof value.is_system === "boolean" &&
+    isBooleanLike(value.is_system) &&
     isNumber(value.users_count) &&
     isNumberArray(value.permission_ids) &&
     isStringArray(value.permission_slugs)
