@@ -1,4 +1,5 @@
 import { ImageUp, LoaderCircle, Plus, QrCode, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import samplePhoto from "@/assets/preview.webp";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +63,27 @@ export function FrameCanvasArea({
   addQr,
 }: FrameCanvasAreaProps) {
   const { width: canvasWidth, height: canvasHeight } = canvasSize;
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
+  const previewPhotoInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewPhotoUrl) URL.revokeObjectURL(previewPhotoUrl);
+    };
+  }, [previewPhotoUrl]);
+
+  function handlePreviewPhotoChange(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setPreviewPhotoUrl(URL.createObjectURL(file));
+  }
+
+  function resetPreviewPhoto() {
+    setPreviewPhotoUrl(null);
+  }
 
   return (
     <section className="flex min-h-0 flex-col overflow-hidden max-lg:h-[70vh]">
@@ -111,6 +133,35 @@ export function FrameCanvasArea({
             >
               <Plus aria-hidden="true" /> Tambah Foto
             </Button>
+          </div>
+        )}
+        {mode === "preview" && (
+          <div className="flex items-center gap-2">
+            <input
+              ref={previewPhotoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePreviewPhotoChange}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => previewPhotoInputRef.current?.click()}
+            >
+              <ImageUp aria-hidden="true" /> Upload foto
+            </Button>
+            {previewPhotoUrl && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={resetPreviewPhoto}
+              >
+                Reset
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -196,7 +247,7 @@ export function FrameCanvasArea({
                     }}
                   >
                     <img
-                      src={samplePhoto}
+                      src={previewPhotoUrl ?? samplePhoto}
                       alt={`Contoh foto ${index + 1}`}
                       className="size-full object-cover"
                       style={{
