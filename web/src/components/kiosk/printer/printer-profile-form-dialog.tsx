@@ -105,14 +105,16 @@ function mapValidationErrors(error: ApiError): PrinterFormErrors {
 export function PrinterProfileFormDialog({
   partnerId,
   profile,
+  template = null,
   open,
   onOpenChange,
   onSaved,
   onUnauthorized,
   onForbidden,
 }: {
-  readonly partnerId: number
+  readonly partnerId: number | null
   readonly profile: PrinterProfileRecord | null
+  readonly template?: PrinterProfileRecord | null
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
   readonly onSaved: (profile: PrinterProfileRecord, isNew: boolean) => void
@@ -120,7 +122,9 @@ export function PrinterProfileFormDialog({
   readonly onForbidden: () => void
 }) {
   const { token } = useAuth()
-  const [form, setForm] = useState<PrinterFormState>(() => initialForm(profile))
+  const [form, setForm] = useState<PrinterFormState>(() =>
+    initialForm(profile ?? template)
+  )
   const [errors, setErrors] = useState<PrinterFormErrors>({})
   const [formError, setFormError] = useState("")
   const [pending, setPending] = useState(false)
@@ -206,10 +210,16 @@ export function PrinterProfileFormDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {profile ? "Edit printer profile" : "Tambah printer profile"}
+            {profile
+              ? "Edit printer profile"
+              : template
+                ? "Duplikat printer profile"
+                : "Tambah printer profile"}
           </DialogTitle>
           <DialogDescription>
-            Profile ini tersedia untuk seluruh Booth milik Partner yang sama.
+            {partnerId === null
+              ? "Profile Global tersedia sebagai referensi untuk semua Partner."
+              : "Profile ini tersedia untuk seluruh Booth milik Partner yang sama."}
           </DialogDescription>
         </DialogHeader>
 
@@ -260,7 +270,7 @@ export function PrinterProfileFormDialog({
 
           <DialogFooter>
             <Button type="button" variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>Batal</Button>
-            <Button type="submit" disabled={pending}>{pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}{profile ? "Simpan perubahan" : "Tambah profile"}</Button>
+            <Button type="submit" disabled={pending}>{pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}{profile ? "Simpan perubahan" : template ? "Duplikat profile" : "Tambah profile"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

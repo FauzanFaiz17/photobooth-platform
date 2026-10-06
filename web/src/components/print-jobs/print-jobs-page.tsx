@@ -21,6 +21,7 @@ import { PrintJobsStats } from "./components/print-jobs-stats";
 import { PrintJobsFilters } from "./components/print-jobs-filters";
 import { PrintJobsTable } from "./components/print-jobs-table";
 import { PrintJobsPagination } from "./components/print-jobs-pagination";
+import { GlobalPrinterProfilesSection } from "./components/global-printer-profiles-section";
 import { usePrintJobs } from "./hooks/use-print-jobs";
 
 export function PrintJobsPage(): ReactElement {
@@ -153,6 +154,8 @@ export function PrintJobsPage(): ReactElement {
           </Card>
         </>
       )}
+
+      <GlobalPrinterProfilesSection />
 
       {detail && (
         <PrintDetailDialog

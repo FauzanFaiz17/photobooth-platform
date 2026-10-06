@@ -1,24 +1,25 @@
 import {
   CircleAlert,
-  Pencil,
+  Copy,
   Plus,
   Printer,
   RefreshCw,
-  Trash2,
 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/features/auth/auth-context"
 import type { BoothRecord } from "@/features/booths/booth.types"
@@ -26,68 +27,16 @@ import { getPrinterProfiles } from "@/features/printer-profiles/printer-profile-
 import type { PrinterProfileRecord } from "@/features/printer-profiles/printer-profile.types"
 import { ApiError } from "@/lib/api-client"
 
+import { PhysicalPrinterSection } from "./physical-printer-section"
+import { PrinterProfileCard } from "./printer-profile-card"
 import { PrinterProfileDeleteDialog } from "./printer-profile-delete-dialog"
 import { PrinterProfileFormDialog } from "./printer-profile-form-dialog"
-import { PhysicalPrinterSection } from "./physical-printer-section"
 
 type LoadState = "loading" | "success" | "error"
 
 interface FormState {
   readonly profile: PrinterProfileRecord | null
-}
-
-function PrinterProfileCard({
-  profile,
-  onEdit,
-  onDelete,
-}: {
-  readonly profile: PrinterProfileRecord
-  readonly onEdit?: () => void
-  readonly onDelete?: () => void
-}) {
-  return (
-    <Card>
-      <CardHeader className="border-b">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="truncate">{profile.printer_name}</CardTitle>
-            <CardDescription className="mt-1">
-              Versi {profile.version}
-            </CardDescription>
-          </div>
-          <div className="flex flex-wrap justify-end gap-1">
-            {profile.is_global && <Badge variant="outline">Global</Badge>}
-            <Badge variant={profile.is_active ? "default" : "secondary"}>
-              {profile.is_active ? "Aktif" : "Nonaktif"}
-            </Badge>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-          <div><dt className="text-xs text-muted-foreground">Salinan</dt><dd className="mt-1 font-medium">{profile.copies}</dd></div>
-          <div><dt className="text-xs text-muted-foreground">Ukuran kertas</dt><dd className="mt-1 font-medium">{profile.paper_size}</dd></div>
-          <div><dt className="text-xs text-muted-foreground">Orientasi</dt><dd className="mt-1 font-medium capitalize">{profile.orientation}</dd></div>
-          <div><dt className="text-xs text-muted-foreground">Auto print</dt><dd className="mt-1 font-medium">{profile.auto_print ? "Aktif" : "Nonaktif"}</dd></div>
-          <div><dt className="text-xs text-muted-foreground">Border</dt><dd className="mt-1 font-medium">{profile.border ? "Aktif" : "Nonaktif"}</dd></div>
-          <div><dt className="text-xs text-muted-foreground">Bleed</dt><dd className="mt-1 font-medium">{profile.bleed}</dd></div>
-          <div><dt className="text-xs text-muted-foreground">Delay</dt><dd className="mt-1 font-medium">{profile.delay_ms} ms</dd></div>
-        </dl>
-      </CardContent>
-
-      {!profile.is_global && onEdit && onDelete && (
-        <CardFooter className="justify-end gap-2">
-          <Button size="sm" variant="outline" onClick={onEdit}>
-            <Pencil aria-hidden="true" /> Edit
-          </Button>
-          <Button size="sm" variant="destructive" onClick={onDelete}>
-            <Trash2 aria-hidden="true" /> Hapus
-          </Button>
-        </CardFooter>
-      )}
-    </Card>
-  )
+  readonly template: PrinterProfileRecord | null
 }
 
 export function PrinterProfileTab({
@@ -101,11 +50,13 @@ export function PrinterProfileTab({
 }) {
   const { token } = useAuth()
   const [profiles, setProfiles] = useState<ReadonlyArray<PrinterProfileRecord>>([])
+  const [globalProfiles, setGlobalProfiles] = useState<ReadonlyArray<PrinterProfileRecord>>([])
   const [loadState, setLoadState] = useState<LoadState>("loading")
   const [errorMessage, setErrorMessage] = useState("")
   const [retryKey, setRetryKey] = useState(0)
   const [formState, setFormState] = useState<FormState | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<PrinterProfileRecord | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const refresh = useCallback(() => setRetryKey((value) => value + 1), [])
 
@@ -119,7 +70,7 @@ export function PrinterProfileTab({
       setErrorMessage("")
 
       try {
-        const [partnerProfiles, globalProfiles] = await Promise.all([
+        const [partnerProfiles, globals] = await Promise.all([
           getPrinterProfiles(
             accessToken,
             { scope: "partner", partner_id: booth.partner.id, per_page: 100 },
@@ -133,7 +84,8 @@ export function PrinterProfileTab({
         ])
 
         if (controller.signal.aborted) return
-        setProfiles([...partnerProfiles.data, ...globalProfiles.data])
+        setProfiles(partnerProfiles.data)
+        setGlobalProfiles(globals.data)
         setLoadState("success")
       } catch (error: unknown) {
         if (controller.signal.aborted) return
@@ -146,6 +98,7 @@ export function PrinterProfileTab({
           return
         }
         setProfiles([])
+        setGlobalProfiles([])
         setErrorMessage(
           error instanceof ApiError
             ? error.message
@@ -168,13 +121,22 @@ export function PrinterProfileTab({
         <div>
           <h2 className="text-xl font-semibold">Printer profiles</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Profile Partner berlaku untuk seluruh Booth; profile Global hanya
-            ditampilkan sebagai referensi.
+            Profile Partner berlaku untuk seluruh Booth. Buat profile baru, atau
+            duplikat dari profile Global.
           </p>
         </div>
-        <Button onClick={() => setFormState({ profile: null })}>
-          <Plus aria-hidden="true" /> Tambah printer profile
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            disabled={globalProfiles.length === 0}
+            onClick={() => setPickerOpen(true)}
+          >
+            <Copy aria-hidden="true" /> Duplikat dari Global
+          </Button>
+          <Button onClick={() => setFormState({ profile: null, template: null })}>
+            <Plus aria-hidden="true" /> Tambah printer profile
+          </Button>
+        </div>
       </div>
 
       {loadState === "loading" && (
@@ -188,7 +150,7 @@ export function PrinterProfileTab({
       )}
 
       {loadState === "success" && profiles.length === 0 && (
-        <Card><CardContent className="grid min-h-56 place-items-center text-center"><div><Printer className="mx-auto size-9 text-muted-foreground" /><p className="mt-3 font-medium">Belum ada printer profile</p><p className="mt-1 text-sm text-muted-foreground">Tambahkan konfigurasi printer pertama untuk Partner ini.</p></div></CardContent></Card>
+        <Card><CardContent className="grid min-h-56 place-items-center text-center"><div><Printer className="mx-auto size-9 text-muted-foreground" /><p className="mt-3 font-medium">Belum ada printer profile</p><p className="mt-1 text-sm text-muted-foreground">Tambahkan konfigurasi printer pertama untuk Partner ini, atau duplikat dari profile Global.</p></div></CardContent></Card>
       )}
 
       {loadState === "success" && profiles.length > 0 && (
@@ -197,8 +159,8 @@ export function PrinterProfileTab({
             <PrinterProfileCard
               key={profile.id}
               profile={profile}
-              onEdit={profile.is_global ? undefined : () => setFormState({ profile })}
-              onDelete={profile.is_global ? undefined : () => setDeleteTarget(profile)}
+              onEdit={() => setFormState({ profile, template: null })}
+              onDelete={() => setDeleteTarget(profile)}
             />
           ))}
         </div>
@@ -212,9 +174,10 @@ export function PrinterProfileTab({
 
       {formState && (
         <PrinterProfileFormDialog
-          key={formState.profile?.id ?? "new-printer-profile"}
+          key={formState.profile?.id ?? formState.template?.id ?? "new-printer-profile"}
           partnerId={booth.partner.id}
           profile={formState.profile}
+          template={formState.template}
           open
           onOpenChange={(open) => !open && setFormState(null)}
           onSaved={(profile, isNew) => {
@@ -241,6 +204,38 @@ export function PrinterProfileTab({
           onForbidden={onForbidden}
         />
       )}
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Pilih profile Global</DialogTitle>
+            <DialogDescription>
+              Profile Global akan diduplikat menjadi profile Partner baru.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid max-h-[60vh] gap-2 overflow-y-auto">
+            {globalProfiles.map((global) => (
+              <button
+                key={global.id}
+                type="button"
+                className="flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted"
+                onClick={() => {
+                  setPickerOpen(false)
+                  setFormState({ profile: null, template: global })
+                }}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{global.printer_name}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {global.paper_size} · {global.orientation} · {global.copies} salinan
+                  </span>
+                </span>
+                <Copy className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
       </div>
     </div>
   )

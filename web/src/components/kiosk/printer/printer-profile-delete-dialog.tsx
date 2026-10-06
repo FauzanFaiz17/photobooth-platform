@@ -70,7 +70,7 @@ export function PrinterProfileDeleteDialog({
         <AlertDialogHeader>
           <AlertDialogMedia className="bg-destructive/10 text-destructive"><TriangleAlert aria-hidden="true" /></AlertDialogMedia>
           <AlertDialogTitle>Hapus printer profile?</AlertDialogTitle>
-          <AlertDialogDescription>Profile {profile.printer_name} akan dihapus dari Partner ini.</AlertDialogDescription>
+          <AlertDialogDescription>{profile.is_global ? `Profile ${profile.printer_name} (Global) akan dihapus.` : `Profile ${profile.printer_name} akan dihapus dari Partner ini.`}</AlertDialogDescription>
         </AlertDialogHeader>
         {errorMessage && <p role="alert" className="text-sm text-destructive">{errorMessage}</p>}
         <AlertDialogFooter>
