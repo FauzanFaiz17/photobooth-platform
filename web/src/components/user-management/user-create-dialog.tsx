@@ -22,6 +22,8 @@ import {
 import { useAuth } from "@/features/auth/auth-context"
 import { getPartners } from "@/features/partners/partner-service"
 import type { PartnerRecord } from "@/features/partners/partner.types"
+import { getRoles } from "@/features/roles/role-service"
+import type { RoleRecord } from "@/features/roles/role.types"
 import {
   createUser,
   updateUser,
@@ -133,6 +135,7 @@ export function UserCreateDialog({
     status: user?.status ?? "active",
   })
   const [partners, setPartners] = useState<ReadonlyArray<PartnerRecord>>([])
+  const [roles, setRoles] = useState<ReadonlyArray<RoleRecord>>([])
   const [errors, setErrors] = useState<UserFormErrors>({})
   const [formError, setFormError] = useState("")
   const [pending, setPending] = useState(false)
@@ -158,6 +161,21 @@ export function UserCreateDialog({
           error instanceof ApiError
             ? error.message
             : "Daftar partner tidak dapat dimuat."
+        )
+      })
+
+    getRoles(token, controller.signal)
+      .then((response) => setRoles(response))
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return
+        if (error instanceof ApiError && error.status === 401) {
+          onUnauthorized()
+          return
+        }
+        setFormError(
+          error instanceof ApiError
+            ? error.message
+            : "Daftar role tidak dapat dimuat."
         )
       })
 
@@ -377,9 +395,11 @@ export function UserCreateDialog({
                 <SelectValue placeholder="Pilih role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">Super Admin</SelectItem>
-                <SelectItem value="2">Admin</SelectItem>
-                <SelectItem value="5">Operator</SelectItem>
+                {roles.map((role) => (
+                  <SelectItem key={role.id} value={String(role.id)}>
+                    {role.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             {errors.role_id && (
