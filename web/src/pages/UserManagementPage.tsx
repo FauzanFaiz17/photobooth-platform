@@ -1,6 +1,7 @@
 import { useSearchParams } from "react-router-dom"
 
 import { PartnerListPage } from "@/components/partner-management/partner-list-page"
+import { RoleListPage } from "@/components/role-management/role-list-page"
 import {
   Tabs,
   TabsContent,
@@ -9,7 +10,7 @@ import {
 } from "@/components/ui/tabs"
 import { UserListPage } from "@/components/user-management/user-list-page"
 
-const SETTINGS_TABS = ["users", "partners"] as const
+const SETTINGS_TABS = ["users", "partners", "roles"] as const
 
 type SettingsTab = (typeof SETTINGS_TABS)[number]
 
@@ -43,6 +44,7 @@ export default function UserManagementPage() {
         <TabsList>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="partners">Partners</TabsTrigger>
+          <TabsTrigger value="roles">Roles</TabsTrigger>
         </TabsList>
       </div>
 
@@ -52,6 +54,10 @@ export default function UserManagementPage() {
 
       <TabsContent value="partners">
         <PartnerListPage />
+      </TabsContent>
+
+      <TabsContent value="roles">
+        <RoleListPage />
       </TabsContent>
     </Tabs>
   )
