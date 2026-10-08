@@ -16,6 +16,7 @@ import {
   ReceiptText,
   Printer,
   ScrollText,
+  SlidersHorizontal,
   TicketPercent,
   UsersRound,
   type LucideIcon,
@@ -129,6 +130,12 @@ export const superAdminSettingsNavItems: AdminNavItem[] = [
     url: "/admin/settings/users",
     icon: UsersRound,
     permission: "users.view",
+  },
+  {
+    title: "Global Config",
+    url: "/admin/settings/global-config",
+    icon: SlidersHorizontal,
+    permission: "camera_profiles.view",
   },
 ];
 

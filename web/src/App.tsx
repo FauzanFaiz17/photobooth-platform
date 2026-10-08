@@ -38,6 +38,7 @@ const PartnerDetailPage = lazy(() => import("./pages/PartnerDetailPage"))
 const ProfilePage = lazy(() => import("./pages/ProfilePage"))
 const SubscriptionManagementPage = lazy(() => import("./pages/SubscriptionManagementPage"))
 const AuditLogPage = lazy(() => import("./pages/AuditLogPage"))
+const GlobalConfigPage = lazy(() => import("./pages/GlobalConfigPage"))
 const CustomersPage = lazy(() => import("./pages/CustomersPage"))
 const PublicGalleryPage = lazy(() => import("./pages/PublicGalleryPage"))
 
@@ -185,6 +186,14 @@ function App() {
               element={
                 <Suspense fallback={<OverviewPageFallback />}>
                   <UserManagementPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="settings/global-config"
+              element={
+                <Suspense fallback={<OverviewPageFallback />}>
+                  <GlobalConfigPage />
                 </Suspense>
               }
             />
