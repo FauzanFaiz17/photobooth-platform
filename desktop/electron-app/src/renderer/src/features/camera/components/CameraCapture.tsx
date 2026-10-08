@@ -17,7 +17,8 @@ import type { PhotoTemplate } from '@/features/template/types'
 import {
   DEFAULT_CAMERA_SETTINGS,
   getCameraSettings,
-  type CameraDeviceSettings
+  type CameraDeviceSettings,
+  type CameraExposureSettings
 } from '@/features/settings/deviceSettings'
 
 const CAMERA_API_URL = 'http://127.0.0.1:5000'
@@ -61,6 +62,48 @@ export default function CameraCapture({
   const cameraInitializedRef = useRef(false)
   const capturingRef = useRef(false)
 
+  // Nilai properti yang terakhir berhasil dikirim ke kamera, dipakai agar
+  // pergantian profil hanya mengirim property yang benar-benar berbeda.
+  const appliedExposureRef = useRef<Record<string, number>>({})
+
+  const applyExposure = useCallback(
+    async (exposure: CameraExposureSettings, source: 'canon' | 'webcam'): Promise<void> => {
+      if (source !== 'canon') return
+      const props: Array<[string, number | null]> = [
+        ['iso', exposure.iso?.value ?? null],
+        ['aperture', exposure.aperture?.value ?? null],
+        ['shutter', exposure.shutter?.value ?? null],
+        ['white_balance', exposure.whiteBalance?.value ?? null],
+        ['picture_style', exposure.pictureStyle?.value ?? null],
+        ['exposure', exposure.exposure?.value ?? null],
+        ['contrast', exposure.contrast?.value ?? null],
+        ['saturation', exposure.saturation?.value ?? null]
+      ]
+      const next = { ...appliedExposureRef.current }
+      for (const [property, value] of props) {
+        if (value === null || next[property] === value) continue
+        try {
+          const result = await window.api?.request('/set_property', 'POST', { property, value })
+          if (result && result.status === 'error') continue
+          next[property] = value
+        } catch {
+          // Toleransi: kegagalan switch profil tidak boleh memblokir capture.
+        }
+      }
+      appliedExposureRef.current = next
+    },
+    []
+  )
+
+  const applyProfile = useCallback(
+    (profile: 'video' | 'photo'): Promise<void> => {
+      const settings = cameraSettings
+      if (!settings) return Promise.resolve()
+      return applyExposure(profile === 'video' ? settings.video : settings.photo, settings.source)
+    },
+    [applyExposure, cameraSettings]
+  )
+
   useEffect(() => {
     if (cameraInitializedRef.current) return
 
@@ -96,23 +139,13 @@ export default function CameraCapture({
         }
 
         await window.api?.request('/toggle_webcam', 'POST', { use_webcam: false, device_index: 0 })
-        for (const [property, selected] of [
-          ['iso', settings.iso],
-          ['aperture', settings.aperture],
-          ['shutter', settings.shutter],
-          ['white_balance', settings.whiteBalance],
-          ['picture_style', settings.pictureStyle],
-          ['exposure', settings.exposure],
-          ['contrast', settings.contrast],
-          ['saturation', settings.saturation]
-        ] as const) {
-          if (selected)
-            await window.api?.request('/set_property', 'POST', { property, value: selected.value })
-        }
+        // Profil video yang aktif selama idle/countdown; profil foto baru
+        // diterapkan tepat sebelum shutter membuka.
+        await applyExposure(settings.video, 'canon')
       }
       await window.api?.request('/toggle_mirror', 'POST', { mirror: settings.mirror })
     })
-  }, [devices, selectDevice])
+  }, [applyExposure, devices, selectDevice])
 
   // ---- Rekaman video pendek per shot (webcam atau Canon MJPEG, tanpa audio) ----
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -273,6 +306,9 @@ export default function CameraCapture({
 
       try {
         if (settings.source === 'canon') {
+          // Lighting menyala tepat saat shot: beralih ke profil foto dulu
+          // supaya eksposur kamera cocok dengan kondisi terang.
+          await applyExposure(settings.photo, 'canon')
           // Ambil JPEG asli dari file yang ditulis cameraAPI di folder sesi,
           // lalu render sekali ke canvas hanya untuk preview/komposisi.
           const capture = await window.electron.camera.captureCanon({
@@ -383,10 +419,13 @@ export default function CameraCapture({
 
         return dataUrl
       } finally {
+        // Rekaman sudah berhenti (stopRecording dipanggil di jalur atas);
+        // kembali ke profil video supaya countdown berikutnya benar.
+        if (settings.source === 'canon') await applyExposure(settings.video, 'canon')
         capturingRef.current = false
       }
     },
-    [cameraSettings, template, videoRef, stopRecording]
+    [applyExposure, cameraSettings, template, videoRef, stopRecording]
   )
 
   const {
@@ -460,9 +499,10 @@ export default function CameraCapture({
     )
     if (stage === 'countdown' && countdown === countdownSeconds) {
       console.log(`[Recording] TRIGGER startRecording at countdown=${countdown}`)
+      void applyProfile('video')
       startRecording()
     }
-  }, [countdown, countdownSeconds, stage, startRecording])
+  }, [applyProfile, countdown, countdownSeconds, stage, startRecording])
 
   async function startFullscreenCapture(): Promise<void> {
     if (!document.fullscreenElement && stageRef.current) {

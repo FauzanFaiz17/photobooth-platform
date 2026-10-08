@@ -3,12 +3,7 @@ export const PRINTER_SETTINGS_KEY = 'desktop.printer-settings'
 export const APP_SETTINGS_KEY = 'desktop.app-settings'
 export const CAMERA_SETTINGS_KEY = 'desktop.camera-settings'
 
-export interface CameraDeviceSettings {
-  source: 'canon' | 'webcam'
-  deviceId: string | null
-  deviceLabel: string | null
-  orientation: 'portrait' | 'landscape'
-  mirror: boolean
+export interface CameraExposureSettings {
   iso: { value: number; name: string } | null
   aperture: { value: number; name: string } | null
   shutter: { value: number; name: string } | null
@@ -19,12 +14,42 @@ export interface CameraDeviceSettings {
   saturation: { value: number; name: string } | null
 }
 
-export const DEFAULT_CAMERA_SETTINGS: CameraDeviceSettings = {
-  source: 'webcam',
-  deviceId: null,
-  deviceLabel: null,
-  orientation: 'portrait',
-  mirror: true,
+export interface CameraDeviceSettings {
+  source: 'canon' | 'webcam'
+  deviceId: string | null
+  deviceLabel: string | null
+  orientation: 'portrait' | 'landscape'
+  mirror: boolean
+  /** Setingan eksposur yang dipakai saat countdown / rekaman video. */
+  video: CameraExposureSettings
+  /** Setingan eksposur yang dipakai saat shutter membuka (capture foto). */
+  photo: CameraExposureSettings
+}
+
+type StoredExposureField = { value: number; name: string } | null
+
+function parseExposureField(value: unknown): StoredExposureField {
+  if (!value || typeof value !== 'object') return null
+  const candidate = value as { value?: unknown; name?: unknown }
+  if (typeof candidate.value !== 'number') return null
+  return { value: candidate.value, name: typeof candidate.name === 'string' ? candidate.name : '' }
+}
+
+function parseExposure(source: unknown): CameraExposureSettings {
+  const candidate = (source && typeof source === 'object' ? source : {}) as Record<string, unknown>
+  return {
+    iso: parseExposureField(candidate.iso),
+    aperture: parseExposureField(candidate.aperture),
+    shutter: parseExposureField(candidate.shutter),
+    whiteBalance: parseExposureField(candidate.whiteBalance),
+    pictureStyle: parseExposureField(candidate.pictureStyle),
+    exposure: parseExposureField(candidate.exposure),
+    contrast: parseExposureField(candidate.contrast),
+    saturation: parseExposureField(candidate.saturation)
+  }
+}
+
+export const DEFAULT_EXPOSURE_SETTINGS: CameraExposureSettings = {
   iso: null,
   aperture: null,
   shutter: null,
@@ -35,10 +60,30 @@ export const DEFAULT_CAMERA_SETTINGS: CameraDeviceSettings = {
   saturation: null
 }
 
+export const DEFAULT_CAMERA_SETTINGS: CameraDeviceSettings = {
+  source: 'webcam',
+  deviceId: null,
+  deviceLabel: null,
+  orientation: 'portrait',
+  mirror: true,
+  video: { ...DEFAULT_EXPOSURE_SETTINGS },
+  photo: { ...DEFAULT_EXPOSURE_SETTINGS }
+}
+
 export async function getCameraSettings(): Promise<CameraDeviceSettings> {
   const stored = await window.storage.get(CAMERA_SETTINGS_KEY)
   if (!stored || typeof stored !== 'object') return DEFAULT_CAMERA_SETTINGS
-  const candidate = stored as Partial<CameraDeviceSettings>
+  const candidate = stored as Record<string, unknown>
+
+  // Storage lama menyimpan eksposur datar di root. Salin ke kedua profil.
+  const hasProfiles = Boolean(
+    (candidate.video && typeof candidate.video === 'object') ||
+    (candidate.photo && typeof candidate.photo === 'object')
+  )
+  const video = hasProfiles ? parseExposure(candidate.video) : parseExposure(candidate)
+  const photo = hasProfiles
+    ? parseExposure(candidate.photo ?? candidate.video)
+    : parseExposure(candidate)
 
   return {
     source: candidate.source === 'canon' ? 'canon' : 'webcam',
@@ -46,14 +91,8 @@ export async function getCameraSettings(): Promise<CameraDeviceSettings> {
     deviceLabel: typeof candidate.deviceLabel === 'string' ? candidate.deviceLabel : null,
     orientation: candidate.orientation === 'landscape' ? 'landscape' : 'portrait',
     mirror: typeof candidate.mirror === 'boolean' ? candidate.mirror : true,
-    iso: candidate.iso ?? null,
-    aperture: candidate.aperture ?? null,
-    shutter: candidate.shutter ?? null,
-    whiteBalance: candidate.whiteBalance ?? null,
-    pictureStyle: candidate.pictureStyle ?? null,
-    exposure: candidate.exposure ?? null,
-    contrast: candidate.contrast ?? null,
-    saturation: candidate.saturation ?? null
+    video,
+    photo
   }
 }
 
