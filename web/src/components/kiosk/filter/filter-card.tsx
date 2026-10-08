@@ -65,15 +65,6 @@ export function FilterCard({
             <dt className="text-xs text-muted-foreground">Intensity</dt>
             <dd className="mt-1 font-medium">{filter.intensity}%</dd>
           </div>
-          <div className="col-span-2">
-            <dt className="text-xs text-muted-foreground">LUT path</dt>
-            <dd
-              className="mt-1 truncate font-medium"
-              title={filter.lut_path ?? undefined}
-            >
-              {filter.lut_path || "—"}
-            </dd>
-          </div>
         </dl>
       </CardContent>
       {onEdit && onDelete && (

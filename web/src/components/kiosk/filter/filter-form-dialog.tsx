@@ -1,5 +1,5 @@
-import { LoaderCircle } from "lucide-react"
-import { useState, type FormEvent } from "react"
+import { ImageUp, LoaderCircle, Upload } from "lucide-react"
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react"
 
 import samplePhoto from "@/assets/preview.webp"
 import { Button } from "@/components/ui/button"
@@ -10,13 +10,17 @@ import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/features/auth/auth-context"
 import { filterPreviewStyle } from "@/features/filters/filter-preview"
+import {
+  estimateFilterPreset,
+  isCubeFile,
+  parseCubeLut,
+} from "@/features/filters/lut-to-preset"
 import { createFilter, updateFilter } from "@/features/filters/filter-service"
 import type { FilterRecord } from "@/features/filters/filter.types"
 import { ApiError } from "@/lib/api-client"
 
 interface FilterFormState {
   name: string
-  lut_path: string
   brightness: string
   contrast: string
   saturation: string
@@ -39,7 +43,6 @@ const adjustmentFields = [
 function initialForm(filter: FilterRecord | null): FilterFormState {
   return {
     name: filter?.name ?? "",
-    lut_path: filter?.lut_path ?? "",
     brightness: String(filter?.brightness ?? 0),
     contrast: String(filter?.contrast ?? 0),
     saturation: String(filter?.saturation ?? 0),
@@ -54,7 +57,6 @@ function validate(form: FilterFormState): FilterFormErrors {
   const errors: FilterFormErrors = {}
   if (!form.name.trim()) errors.name = "Nama Filter wajib diisi."
   else if (form.name.trim().length > 150) errors.name = "Maksimal 150 karakter."
-  if (form.lut_path.trim().length > 255) errors.lut_path = "Maksimal 255 karakter."
 
   for (const [field] of adjustmentFields) {
     const value = Number(form[field])
@@ -101,6 +103,52 @@ export function FilterFormDialog({
   const [errors, setErrors] = useState<FilterFormErrors>({})
   const [formError, setFormError] = useState("")
   const [pending, setPending] = useState(false)
+  const lutInputRef = useRef<HTMLInputElement | null>(null)
+  const [lutInfo, setLutInfo] = useState("")
+  const [lutError, setLutError] = useState("")
+  const previewPhotoInputRef = useRef<HTMLInputElement | null>(null)
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null)
+
+  async function handleLutFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+
+    setLutInfo("")
+    setLutError("")
+
+    if (!isCubeFile(file.name)) {
+      setLutError("File harus berekstensi .cube.")
+      return
+    }
+
+    try {
+      const estimate = estimateFilterPreset(parseCubeLut(await file.text()))
+      updateField("brightness", String(estimate.brightness))
+      updateField("contrast", String(estimate.contrast))
+      updateField("saturation", String(estimate.saturation))
+      updateField("white_balance", String(estimate.white_balance))
+      updateField("intensity", String(estimate.intensity))
+      setLutInfo(`Nilai diisi dari LUT ${file.name}. File tidak disimpan.`)
+    } catch (error: unknown) {
+      setLutError(
+        error instanceof Error ? error.message : "LUT tidak dapat dibaca."
+      )
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (previewPhotoUrl) URL.revokeObjectURL(previewPhotoUrl)
+    }
+  }, [previewPhotoUrl])
+
+  function handlePreviewPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+    setPreviewPhotoUrl(URL.createObjectURL(file))
+  }
 
   function updateField<Field extends keyof FilterFormState>(field: Field, value: FilterFormState[Field]) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -127,7 +175,6 @@ export function FilterFormDialog({
     const payload = {
       partner_id: partnerId,
       name: form.name.trim(),
-      lut_path: form.lut_path.trim() || null,
       brightness: Number(form.brightness),
       contrast: Number(form.contrast),
       saturation: Number(form.saturation),
@@ -177,9 +224,24 @@ export function FilterFormDialog({
             {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="filter-lut">LUT path <span className="text-muted-foreground">(opsional)</span></Label>
-            <Input id="filter-lut" value={form.lut_path} maxLength={255} placeholder="Contoh: filters/warm.cube" aria-invalid={Boolean(errors.lut_path)} onChange={(event) => updateField("lut_path", event.target.value)} />
-            {errors.lut_path && <p className="text-xs text-destructive">{errors.lut_path}</p>}
+            <Label>LUT (.cube) <span className="text-muted-foreground">(opsional)</span></Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={lutInputRef}
+                type="file"
+                accept=".cube"
+                className="hidden"
+                onChange={(event) => void handleLutFile(event)}
+              />
+              <Button type="button" variant="outline" size="sm" onClick={() => lutInputRef.current?.click()}>
+                <Upload aria-hidden="true" /> Upload LUT
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Nilai akan diisi dari LUT; file tidak disimpan.
+              </span>
+            </div>
+            {lutInfo && <p className="text-xs text-muted-foreground">{lutInfo}</p>}
+            {lutError && <p role="alert" className="text-xs text-destructive">{lutError}</p>}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -219,7 +281,36 @@ export function FilterFormDialog({
 
             {/* Right: Preview */}
             <div className="grid gap-2">
-              <Label>Pratinjau</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label>Pratinjau</Label>
+                <div className="flex items-center gap-1">
+                  <input
+                    ref={previewPhotoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePreviewPhoto}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => previewPhotoInputRef.current?.click()}
+                  >
+                    <ImageUp aria-hidden="true" /> Foto
+                  </Button>
+                  {previewPhotoUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPreviewPhotoUrl(null)}
+                    >
+                      Reset
+                    </Button>
+                  )}
+                </div>
+              </div>
               <div
                 className="relative overflow-hidden rounded-lg border"
                 style={{
@@ -229,14 +320,15 @@ export function FilterFormDialog({
                 }}
               >
                 <img
-                  src={samplePhoto}
+                  src={previewPhotoUrl ?? samplePhoto}
                   alt="Pratinjau filter"
                   className="w-full object-contain"
                   style={{ filter: previewFilter }}
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                CSS filter only. LUT berlaku di desktop.
+                Pratinjau memakai CSS (brightness, contrast, saturation). Foto
+                pratinjau hanya lokal, tidak disimpan.
               </p>
             </div>
           </div>
