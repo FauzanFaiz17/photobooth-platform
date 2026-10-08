@@ -43,7 +43,6 @@ export interface FilterListFilters {
 export interface FilterInput {
   partner_id?: number | null
   name: string
-  lut_path?: string | null
   brightness: number
   contrast: number
   saturation: number
