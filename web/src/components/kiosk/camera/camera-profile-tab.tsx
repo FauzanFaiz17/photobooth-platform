@@ -2,6 +2,7 @@ import {
   Aperture,
   Camera,
   CircleAlert,
+  Copy,
   Plus,
   RefreshCw,
 } from "lucide-react"
@@ -13,6 +14,13 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/features/auth/auth-context"
 import { getCameraProfiles } from "@/features/camera-profiles/camera-profile-service"
@@ -27,6 +35,7 @@ type LoadState = "loading" | "success" | "error"
 
 interface FormState {
   readonly profile: CameraProfileRecord | null
+  readonly template: CameraProfileRecord | null
 }
 
 export function CameraProfileTab({
@@ -40,11 +49,13 @@ export function CameraProfileTab({
 }) {
   const { token } = useAuth()
   const [profiles, setProfiles] = useState<ReadonlyArray<CameraProfileRecord>>([])
+  const [globalProfiles, setGlobalProfiles] = useState<ReadonlyArray<CameraProfileRecord>>([])
   const [loadState, setLoadState] = useState<LoadState>("loading")
   const [errorMessage, setErrorMessage] = useState("")
   const [retryKey, setRetryKey] = useState(0)
   const [formState, setFormState] = useState<FormState | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CameraProfileRecord | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const refresh = useCallback(() => setRetryKey((value) => value + 1), [])
 
@@ -58,14 +69,22 @@ export function CameraProfileTab({
       setErrorMessage("")
 
       try {
-        const result = await getCameraProfiles(
-          accessToken,
-          { scope: "partner", partner_id: partnerId, per_page: 100 },
-          controller.signal
-        )
+        const [partnerProfiles, globals] = await Promise.all([
+          getCameraProfiles(
+            accessToken,
+            { scope: "partner", partner_id: partnerId, per_page: 100 },
+            controller.signal
+          ),
+          getCameraProfiles(
+            accessToken,
+            { scope: "global", per_page: 100 },
+            controller.signal
+          ),
+        ])
 
         if (controller.signal.aborted) return
-        setProfiles(result.data)
+        setProfiles(partnerProfiles.data)
+        setGlobalProfiles(globals.data)
         setLoadState("success")
       } catch (error: unknown) {
         if (controller.signal.aborted) return
@@ -78,6 +97,7 @@ export function CameraProfileTab({
           return
         }
         setProfiles([])
+        setGlobalProfiles([])
         setErrorMessage(
           error instanceof ApiError
             ? error.message
@@ -97,13 +117,22 @@ export function CameraProfileTab({
         <div>
           <h2 className="text-xl font-semibold">Camera profiles</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Profile Partner berlaku untuk seluruh Booth. Profile Global
-            dikelola di Settings → Global Config.
+            Profile Partner berlaku untuk seluruh Booth. Buat profile baru, atau
+            duplikat dari profile Global.
           </p>
         </div>
-        <Button onClick={() => setFormState({ profile: null })}>
-          <Plus aria-hidden="true" /> Tambah camera profile
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            disabled={globalProfiles.length === 0}
+            onClick={() => setPickerOpen(true)}
+          >
+            <Copy aria-hidden="true" /> Duplikat dari Global
+          </Button>
+          <Button onClick={() => setFormState({ profile: null, template: null })}>
+            <Plus aria-hidden="true" /> Tambah camera profile
+          </Button>
+        </div>
       </div>
 
       {loadState === "loading" && (
@@ -117,7 +146,7 @@ export function CameraProfileTab({
       )}
 
       {loadState === "success" && profiles.length === 0 && (
-        <Card><CardContent className="grid min-h-56 place-items-center text-center"><div><Camera className="mx-auto size-9 text-muted-foreground" /><p className="mt-3 font-medium">Belum ada camera profile</p><p className="mt-1 text-sm text-muted-foreground">Tambahkan konfigurasi kamera pertama untuk Partner ini.</p></div></CardContent></Card>
+        <Card><CardContent className="grid min-h-56 place-items-center text-center"><div><Camera className="mx-auto size-9 text-muted-foreground" /><p className="mt-3 font-medium">Belum ada camera profile</p><p className="mt-1 text-sm text-muted-foreground">Tambahkan konfigurasi kamera pertama untuk Partner ini, atau duplikat dari profile Global.</p></div></CardContent></Card>
       )}
 
       {loadState === "success" && profiles.length > 0 && (
@@ -126,7 +155,7 @@ export function CameraProfileTab({
             <CameraProfileCard
               key={profile.id}
               profile={profile}
-              onEdit={() => setFormState({ profile })}
+              onEdit={() => setFormState({ profile, template: null })}
               onDelete={() => setDeleteTarget(profile)}
             />
           ))}
@@ -141,9 +170,10 @@ export function CameraProfileTab({
 
       {formState && (
         <CameraProfileFormDialog
-          key={formState.profile?.id ?? "new-camera-profile"}
+          key={formState.profile?.id ?? formState.template?.id ?? "new-camera-profile"}
           partnerId={partnerId}
           profile={formState.profile}
+          template={formState.template}
           open
           onOpenChange={(open) => !open && setFormState(null)}
           onSaved={(profile, isNew) => {
@@ -169,6 +199,38 @@ export function CameraProfileTab({
           onForbidden={onForbidden}
         />
       )}
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Pilih profile Global</DialogTitle>
+            <DialogDescription>
+              Profile Global akan diduplikat menjadi profile Partner baru.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid max-h-[60vh] gap-2 overflow-y-auto">
+            {globalProfiles.map((global) => (
+              <button
+                key={global.id}
+                type="button"
+                className="flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted"
+                onClick={() => {
+                  setPickerOpen(false)
+                  setFormState({ profile: null, template: global })
+                }}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{global.name}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    ISO {global.iso || "—"} · shutter {global.shutter_speed || "—"} · aperture {global.aperture || "—"}
+                  </span>
+                </span>
+                <Copy className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -178,6 +178,7 @@ const CONTRAST_SAT_OPTIONS = ["-4", "-3", "-2", "-1", "0", "+1", "+2", "+3", "+4
 interface CameraProfileFormDialogProps {
   readonly partnerId: number | null
   readonly profile: CameraProfileRecord | null
+  readonly template?: CameraProfileRecord | null
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
   readonly onSaved: (profile: CameraProfileRecord, isNew: boolean) => void
@@ -187,13 +188,16 @@ interface CameraProfileFormDialogProps {
 export function CameraProfileFormDialog({
   partnerId,
   profile,
+  template = null,
   open,
   onOpenChange,
   onSaved,
   onUnauthorized,
 }: CameraProfileFormDialogProps) {
   const { token } = useAuth()
-  const [form, setForm] = useState<CameraFormState>(() => initialForm(profile))
+  const [form, setForm] = useState<CameraFormState>(() =>
+    initialForm(profile ?? template)
+  )
   const [errors, setErrors] = useState<CameraFormErrors>({})
   const [formError, setFormError] = useState("")
   const [pending, setPending] = useState(false)
@@ -283,10 +287,16 @@ export function CameraProfileFormDialog({
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            {profile ? "Edit camera profile" : "Tambah camera profile"}
+            {profile
+              ? "Edit camera profile"
+              : template
+                ? "Duplikat camera profile"
+                : "Tambah camera profile"}
           </DialogTitle>
           <DialogDescription>
-            Profile ini tersedia untuk seluruh Booth milik Partner yang sama.
+            {partnerId === null
+              ? "Profile Global tersedia sebagai referensi untuk semua Partner."
+              : "Profile ini tersedia untuk seluruh Booth milik Partner yang sama."}
           </DialogDescription>
         </DialogHeader>
 
@@ -538,7 +548,7 @@ export function CameraProfileFormDialog({
             </Button>
             <Button type="submit" disabled={pending}>
               {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-              {profile ? "Simpan perubahan" : "Tambah profile"}
+              {profile ? "Simpan perubahan" : template ? "Duplikat profile" : "Tambah profile"}
             </Button>
           </DialogFooter>
         </form>

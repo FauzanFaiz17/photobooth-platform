@@ -78,6 +78,7 @@ function mapValidationErrors(error: ApiError): FilterFormErrors {
 export function FilterFormDialog({
   partnerId,
   filter,
+  template = null,
   open,
   onOpenChange,
   onSaved,
@@ -86,6 +87,7 @@ export function FilterFormDialog({
 }: {
   readonly partnerId: number | null
   readonly filter: FilterRecord | null
+  readonly template?: FilterRecord | null
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
   readonly onSaved: (filter: FilterRecord, isNew: boolean) => void
@@ -93,7 +95,9 @@ export function FilterFormDialog({
   readonly onForbidden: () => void
 }) {
   const { token } = useAuth()
-  const [form, setForm] = useState<FilterFormState>(() => initialForm(filter))
+  const [form, setForm] = useState<FilterFormState>(() =>
+    initialForm(filter ?? template)
+  )
   const [errors, setErrors] = useState<FilterFormErrors>({})
   const [formError, setFormError] = useState("")
   const [pending, setPending] = useState(false)
@@ -163,8 +167,8 @@ export function FilterFormDialog({
     <Dialog open={open} onOpenChange={(next) => !pending && onOpenChange(next)}>
       <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
-          <DialogTitle>{filter ? "Edit Filter" : "Tambah Filter"}</DialogTitle>
-          <DialogDescription>Filter ini tersedia untuk seluruh Booth milik Partner yang sama.</DialogDescription>
+          <DialogTitle>{filter ? "Edit Filter" : template ? "Duplikat Filter" : "Tambah Filter"}</DialogTitle>
+          <DialogDescription>{partnerId === null ? "Filter Global tersedia sebagai referensi untuk semua Partner." : "Filter ini tersedia untuk seluruh Booth milik Partner yang sama."}</DialogDescription>
         </DialogHeader>
         <form className="grid gap-4" onSubmit={(event) => void handleSubmit(event)} noValidate>
           <div className="grid gap-2">
@@ -248,7 +252,7 @@ export function FilterFormDialog({
             <Button type="button" variant="outline" disabled={pending} onClick={() => onOpenChange(false)}>Batal</Button>
             <Button type="submit" disabled={pending}>
               {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-              {filter ? "Simpan perubahan" : "Tambah Filter"}
+              {filter ? "Simpan perubahan" : template ? "Duplikat Filter" : "Tambah Filter"}
             </Button>
           </DialogFooter>
         </form>

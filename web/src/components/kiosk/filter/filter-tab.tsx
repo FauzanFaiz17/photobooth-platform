@@ -1,9 +1,16 @@
-import { CircleAlert, Plus, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { CircleAlert, Copy, Plus, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/features/auth/auth-context";
 import { getFilters } from "@/features/filters/filter-service";
@@ -13,6 +20,11 @@ import { ApiError } from "@/lib/api-client";
 import { FilterCard } from "./filter-card";
 import { FilterDeleteDialog } from "./filter-delete-dialog";
 import { FilterFormDialog } from "./filter-form-dialog";
+
+interface FormState {
+  readonly filter: FilterRecord | null;
+  readonly template: FilterRecord | null;
+}
 
 export function FilterTab({
   partnerId,
@@ -25,15 +37,15 @@ export function FilterTab({
 }) {
   const { token } = useAuth();
   const [filters, setFilters] = useState<ReadonlyArray<FilterRecord>>([]);
+  const [globalFilters, setGlobalFilters] = useState<ReadonlyArray<FilterRecord>>([]);
   const [loadState, setLoadState] = useState<"loading" | "success" | "error">(
     "loading",
   );
   const [errorMessage, setErrorMessage] = useState("");
   const [retryKey, setRetryKey] = useState(0);
-  const [formFilter, setFormFilter] = useState<FilterRecord | null | undefined>(
-    undefined,
-  );
+  const [formState, setFormState] = useState<FormState | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FilterRecord | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const refresh = useCallback(() => setRetryKey((value) => value + 1), []);
 
   useEffect(() => {
@@ -45,13 +57,21 @@ export function FilterTab({
       setLoadState("loading");
       setErrorMessage("");
       try {
-        const result = await getFilters(
-          accessToken,
-          { scope: "partner", partner_id: partnerId, per_page: 100 },
-          controller.signal,
-        );
+        const [partnerFilters, globals] = await Promise.all([
+          getFilters(
+            accessToken,
+            { scope: "partner", partner_id: partnerId, per_page: 100 },
+            controller.signal,
+          ),
+          getFilters(
+            accessToken,
+            { scope: "global", per_page: 100 },
+            controller.signal,
+          ),
+        ]);
         if (controller.signal.aborted) return;
-        setFilters(result.data);
+        setFilters(partnerFilters.data);
+        setGlobalFilters(globals.data);
         setLoadState("success");
       } catch (error: unknown) {
         if (controller.signal.aborted) return;
@@ -60,6 +80,7 @@ export function FilterTab({
         if (error instanceof ApiError && error.status === 403)
           return onForbidden();
         setFilters([]);
+        setGlobalFilters([]);
         setErrorMessage(
           error instanceof ApiError
             ? error.message
@@ -79,13 +100,22 @@ export function FilterTab({
         <div>
           <h2 className="text-xl font-semibold">Filters</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Filter Partner berlaku untuk seluruh Booth. Filter Global
-            dikelola di Settings → Global Config.
+            Filter Partner berlaku untuk seluruh Booth. Buat Filter baru, atau
+            duplikat dari Filter Global.
           </p>
         </div>
-        <Button onClick={() => setFormFilter(null)}>
-          <Plus aria-hidden="true" /> Tambah Filter
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            disabled={globalFilters.length === 0}
+            onClick={() => setPickerOpen(true)}
+          >
+            <Copy aria-hidden="true" /> Duplikat dari Global
+          </Button>
+          <Button onClick={() => setFormState({ filter: null, template: null })}>
+            <Plus aria-hidden="true" /> Tambah Filter
+          </Button>
+        </div>
       </div>
       {loadState === "loading" && (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" aria-busy>
@@ -117,7 +147,8 @@ export function FilterTab({
               <SlidersHorizontal className="mx-auto size-9 text-muted-foreground" />
               <p className="mt-3 font-medium">Belum ada Filter</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Tambahkan Filter pertama untuk Partner ini.
+                Tambahkan Filter pertama untuk Partner ini, atau duplikat dari
+                Filter Global.
               </p>
             </div>
           </CardContent>
@@ -129,7 +160,7 @@ export function FilterTab({
             <FilterCard
               key={filter.id}
               filter={filter}
-              onEdit={() => setFormFilter(filter)}
+              onEdit={() => setFormState({ filter, template: null })}
               onDelete={() => setDeleteTarget(filter)}
             />
           ))}
@@ -141,13 +172,14 @@ export function FilterTab({
         snapshot konfigurasi.
       </div>
 
-      {formFilter !== undefined && (
+      {formState && (
         <FilterFormDialog
-          key={formFilter?.id ?? "new-filter"}
+          key={formState.filter?.id ?? formState.template?.id ?? "new-filter"}
           partnerId={partnerId}
-          filter={formFilter}
+          filter={formState.filter}
+          template={formState.template}
           open
-          onOpenChange={(open) => !open && setFormFilter(undefined)}
+          onOpenChange={(open) => !open && setFormState(null)}
           onSaved={(saved, isNew) => {
             toast.success(
               isNew
@@ -175,6 +207,44 @@ export function FilterTab({
           onForbidden={onForbidden}
         />
       )}
+
+      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Pilih Filter Global</DialogTitle>
+            <DialogDescription>
+              Filter Global akan diduplikat menjadi Filter Partner baru.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid max-h-[60vh] gap-2 overflow-y-auto">
+            {globalFilters.map((global) => (
+              <button
+                key={global.id}
+                type="button"
+                className="flex items-center justify-between gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-muted"
+                onClick={() => {
+                  setPickerOpen(false);
+                  setFormState({ filter: null, template: global });
+                }}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">
+                    {global.name}
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    brightness {global.brightness} · contrast {global.contrast}{" "}
+                    · intensity {global.intensity}%
+                  </span>
+                </span>
+                <Copy
+                  className="size-4 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
