@@ -45,20 +45,13 @@ export function FilterTab({
       setLoadState("loading");
       setErrorMessage("");
       try {
-        const [partnerFilters, globalFilters] = await Promise.all([
-          getFilters(
-            accessToken,
-            { scope: "partner", partner_id: partnerId, per_page: 100 },
-            controller.signal,
-          ),
-          getFilters(
-            accessToken,
-            { scope: "global", per_page: 100 },
-            controller.signal,
-          ),
-        ]);
+        const result = await getFilters(
+          accessToken,
+          { scope: "partner", partner_id: partnerId, per_page: 100 },
+          controller.signal,
+        );
         if (controller.signal.aborted) return;
-        setFilters([...partnerFilters.data, ...globalFilters.data]);
+        setFilters(result.data);
         setLoadState("success");
       } catch (error: unknown) {
         if (controller.signal.aborted) return;
@@ -86,8 +79,8 @@ export function FilterTab({
         <div>
           <h2 className="text-xl font-semibold">Filters</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Filter Partner berlaku untuk seluruh Booth; Filter Global hanya
-            ditampilkan sebagai referensi.
+            Filter Partner berlaku untuk seluruh Booth. Filter Global
+            dikelola di Settings → Global Config.
           </p>
         </div>
         <Button onClick={() => setFormFilter(null)}>
@@ -136,12 +129,8 @@ export function FilterTab({
             <FilterCard
               key={filter.id}
               filter={filter}
-              onEdit={
-                filter.is_global ? undefined : () => setFormFilter(filter)
-              }
-              onDelete={
-                filter.is_global ? undefined : () => setDeleteTarget(filter)
-              }
+              onEdit={() => setFormFilter(filter)}
+              onDelete={() => setDeleteTarget(filter)}
             />
           ))}
         </div>

@@ -58,21 +58,14 @@ export function CameraProfileTab({
       setErrorMessage("")
 
       try {
-        const [partnerProfiles, globalProfiles] = await Promise.all([
-          getCameraProfiles(
-            accessToken,
-            { scope: "partner", partner_id: partnerId, per_page: 100 },
-            controller.signal
-          ),
-          getCameraProfiles(
-            accessToken,
-            { scope: "global", per_page: 100 },
-            controller.signal
-          ),
-        ])
+        const result = await getCameraProfiles(
+          accessToken,
+          { scope: "partner", partner_id: partnerId, per_page: 100 },
+          controller.signal
+        )
 
         if (controller.signal.aborted) return
-        setProfiles([...partnerProfiles.data, ...globalProfiles.data])
+        setProfiles(result.data)
         setLoadState("success")
       } catch (error: unknown) {
         if (controller.signal.aborted) return
@@ -104,8 +97,8 @@ export function CameraProfileTab({
         <div>
           <h2 className="text-xl font-semibold">Camera profiles</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Profile Partner berlaku untuk seluruh Booth; profile Global hanya
-            ditampilkan sebagai referensi.
+            Profile Partner berlaku untuk seluruh Booth. Profile Global
+            dikelola di Settings → Global Config.
           </p>
         </div>
         <Button onClick={() => setFormState({ profile: null })}>
@@ -133,8 +126,8 @@ export function CameraProfileTab({
             <CameraProfileCard
               key={profile.id}
               profile={profile}
-              onEdit={profile.is_global ? undefined : () => setFormState({ profile })}
-              onDelete={profile.is_global ? undefined : () => setDeleteTarget(profile)}
+              onEdit={() => setFormState({ profile })}
+              onDelete={() => setDeleteTarget(profile)}
             />
           ))}
         </div>
