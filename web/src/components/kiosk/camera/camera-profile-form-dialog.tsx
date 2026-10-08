@@ -176,7 +176,7 @@ const EXPOSURE_COMP_OPTIONS = [
 const CONTRAST_SAT_OPTIONS = ["-4", "-3", "-2", "-1", "0", "+1", "+2", "+3", "+4"] as const
 
 interface CameraProfileFormDialogProps {
-  readonly partnerId: number
+  readonly partnerId: number | null
   readonly profile: CameraProfileRecord | null
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void

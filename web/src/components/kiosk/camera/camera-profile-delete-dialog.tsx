@@ -23,12 +23,14 @@ export function CameraProfileDeleteDialog({
   onOpenChange,
   onDeleted,
   onUnauthorized,
+  onForbidden,
 }: {
   readonly profile: CameraProfileRecord
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
   readonly onDeleted: (profile: CameraProfileRecord) => void
   readonly onUnauthorized: () => void
+  readonly onForbidden: () => void
 }) {
   const { token } = useAuth()
   const [pending, setPending] = useState(false)
@@ -46,6 +48,10 @@ export function CameraProfileDeleteDialog({
     } catch (error: unknown) {
       if (error instanceof ApiError && error.status === 401) {
         onUnauthorized()
+        return
+      }
+      if (error instanceof ApiError && error.status === 403) {
+        onForbidden()
         return
       }
       setErrorMessage(

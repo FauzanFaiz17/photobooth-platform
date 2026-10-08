@@ -84,7 +84,7 @@ export function FilterFormDialog({
   onUnauthorized,
   onForbidden,
 }: {
-  readonly partnerId: number
+  readonly partnerId: number | null
   readonly filter: FilterRecord | null
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void

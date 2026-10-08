@@ -173,6 +173,7 @@ export function CameraProfileTab({
             refresh()
           }}
           onUnauthorized={onUnauthorized}
+          onForbidden={onForbidden}
         />
       )}
     </div>
