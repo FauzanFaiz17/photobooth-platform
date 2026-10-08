@@ -23,9 +23,10 @@ import {
   superAdminSettingsNavItems,
   type AdminNavItem,
 } from "@/constants"
-import { isSuperAdmin } from "@/features/auth/auth-access"
+import { hasPermission, isSuperAdmin } from "@/features/auth/auth-access"
 import { resolveAvatarUrl } from "@/features/auth/auth-api"
 import { useAuth } from "@/features/auth/auth-context"
+import type { AuthUser } from "@/features/auth/auth.types"
 import {
   Sidebar,
   SidebarContent,
@@ -46,6 +47,19 @@ function createInitials(name: string): string {
     .slice(0, 2)
     .map((word) => word.charAt(0).toUpperCase())
     .join("")
+}
+
+// Super-admin selalu boleh; selain itu cek slug permission.
+function canAccessNavItem(item: AdminNavItem, user: AuthUser | null): boolean {
+  if (item.superAdminOnly && !isSuperAdmin(user)) return false
+  if (
+    item.permission &&
+    !isSuperAdmin(user) &&
+    !hasPermission(user, item.permission)
+  ) {
+    return false
+  }
+  return true
 }
 
 function SidebarNavigation({
@@ -102,6 +116,12 @@ export function AdminSidebar() {
   const avatarUrl = resolveAvatarUrl(user?.avatar ?? null)
   const initials = createInitials(displayName) || "PB"
   const showSuperAdminSettings = isSuperAdmin(user)
+  const visibleAdminNavItems = adminNavItems.filter((item) =>
+    canAccessNavItem(item, user)
+  )
+  const visibleSettingsNavItems = superAdminSettingsNavItems.filter((item) =>
+    canAccessNavItem(item, user)
+  )
 
   async function handleLogout() {
     setIsLoggingOut(true)
@@ -122,7 +142,7 @@ export function AdminSidebar() {
           </SidebarGroupLabel>
 
           <SidebarGroupContent>
-            <SidebarNavigation items={adminNavItems} pathname={pathname} />
+            <SidebarNavigation items={visibleAdminNavItems} pathname={pathname} />
           </SidebarGroupContent>
         </SidebarGroup>
 
@@ -131,7 +151,7 @@ export function AdminSidebar() {
             <SidebarGroupLabel>Settings</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarNavigation
-                items={superAdminSettingsNavItems}
+                items={visibleSettingsNavItems}
                 pathname={pathname}
               />
             </SidebarGroupContent>

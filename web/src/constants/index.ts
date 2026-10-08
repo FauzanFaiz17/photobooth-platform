@@ -27,6 +27,8 @@ export type AdminNavItem = {
   title: string;
   url: string;
   icon: LucideIcon;
+  permission?: string;
+  superAdminOnly?: boolean;
 };
 
 export const adminNavItems: AdminNavItem[] = [
@@ -39,61 +41,73 @@ export const adminNavItems: AdminNavItem[] = [
     title: "Kiosk",
     url: "/admin/kiosk",
     icon: Monitor,
+    permission: "partners.view",
   },
   {
     title: "Events",
     url: "/admin/events",
     icon: CalendarDays,
+    permission: "events.view",
   },
   {
     title: "Gallery",
     url: "/admin/gallery",
     icon: Images,
+    permission: "media.view",
   },
   {
     title: "Statistics",
     url: "/statistics",
     icon: ChartNoAxesCombined,
+    permission: "reports.view",
   },
   {
     title: "Transactions",
     url: "/transactions",
     icon: ReceiptText,
+    permission: "payments.view",
   },
   {
     title: "Print Jobs",
     url: "/print-jobs",
     icon: Printer,
+    permission: "print_jobs.view",
   },
   {
     title: "Customers",
     url: "/customers",
     icon: UsersRound,
+    permission: "customers.view",
   },
   {
     title: "Subscriptions",
     url: "/admin/subscriptions",
     icon: ScrollText,
+    permission: "subscriptions.view",
   },
   {
     title: "Frame Photo",
     url: "/frame-photo",
     icon: Frame,
+    permission: "templates.view",
   },
   {
     title: "Voucher",
     url: "/voucher",
     icon: TicketPercent,
+    permission: "vouchers.view",
   },
   {
     title: "Request",
     url: "/admin/request",
     icon: GitPullRequest,
+    superAdminOnly: true,
   },
   {
     title: "Download",
     url: "/admin/download",
     icon: Download,
+    superAdminOnly: true,
   },
 ];
 
@@ -102,16 +116,19 @@ export const superAdminSettingsNavItems: AdminNavItem[] = [
     title: "Audit Log",
     url: "/admin/audit-logs",
     icon: ScrollText,
+    superAdminOnly: true,
   },
   {
     title: "Platform Credentials",
     url: "/admin/payment-key",
     icon: KeyRound,
+    superAdminOnly: true,
   },
   {
     title: "Users",
     url: "/admin/settings/users",
     icon: UsersRound,
+    permission: "users.view",
   },
 ];
 
