@@ -4,3 +4,7 @@ FRONTEND_PROGRESS.md
 /progress/
 AI_CONTEXT.md
 graphify-out
+.commandcode/*
+.claude/*
+skills-lock.json
+.DS_Store
