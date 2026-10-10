@@ -2,29 +2,46 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
 import {
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import type { OverviewSeriesPoint } from "@/features/reports/report-overview"
+import type { OverviewChartRow } from "@/features/reports/report-overview"
 
-const config = {
-  prints: { label: "Cetak", color: "var(--chart-2)" },
-} satisfies ChartConfig
+import type { PartnerSeries } from "./hooks/use-overview-charts"
+
+function buildConfig(series: ReadonlyArray<PartnerSeries>): ChartConfig {
+  return series.reduce<ChartConfig>((config, item) => {
+    config[item.key] = { label: item.label, color: item.color }
+    return config
+  }, {})
+}
 
 export function UsageChart({
-  data,
+  rows,
+  series,
 }: {
-  readonly data: ReadonlyArray<OverviewSeriesPoint>
+  readonly rows: ReadonlyArray<OverviewChartRow>
+  readonly series: ReadonlyArray<PartnerSeries>
 }) {
   return (
-    <ChartContainer config={config} className="h-64 w-full">
-      <BarChart data={[...data]} margin={{ left: 4, right: 8, top: 8 }}>
+    <ChartContainer config={buildConfig(series)} className="h-64 w-full">
+      <BarChart data={[...rows]} margin={{ left: 4, right: 8, top: 8 }}>
         <CartesianGrid vertical={false} />
         <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={8} />
         <YAxis tickLine={false} axisLine={false} width={40} />
         <ChartTooltip content={<ChartTooltipContent />} />
-        <Bar dataKey="prints" fill="var(--color-prints)" radius={4} />
+        <ChartLegend content={<ChartLegendContent />} />
+        {series.map((item) => (
+          <Bar
+            key={item.key}
+            dataKey={item.key}
+            stackId="prints"
+            fill={`var(--color-${item.key})`}
+          />
+        ))}
       </BarChart>
     </ChartContainer>
   )

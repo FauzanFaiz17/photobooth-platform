@@ -1,13 +1,12 @@
 import type { PaymentRecord } from "@/features/payments/payment.types"
-import type { PrintJobRecord } from "@/features/print-jobs/print-job.types"
 
 export type OverviewPeriod = "daily" | "weekly" | "monthly"
 
-export interface OverviewSeriesPoint {
+/** Baris chart: `key`/`period` + satu kolom per partner (mis. `p10`). */
+export interface OverviewChartRow {
   readonly key: string
   readonly period: string
-  readonly revenue: number
-  readonly prints: number
+  readonly [partnerValue: string]: number | string
 }
 
 export interface PartnerRankingEntry {
@@ -19,9 +18,8 @@ const DAILY_DAYS = 30
 const WEEKLY_WEEKS = 12
 const MONTHLY_MONTHS = 12
 
-interface Bucket {
-  revenue: number
-  prints: number
+export function partnerValueKey(partnerId: number): string {
+  return `p${partnerId}`
 }
 
 function parseISODate(value: string): Date {
@@ -128,49 +126,63 @@ export function windowStart(period: OverviewPeriod, today = new Date()): string 
   return toISODate(new Date(today.getFullYear(), today.getMonth() - (MONTHLY_MONTHS - 1), 1))
 }
 
-function addToBucket(
-  buckets: Map<string, Bucket>,
-  key: string,
-  apply: (bucket: Bucket) => void
-): void {
-  const bucket = buckets.get(key) ?? { revenue: 0, prints: 0 }
-  apply(bucket)
-  buckets.set(key, bucket)
-}
+type Entries = ReadonlyArray<{ date: string; partnerId: number; value: number }>
 
-export function buildOverviewSeries(
-  payments: ReadonlyArray<PaymentRecord>,
-  printJobs: ReadonlyArray<PrintJobRecord>,
+function buildRows(
+  entries: Entries,
+  partnerIds: ReadonlyArray<number>,
   period: OverviewPeriod,
-  today = new Date()
-): ReadonlyArray<OverviewSeriesPoint> {
-  const buckets = new Map<string, Bucket>()
+  today: Date
+): ReadonlyArray<OverviewChartRow> {
+  const buckets = new Map<string, Map<number, number>>()
 
-  for (const payment of payments) {
-    const date = normalizeDate(payment.paid_at)
-    if (!date) continue
-    addToBucket(buckets, bucketKey(date, period), (bucket) => {
-      bucket.revenue += payment.amount
-    })
-  }
-
-  for (const job of printJobs) {
-    const date = normalizeDate(job.finished_at ?? job.created_at)
-    if (!date) continue
-    addToBucket(buckets, bucketKey(date, period), (bucket) => {
-      bucket.prints += job.copies
-    })
+  for (const entry of entries) {
+    const key = bucketKey(entry.date, period)
+    const perPartner = buckets.get(key) ?? new Map<number, number>()
+    perPartner.set(entry.partnerId, (perPartner.get(entry.partnerId) ?? 0) + entry.value)
+    buckets.set(key, perPartner)
   }
 
   return periodBuckets(period, today).map(({ key, label }) => {
-    const bucket = buckets.get(key)
-    return {
-      key,
-      period: label,
-      revenue: Math.round((bucket?.revenue ?? 0) * 100) / 100,
-      prints: bucket?.prints ?? 0,
+    const row: Record<string, number | string> = { key, period: label }
+    const perPartner = buckets.get(key)
+    for (const partnerId of partnerIds) {
+      row[partnerValueKey(partnerId)] =
+        Math.round((perPartner?.get(partnerId) ?? 0) * 100) / 100
     }
+    return row as OverviewChartRow
   })
+}
+
+export function buildRevenueRows(
+  payments: ReadonlyArray<PaymentRecord>,
+  partnerIds: ReadonlyArray<number>,
+  period: OverviewPeriod,
+  today = new Date()
+): ReadonlyArray<OverviewChartRow> {
+  const entries: { date: string; partnerId: number; value: number }[] = []
+  for (const payment of payments) {
+    const date = normalizeDate(payment.paid_at)
+    if (!date) continue
+    entries.push({ date, partnerId: payment.partner_id, value: payment.amount })
+  }
+  return buildRows(entries, partnerIds, period, today)
+}
+
+/** Jumlah pembayaran (payment) per partner per periode. */
+export function buildPaymentCountRows(
+  payments: ReadonlyArray<PaymentRecord>,
+  partnerIds: ReadonlyArray<number>,
+  period: OverviewPeriod,
+  today = new Date()
+): ReadonlyArray<OverviewChartRow> {
+  const entries: { date: string; partnerId: number; value: number }[] = []
+  for (const payment of payments) {
+    const date = normalizeDate(payment.paid_at)
+    if (!date) continue
+    entries.push({ date, partnerId: payment.partner_id, value: 1 })
+  }
+  return buildRows(entries, partnerIds, period, today)
 }
 
 export function rankPartnersByRevenue(

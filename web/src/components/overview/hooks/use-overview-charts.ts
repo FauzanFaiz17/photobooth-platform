@@ -1,34 +1,60 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 
 import { isSuperAdmin } from "@/features/auth/auth-access"
 import { useAuth } from "@/features/auth/auth-context"
 import { getPartners } from "@/features/partners/partner-service"
 import { getPayments } from "@/features/payments/payment-service"
 import type { PaymentRecord } from "@/features/payments/payment.types"
-import { getPrintJobs } from "@/features/print-jobs/print-job-service"
-import type { PrintJobRecord } from "@/features/print-jobs/print-job.types"
 import {
-  buildOverviewSeries,
+  buildPaymentCountRows,
+  buildRevenueRows,
   normalizeDate,
+  partnerValueKey,
   rankPartnersByRevenue,
   windowStart,
+  type OverviewChartRow,
   type OverviewPeriod,
-  type OverviewSeriesPoint,
-  type PartnerRankingEntry,
 } from "@/features/reports/report-overview"
 import { useApiErrorHandler } from "@/hooks/use-api-error-handler"
 import { ApiError } from "@/lib/api-client"
 
-export type { OverviewPeriod }
+export type { OverviewPeriod, OverviewChartRow }
 
 export interface PartnerRankingPoint {
   readonly name: string
   readonly revenue: number
 }
 
+export interface PartnerToggleItem {
+  readonly id: number
+  readonly key: string
+  readonly label: string
+  readonly color: string
+  readonly enabled: boolean
+}
+
+export interface PartnerSeries {
+  readonly id: number
+  readonly key: string
+  readonly label: string
+  readonly color: string
+}
+
+interface PartnerOption {
+  readonly id: number
+  readonly name: string
+}
+
 const PER_PAGE = 100
 const MAX_PAGES = 15
 const RANKING_SIZE = 8
+const PARTNER_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+] as const
 
 async function collectPayments(
   token: string,
@@ -40,13 +66,7 @@ async function collectPayments(
   for (let page = 1; page <= MAX_PAGES; page += 1) {
     const result = await getPayments(
       token,
-      {
-        status: "paid",
-        sort: "paid_at",
-        direction: "desc",
-        per_page: PER_PAGE,
-        page,
-      },
+      { status: "paid", sort: "paid_at", direction: "desc", per_page: PER_PAGE, page },
       signal
     )
     collected.push(...result.data)
@@ -63,47 +83,69 @@ async function collectPayments(
   })
 }
 
-async function collectPrintJobs(
-  token: string,
-  start: string,
-  signal: AbortSignal
-): Promise<ReadonlyArray<PrintJobRecord>> {
-  const collected: PrintJobRecord[] = []
-
-  for (let page = 1; page <= MAX_PAGES; page += 1) {
-    const result = await getPrintJobs(
-      token,
-      { status: "success", per_page: PER_PAGE, page },
-      signal
-    )
-    collected.push(...result.data)
-
-    if (page >= result.meta.last_page || result.data.length === 0) break
-
-    const oldest = normalizeDate(result.data[result.data.length - 1].created_at)
-    if (oldest && oldest < start) break
-  }
-
-  return collected.filter((job) => {
-    const date = normalizeDate(job.finished_at ?? job.created_at)
-    return date !== null && date >= start
-  })
-}
-
 export function useOverviewCharts() {
   const { user } = useAuth()
   const { token, handleApiError } = useApiErrorHandler()
   const superAdmin = isSuperAdmin(user)
 
   const [period, setPeriod] = useState<OverviewPeriod>("daily")
-  const [series, setSeries] = useState<ReadonlyArray<OverviewSeriesPoint>>([])
-  const [rankEntries, setRankEntries] = useState<ReadonlyArray<PartnerRankingEntry>>([])
-  const [partnerNames, setPartnerNames] = useState<ReadonlyMap<number, string>>(new Map())
+  const [remotePartners, setRemotePartners] = useState<ReadonlyArray<PartnerOption>>([])
+  const [disabledPartnerIds, setDisabledPartnerIds] = useState<ReadonlySet<number>>(new Set())
+  const [payments, setPayments] = useState<ReadonlyArray<PaymentRecord>>([])
   const [loadState, setLoadState] = useState<"loading" | "success" | "error">("loading")
   const [errorMessage, setErrorMessage] = useState("")
   const [retryKey, setRetryKey] = useState(0)
 
-  const retry = useCallback(() => setRetryKey((value) => value + 1), [])
+  const retry = () => setRetryKey((value) => value + 1)
+
+  const partner = user?.partner ?? null
+  const partners: ReadonlyArray<PartnerOption> = superAdmin
+    ? remotePartners
+    : partner
+      ? [{ id: partner.id, name: partner.brand_name || partner.company_name }]
+      : []
+
+  const series: ReadonlyArray<PartnerSeries> = partners.map((item, index) => ({
+    id: item.id,
+    key: partnerValueKey(item.id),
+    label: item.name,
+    color: PARTNER_COLORS[index % PARTNER_COLORS.length],
+  }))
+
+  const toggleItems: ReadonlyArray<PartnerToggleItem> = series.map((item) => ({
+    ...item,
+    enabled: !disabledPartnerIds.has(item.id),
+  }))
+
+  const activePartnerIds = toggleItems.filter((item) => item.enabled).map((item) => item.id)
+  const activeSeries = series.filter((item) => activePartnerIds.includes(item.id))
+
+  const revenueRows = buildRevenueRows(payments, activePartnerIds, period)
+  const usageRows = buildPaymentCountRows(payments, activePartnerIds, period)
+
+  const labelById = new Map(series.map((item) => [item.id, item.label]))
+  const activeSet = new Set(activePartnerIds)
+  const ranking: ReadonlyArray<PartnerRankingPoint> = rankPartnersByRevenue(
+    payments.filter((item) => activeSet.has(item.partner_id))
+  )
+    .slice(0, RANKING_SIZE)
+    .map((entry) => ({
+      name: labelById.get(entry.partnerId) ?? `Partner #${entry.partnerId}`,
+      revenue: entry.revenue,
+    }))
+
+  function togglePartner(partnerId: number) {
+    setDisabledPartnerIds((current) => {
+      const next = new Set(current)
+      if (next.has(partnerId)) next.delete(partnerId)
+      else next.add(partnerId)
+      return next
+    })
+  }
+
+  function setAllPartners(enabled: boolean) {
+    setDisabledPartnerIds(enabled ? new Set() : new Set(partners.map((item) => item.id)))
+  }
 
   useEffect(() => {
     if (!token || !superAdmin) return
@@ -112,14 +154,15 @@ export function useOverviewCharts() {
 
     getPartners(accessToken, { per_page: 100 }, controller.signal)
       .then((response) => {
-        const map = new Map<number, string>()
-        for (const partner of response.data) {
-          map.set(partner.id, partner.brand_name || partner.company_name)
-        }
-        setPartnerNames(map)
+        setRemotePartners(
+          response.data.map((item) => ({
+            id: item.id,
+            name: item.brand_name || item.company_name,
+          }))
+        )
       })
       .catch(() => {
-        // Nama partner hanya pelengkap; biarkan fallback ke "Partner #id".
+        // Daftar partner hanya untuk filter/penamaan; biarkan kosong bila gagal.
       })
 
     return () => controller.abort()
@@ -136,20 +179,15 @@ export function useOverviewCharts() {
 
       try {
         const start = windowStart(period)
-        const [payments, printJobs] = await Promise.all([
-          collectPayments(accessToken, start, controller.signal),
-          collectPrintJobs(accessToken, start, controller.signal),
-        ])
+        const paymentRows = await collectPayments(accessToken, start, controller.signal)
         if (controller.signal.aborted) return
 
-        setSeries(buildOverviewSeries(payments, printJobs, period))
-        setRankEntries(rankPartnersByRevenue(payments).slice(0, RANKING_SIZE))
+        setPayments(paymentRows)
         setLoadState("success")
       } catch (error: unknown) {
         if (controller.signal.aborted) return
         if (handleApiError(error)) return
-        setSeries([])
-        setRankEntries([])
+        setPayments([])
         setErrorMessage(
           error instanceof ApiError
             ? error.message
@@ -163,20 +201,16 @@ export function useOverviewCharts() {
     return () => controller.abort()
   }, [handleApiError, period, retryKey, token])
 
-  const ranking = useMemo<ReadonlyArray<PartnerRankingPoint>>(
-    () =>
-      rankEntries.map((entry) => ({
-        name: partnerNames.get(entry.partnerId) ?? `Partner #${entry.partnerId}`,
-        revenue: entry.revenue,
-      })),
-    [partnerNames, rankEntries]
-  )
-
   return {
     period,
     setPeriod,
     superAdmin,
-    series,
+    toggleItems,
+    togglePartner,
+    setAllPartners,
+    activeSeries,
+    revenueRows,
+    usageRows,
     ranking,
     loadState,
     errorMessage,

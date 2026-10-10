@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { CircleAlert, RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -9,11 +10,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Switch } from "@/components/ui/switch"
 import {
   Tabs,
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
+import { cn } from "@/lib/utils"
 
 import {
   useOverviewCharts,
@@ -38,14 +41,20 @@ export function OverviewChartsSection() {
     period,
     setPeriod,
     superAdmin,
-    series,
+    toggleItems,
+    togglePartner,
+    setAllPartners,
+    activeSeries,
+    revenueRows,
+    usageRows,
     ranking,
     loadState,
     errorMessage,
     retry,
   } = useOverviewCharts()
 
-  const hasData = series.some((point) => point.revenue > 0 || point.prints > 0)
+  const [twoColumns, setTwoColumns] = useState(false)
+  const showToggles = superAdmin && toggleItems.length > 1
 
   return (
     <Card className="min-w-0">
@@ -54,25 +63,68 @@ export function OverviewChartsSection() {
           <div>
             <CardTitle>Statistik penggunaan &amp; keuangan</CardTitle>
             <CardDescription>
-              Langsung dari transaksi &amp; cetak (live). Filter periode harian,
-              mingguan, bulanan.
+              Langsung dari data pembayaran (live). Warna = partner; klik tombol
+              untuk menyalakan/mematikan.
             </CardDescription>
           </div>
-          <Tabs
-            value={period}
-            onValueChange={(value) => {
-              if (isOverviewPeriod(value)) setPeriod(value)
-            }}
-          >
-            <TabsList>
-              {PERIODS.map((item) => (
-                <TabsTrigger key={item.value} value={item.value}>
-                  {item.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Switch
+                checked={twoColumns}
+                onCheckedChange={setTwoColumns}
+                aria-label="Tampilkan 2 kolom"
+              />
+              Tampilkan 2 kolom
+            </label>
+            <Tabs
+              value={period}
+              onValueChange={(value) => {
+                if (isOverviewPeriod(value)) setPeriod(value)
+              }}
+            >
+              <TabsList>
+                {PERIODS.map((item) => (
+                  <TabsTrigger key={item.value} value={item.value}>
+                    {item.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
         </div>
+
+        {showToggles && (
+          <div className="flex flex-wrap items-center gap-2">
+            {toggleItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={item.enabled}
+                onClick={() => togglePartner(item.id)}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                  item.enabled
+                    ? "border-border bg-background text-foreground shadow-[0_2px_0_var(--border)]"
+                    : "border-transparent bg-muted text-muted-foreground opacity-60"
+                )}
+              >
+                <span
+                  className="size-3 rounded-full"
+                  style={{ backgroundColor: item.color }}
+                  aria-hidden="true"
+                />
+                {item.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="text-xs text-muted-foreground underline"
+              onClick={() => setAllPartners(true)}
+            >
+              Aktifkan semua
+            </button>
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="space-y-6 pt-6">
@@ -99,25 +151,22 @@ export function OverviewChartsSection() {
           </div>
         )}
 
-        {loadState === "success" && !hasData && (
-          <p className="py-12 text-center text-sm text-muted-foreground">
-            Belum ada data statistik untuk periode ini.
-          </p>
-        )}
-
-        {loadState === "success" && hasData && (
+        {loadState === "success" && (
           <>
-            <div>
-              <h3 className="mb-2 text-sm font-semibold">Tren pendapatan</h3>
-              <RevenueTrendChart data={series} />
+            <div className={cn("grid gap-6", twoColumns && "xl:grid-cols-2")}>
+              <div className="min-w-0">
+                <h3 className="mb-2 text-sm font-semibold">Tren pendapatan</h3>
+                <RevenueTrendChart rows={revenueRows} series={activeSeries} />
+              </div>
+              <div className="min-w-0">
+                <h3 className="mb-2 text-sm font-semibold">
+                  Jumlah pembayaran per partner
+                </h3>
+                <UsageChart rows={usageRows} series={activeSeries} />
+              </div>
             </div>
-            <div>
-              <h3 className="mb-2 text-sm font-semibold">
-                Penggunaan (jumlah cetak)
-              </h3>
-              <UsageChart data={series} />
-            </div>
-            {superAdmin && ranking.length > 0 && (
+
+            {superAdmin && activeSeries.length > 1 && ranking.length > 0 && (
               <div>
                 <h3 className="mb-2 text-sm font-semibold">
                   Ranking partner (pendapatan)
