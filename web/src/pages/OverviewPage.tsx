@@ -39,6 +39,7 @@ import type { EventRecord, EventStatus } from "@/features/events/event.types";
 import { getPartners } from "@/features/partners/partner-service";
 import { ApiError } from "@/lib/api-client";
 import SectionHeader from "@/components/shared/section-header";
+import { OverviewChartsSection } from "@/components/overview/overview-charts-section";
 
 interface OverviewData {
   partnerTotal: number | null;
@@ -304,6 +305,8 @@ export default function OverviewPage() {
               description={`${data.onlineDevices ?? 0} online · ${data.staleDevices ?? 0} stale · ${data.offlineDevices ?? 0} offline`}
             />
           </section>
+
+          <OverviewChartsSection />
 
           {data.notes.length > 0 && (
             <Card>
