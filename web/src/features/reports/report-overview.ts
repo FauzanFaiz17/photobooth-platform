@@ -1,15 +1,13 @@
-import type {
-  PartnerDailyReport,
-  PartnerMonthlyReport,
-} from "./report.types"
+import type { PaymentRecord } from "@/features/payments/payment.types"
+import type { PrintJobRecord } from "@/features/print-jobs/print-job.types"
+
+export type OverviewPeriod = "daily" | "weekly" | "monthly"
 
 export interface OverviewSeriesPoint {
   readonly key: string
   readonly period: string
   readonly revenue: number
-  readonly sessions: number
   readonly prints: number
-  readonly downloads: number
 }
 
 export interface PartnerRankingEntry {
@@ -17,40 +15,13 @@ export interface PartnerRankingEntry {
   readonly revenue: number
 }
 
-interface Totals {
+const DAILY_DAYS = 30
+const WEEKLY_WEEKS = 12
+const MONTHLY_MONTHS = 12
+
+interface Bucket {
   revenue: number
-  sessions: number
   prints: number
-  downloads: number
-}
-
-function emptyTotals(): Totals {
-  return { revenue: 0, sessions: 0, prints: 0, downloads: 0 }
-}
-
-function addDailyRow(totals: Totals, row: PartnerDailyReport): void {
-  totals.revenue += Number(row.total_revenue) || 0
-  totals.sessions += row.total_sessions
-  totals.prints += row.total_prints
-  totals.downloads += row.total_downloads
-}
-
-function addMonthlyRow(totals: Totals, row: PartnerMonthlyReport): void {
-  totals.revenue += Number(row.total_revenue) || 0
-  totals.sessions += row.total_sessions
-  totals.prints += row.total_prints
-  totals.downloads += row.total_downloads
-}
-
-function toPoint(key: string, label: string, totals: Totals): OverviewSeriesPoint {
-  return {
-    key,
-    period: label,
-    revenue: Math.round(totals.revenue * 100) / 100,
-    sessions: totals.sessions,
-    prints: totals.prints,
-    downloads: totals.downloads,
-  }
 }
 
 function parseISODate(value: string): Date {
@@ -64,7 +35,16 @@ function toISODate(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
-export function shiftISODate(value: string, days: number): string {
+/**
+ * Ambil "YYYY-MM-DD" dari tanggal/datetime apa pun
+ * (mis. "2026-10-09T00:00:00.000000Z").
+ */
+export function normalizeDate(value: string | null): string | null {
+  if (!value) return null
+  return value.slice(0, 10)
+}
+
+function shiftISODate(value: string, days: number): string {
   const date = parseISODate(value)
   date.setDate(date.getDate() + days)
   return toISODate(date)
@@ -79,20 +59,10 @@ function isoWeek(date: Date): { year: number; week: number } {
   return { year: target.getUTCFullYear(), week }
 }
 
-function weekKey(value: string): { key: string; label: string } {
-  const { year, week } = isoWeek(parseISODate(value))
-  const padded = String(week).padStart(2, "0")
-  return { key: `${year}-W${padded}`, label: `M${week}` }
-}
-
 function dayLabel(value: string): string {
   return new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "short" }).format(
     parseISODate(value)
   )
-}
-
-function monthKey(year: number, month: number): string {
-  return `${year}-${String(month).padStart(2, "0")}`
 }
 
 function monthLabel(year: number, month: number): string {
@@ -102,97 +72,113 @@ function monthLabel(year: number, month: number): string {
   return `${label} ${String(year).slice(2)}`
 }
 
-export function buildDailySeries(
-  rows: ReadonlyArray<PartnerDailyReport>,
-  days: number
-): ReadonlyArray<OverviewSeriesPoint> {
-  if (rows.length === 0) return []
-
-  const byDate = new Map<string, Totals>()
-  for (const row of rows) {
-    const totals = byDate.get(row.stat_date) ?? emptyTotals()
-    addDailyRow(totals, row)
-    byDate.set(row.stat_date, totals)
-  }
-
-  const anchor = rows.reduce(
-    (latest, row) => (row.stat_date > latest ? row.stat_date : latest),
-    rows[0].stat_date
-  )
-
-  const points: OverviewSeriesPoint[] = []
-  for (let offset = days - 1; offset >= 0; offset -= 1) {
-    const key = shiftISODate(anchor, -offset)
-    points.push(toPoint(key, dayLabel(key), byDate.get(key) ?? emptyTotals()))
-  }
-  return points
+function bucketKey(date: string, period: OverviewPeriod): string {
+  if (period === "daily") return date
+  if (period === "monthly") return date.slice(0, 7)
+  const { year, week } = isoWeek(parseISODate(date))
+  return `${year}-W${String(week).padStart(2, "0")}`
 }
 
-export function buildWeeklySeries(
-  rows: ReadonlyArray<PartnerDailyReport>,
-  weeks: number
-): ReadonlyArray<OverviewSeriesPoint> {
-  if (rows.length === 0) return []
+function periodBuckets(
+  period: OverviewPeriod,
+  today: Date
+): ReadonlyArray<{ key: string; label: string }> {
+  const buckets: { key: string; label: string }[] = []
 
-  const byWeek = new Map<string, Totals>()
-  for (const row of rows) {
-    const { key } = weekKey(row.stat_date)
-    const totals = byWeek.get(key) ?? emptyTotals()
-    addDailyRow(totals, row)
-    byWeek.set(key, totals)
+  if (period === "daily") {
+    const end = toISODate(today)
+    for (let offset = DAILY_DAYS - 1; offset >= 0; offset -= 1) {
+      const key = shiftISODate(end, -offset)
+      buckets.push({ key, label: dayLabel(key) })
+    }
+    return buckets
   }
 
-  const anchor = rows.reduce(
-    (latest, row) => (row.stat_date > latest ? row.stat_date : latest),
-    rows[0].stat_date
-  )
-
-  const points: OverviewSeriesPoint[] = []
-  for (let offset = weeks - 1; offset >= 0; offset -= 1) {
-    const date = shiftISODate(anchor, -offset * 7)
-    const { key, label } = weekKey(date)
-    points.push(toPoint(key, label, byWeek.get(key) ?? emptyTotals()))
+  if (period === "weekly") {
+    const end = toISODate(today)
+    for (let offset = WEEKLY_WEEKS - 1; offset >= 0; offset -= 1) {
+      const date = shiftISODate(end, -offset * 7)
+      const { year, week } = isoWeek(parseISODate(date))
+      buckets.push({
+        key: `${year}-W${String(week).padStart(2, "0")}`,
+        label: `M${week}`,
+      })
+    }
+    return buckets
   }
-  return points
+
+  for (let offset = MONTHLY_MONTHS - 1; offset >= 0; offset -= 1) {
+    const date = new Date(today.getFullYear(), today.getMonth() - offset, 1)
+    buckets.push({
+      key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+      label: monthLabel(date.getFullYear(), date.getMonth() + 1),
+    })
+  }
+  return buckets
 }
 
-export function buildMonthlySeries(
-  rows: ReadonlyArray<PartnerMonthlyReport>,
-  months: number
+/** Awal window (YYYY-MM-DD) — dipakai untuk menghentikan paginasi. */
+export function windowStart(period: OverviewPeriod, today = new Date()): string {
+  if (period === "daily") {
+    return shiftISODate(toISODate(today), -(DAILY_DAYS - 1))
+  }
+  if (period === "weekly") {
+    return shiftISODate(toISODate(today), -(WEEKLY_WEEKS * 7 - 1))
+  }
+  return toISODate(new Date(today.getFullYear(), today.getMonth() - (MONTHLY_MONTHS - 1), 1))
+}
+
+function addToBucket(
+  buckets: Map<string, Bucket>,
+  key: string,
+  apply: (bucket: Bucket) => void
+): void {
+  const bucket = buckets.get(key) ?? { revenue: 0, prints: 0 }
+  apply(bucket)
+  buckets.set(key, bucket)
+}
+
+export function buildOverviewSeries(
+  payments: ReadonlyArray<PaymentRecord>,
+  printJobs: ReadonlyArray<PrintJobRecord>,
+  period: OverviewPeriod,
+  today = new Date()
 ): ReadonlyArray<OverviewSeriesPoint> {
-  if (rows.length === 0) return []
+  const buckets = new Map<string, Bucket>()
 
-  const byMonth = new Map<string, Totals>()
-  for (const row of rows) {
-    const key = monthKey(row.period_year, row.period_month)
-    const totals = byMonth.get(key) ?? emptyTotals()
-    addMonthlyRow(totals, row)
-    byMonth.set(key, totals)
+  for (const payment of payments) {
+    const date = normalizeDate(payment.paid_at)
+    if (!date) continue
+    addToBucket(buckets, bucketKey(date, period), (bucket) => {
+      bucket.revenue += payment.amount
+    })
   }
 
-  const latest = rows.reduce((max, row) => {
-    const key = monthKey(row.period_year, row.period_month)
-    return key > max ? key : max
-  }, monthKey(rows[0].period_year, rows[0].period_month))
-
-  const [latestYear, latestMonth] = latest.split("-").map(Number)
-
-  const points: OverviewSeriesPoint[] = []
-  for (let offset = months - 1; offset >= 0; offset -= 1) {
-    const date = new Date(latestYear, latestMonth - 1 - offset, 1)
-    const key = monthKey(date.getFullYear(), date.getMonth() + 1)
-    const label = monthLabel(date.getFullYear(), date.getMonth() + 1)
-    points.push(toPoint(key, label, byMonth.get(key) ?? emptyTotals()))
+  for (const job of printJobs) {
+    const date = normalizeDate(job.finished_at ?? job.created_at)
+    if (!date) continue
+    addToBucket(buckets, bucketKey(date, period), (bucket) => {
+      bucket.prints += job.copies
+    })
   }
-  return points
+
+  return periodBuckets(period, today).map(({ key, label }) => {
+    const bucket = buckets.get(key)
+    return {
+      key,
+      period: label,
+      revenue: Math.round((bucket?.revenue ?? 0) * 100) / 100,
+      prints: bucket?.prints ?? 0,
+    }
+  })
 }
 
 export function rankPartnersByRevenue(
-  rows: ReadonlyArray<{ readonly partner_id: number; readonly total_revenue: string }>
+  payments: ReadonlyArray<PaymentRecord>
 ): ReadonlyArray<PartnerRankingEntry> {
   const totals = new Map<number, number>()
-  for (const row of rows) {
-    totals.set(row.partner_id, (totals.get(row.partner_id) ?? 0) + (Number(row.total_revenue) || 0))
+  for (const payment of payments) {
+    totals.set(payment.partner_id, (totals.get(payment.partner_id) ?? 0) + payment.amount)
   }
 
   return [...totals.entries()]

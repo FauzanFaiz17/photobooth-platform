@@ -45,13 +45,7 @@ export function OverviewChartsSection() {
     retry,
   } = useOverviewCharts()
 
-  const hasData = series.some(
-    (point) =>
-      point.revenue > 0 ||
-      point.sessions > 0 ||
-      point.prints > 0 ||
-      point.downloads > 0
-  )
+  const hasData = series.some((point) => point.revenue > 0 || point.prints > 0)
 
   return (
     <Card className="min-w-0">
@@ -60,8 +54,8 @@ export function OverviewChartsSection() {
           <div>
             <CardTitle>Statistik penggunaan &amp; keuangan</CardTitle>
             <CardDescription>
-              Diringkas dari laporan server. Filter periode harian, mingguan,
-              bulanan.
+              Langsung dari transaksi &amp; cetak (live). Filter periode harian,
+              mingguan, bulanan.
             </CardDescription>
           </div>
           <Tabs
@@ -118,7 +112,9 @@ export function OverviewChartsSection() {
               <RevenueTrendChart data={series} />
             </div>
             <div>
-              <h3 className="mb-2 text-sm font-semibold">Penggunaan</h3>
+              <h3 className="mb-2 text-sm font-semibold">
+                Penggunaan (jumlah cetak)
+              </h3>
               <UsageChart data={series} />
             </div>
             {superAdmin && ranking.length > 0 && (

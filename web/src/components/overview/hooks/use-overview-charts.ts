@@ -3,64 +3,91 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { isSuperAdmin } from "@/features/auth/auth-access"
 import { useAuth } from "@/features/auth/auth-context"
 import { getPartners } from "@/features/partners/partner-service"
+import { getPayments } from "@/features/payments/payment-service"
+import type { PaymentRecord } from "@/features/payments/payment.types"
+import { getPrintJobs } from "@/features/print-jobs/print-job-service"
+import type { PrintJobRecord } from "@/features/print-jobs/print-job.types"
 import {
-  buildDailySeries,
-  buildMonthlySeries,
-  buildWeeklySeries,
+  buildOverviewSeries,
+  normalizeDate,
   rankPartnersByRevenue,
-  shiftISODate,
+  windowStart,
+  type OverviewPeriod,
   type OverviewSeriesPoint,
   type PartnerRankingEntry,
 } from "@/features/reports/report-overview"
-import {
-  getDailyReportWindow,
-  getMonthlyReportWindow,
-} from "@/features/reports/report-service"
-import type {
-  PartnerDailyReport,
-  PartnerMonthlyReport,
-} from "@/features/reports/report.types"
 import { useApiErrorHandler } from "@/hooks/use-api-error-handler"
 import { ApiError } from "@/lib/api-client"
 
-export type OverviewPeriod = "daily" | "weekly" | "monthly"
+export type { OverviewPeriod }
 
 export interface PartnerRankingPoint {
   readonly name: string
   readonly revenue: number
 }
 
-const DAILY_DAYS = 30
-const WEEKLY_WEEKS = 12
-const MONTHLY_MONTHS = 12
-const RANKING_SIZE = 8
+const PER_PAGE = 100
 const MAX_PAGES = 15
+const RANKING_SIZE = 8
 
-function oldestAndLatestDates(
-  rows: ReadonlyArray<PartnerDailyReport>
-): { oldest: string; latest: string } {
-  let oldest = rows[0].stat_date
-  let latest = rows[0].stat_date
+async function collectPayments(
+  token: string,
+  start: string,
+  signal: AbortSignal
+): Promise<ReadonlyArray<PaymentRecord>> {
+  const collected: PaymentRecord[] = []
 
-  for (const row of rows) {
-    if (row.stat_date < oldest) oldest = row.stat_date
-    if (row.stat_date > latest) latest = row.stat_date
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const result = await getPayments(
+      token,
+      {
+        status: "paid",
+        sort: "paid_at",
+        direction: "desc",
+        per_page: PER_PAGE,
+        page,
+      },
+      signal
+    )
+    collected.push(...result.data)
+
+    if (page >= result.meta.last_page || result.data.length === 0) break
+
+    const oldest = normalizeDate(result.data[result.data.length - 1].paid_at)
+    if (oldest && oldest < start) break
   }
 
-  return { oldest, latest }
+  return collected.filter((payment) => {
+    const date = normalizeDate(payment.paid_at)
+    return date !== null && date >= start
+  })
 }
 
-function reachedDailyWindow(
-  rows: ReadonlyArray<PartnerDailyReport>,
-  days: number
-): boolean {
-  if (rows.length === 0) return false
-  const { oldest, latest } = oldestAndLatestDates(rows)
-  return oldest <= shiftISODate(latest, -(days - 1))
-}
+async function collectPrintJobs(
+  token: string,
+  start: string,
+  signal: AbortSignal
+): Promise<ReadonlyArray<PrintJobRecord>> {
+  const collected: PrintJobRecord[] = []
 
-function distinctMonths(rows: ReadonlyArray<PartnerMonthlyReport>): number {
-  return new Set(rows.map((row) => `${row.period_year}-${row.period_month}`)).size
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const result = await getPrintJobs(
+      token,
+      { status: "success", per_page: PER_PAGE, page },
+      signal
+    )
+    collected.push(...result.data)
+
+    if (page >= result.meta.last_page || result.data.length === 0) break
+
+    const oldest = normalizeDate(result.data[result.data.length - 1].created_at)
+    if (oldest && oldest < start) break
+  }
+
+  return collected.filter((job) => {
+    const date = normalizeDate(job.finished_at ?? job.created_at)
+    return date !== null && date >= start
+  })
 }
 
 export function useOverviewCharts() {
@@ -108,37 +135,15 @@ export function useOverviewCharts() {
       setErrorMessage("")
 
       try {
-        if (period === "monthly") {
-          const rows = await getMonthlyReportWindow(
-            accessToken,
-            {
-              maxPages: MAX_PAGES,
-              shouldStop: (collected) => distinctMonths(collected) >= MONTHLY_MONTHS,
-            },
-            controller.signal
-          )
-          if (controller.signal.aborted) return
-          setSeries(buildMonthlySeries(rows, MONTHLY_MONTHS))
-          setRankEntries(rankPartnersByRevenue(rows).slice(0, RANKING_SIZE))
-        } else {
-          const windowDays = period === "daily" ? DAILY_DAYS : WEEKLY_WEEKS * 7
-          const rows = await getDailyReportWindow(
-            accessToken,
-            {
-              maxPages: MAX_PAGES,
-              shouldStop: (collected) => reachedDailyWindow(collected, windowDays),
-            },
-            controller.signal
-          )
-          if (controller.signal.aborted) return
-          setSeries(
-            period === "daily"
-              ? buildDailySeries(rows, DAILY_DAYS)
-              : buildWeeklySeries(rows, WEEKLY_WEEKS)
-          )
-          setRankEntries(rankPartnersByRevenue(rows).slice(0, RANKING_SIZE))
-        }
+        const start = windowStart(period)
+        const [payments, printJobs] = await Promise.all([
+          collectPayments(accessToken, start, controller.signal),
+          collectPrintJobs(accessToken, start, controller.signal),
+        ])
+        if (controller.signal.aborted) return
 
+        setSeries(buildOverviewSeries(payments, printJobs, period))
+        setRankEntries(rankPartnersByRevenue(payments).slice(0, RANKING_SIZE))
         setLoadState("success")
       } catch (error: unknown) {
         if (controller.signal.aborted) return
